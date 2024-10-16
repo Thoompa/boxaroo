@@ -5,7 +5,7 @@ import AppHeader from '@/components/AppHeader.vue'
 <template>
   <AppHeader />
   <div class="content">
-    <button>Run</button>
+    <button onclick="console.log('hi')">Run</button>
   </div>
 </template>
 
