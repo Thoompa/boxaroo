@@ -1,5 +1,6 @@
-def log(message):
-    print(message)
-    
-def error(e):
-    print("Error:", e)
+class Logger:
+    def log(self, message):
+        print(message)
+        
+    def error(self, e):
+        print("Error:", e)
