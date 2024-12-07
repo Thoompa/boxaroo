@@ -1,34 +1,35 @@
-from datetime import date
 from bs4 import BeautifulSoup
 from selenium.webdriver.common.by import By
 from selenium.webdriver.support.ui import WebDriverWait
 from selenium.webdriver.support import expected_conditions as EC
 import logger
-from data_storage import store_data
 from web_driver import get_web_driver
+import re
 
-def get_woolworths_data(split_files_by_category=False):
+woolworths_product_container_class_names = ["product-tile-v2", "product-tile-group"]
+driver = None
+headless = False
+
+def get_woolworths_data(split_files_by_category, run_headless, separate_columns):
+    global headless
+    headless = run_headless
     woolworths_url = "https://www.woolworths.com.au/shop/browse/"
     categories = get_all_categories()
     data = []
-    header = ["Product Name", "Price", "Price per Unit"]
+    
+    # TODO make logger log to a file
     
     for category in categories:
-        category_data = get_category_data(woolworths_url, category)
+        category_data = get_category_data(woolworths_url, category, separate_columns)
         
         if split_files_by_category:
-            file_name = "woolworths-{0}-{1}.csv".format(category, date.today())
-            store_data(file_name, category_data, header)
-        
-        data.extend(category_data)
-
-    if not split_files_by_category:
-        file_name = "woolworths-{0}.csv".format(date.today())
-        store_data(file_name, data, header)
-        
+            data.append({"name": category, "data": category_data})
+        else:
+            data.extend(category_data)
+    
     return data
         
-def get_all_categories():
+def get_all_categories(get_full_list=False):
     # TODO do this properly
     # driver = get_web_driver()
     # driver.get(url)
@@ -43,8 +44,20 @@ def get_all_categories():
     # page_source = driver.page_source
     # soup = BeautifulSoup(page_source, "html.parser")
     # products = soup.find_all("section", class_="item")
-    return [
-        "winter",
+    short_category_list = [
+        "fruit-veg",
+        "lunch-box",
+        "poultry-meat-seafood",
+        "bakery",
+        "deli-chilled-meals",
+        "dairy-eggs-fridge",
+        "pantry",
+        "snacks-confectionery",
+        "freezer",
+        "drinks",
+        "liquor",        
+    ]
+    full_category_list = [
         "fruit-veg",
         "lunch-box",
         "poultry-meat-seafood",
@@ -61,12 +74,18 @@ def get_all_categories():
         "baby",
         "cleaning-maintenance",
         "pet",
+        "halloween",
+        "winter",
+        "summer",
         "home-lifestyle",
     ]
+    
+    return full_category_list if get_full_list else short_category_list
 
-def get_category_data(base_url, category_url):
+def get_category_data(base_url, category_url, separate_columns):
     
     url = base_url + category_url
+    global driver
     driver = get_web_driver()
 
     try:
@@ -77,14 +96,26 @@ def get_category_data(base_url, category_url):
         while True:
             # Wait for the products to load (you can adjust the wait time if needed)
             wait = WebDriverWait(driver, 10)
-            wait.until(EC.presence_of_all_elements_located((By.CLASS_NAME, "product-tile-v2")))
+            wait.until(EC.presence_of_all_elements_located((By.XPATH, "//wc-product-tile")))
+            
+            # current_container_class_name = woolworths_product_container_class_names[1]
+            
+            # if current_container_class_name == "":
+            #     for container_class_name in woolworths_product_container_class_names:
+            #         try:
+            #             wait.until(EC.presence_of_all_elements_located((By.XPATH, "//wc-product-tile/section/div[1]/div[2]/div[1]")))
+            #             current_container_class_name = container_class_name
+            #             break
+            #         except:
+            #             pass
+            # else:
+            #     wait.until(EC.presence_of_all_elements_located((By.CLASS_NAME, container_class_name)))
 
             # Get the page source after waiting for the elements to load
             page_source = driver.page_source
             soup = BeautifulSoup(page_source, "html.parser")
-            products = soup.find_all("section", class_="product-tile-v2")
-            
-            data.extend(get_products_data(products))
+            products = soup.find_all("wc-product-tile")
+            data.extend(get_products_data(products, separate_columns))
             
             try:
                 driver.find_element(By.CLASS_NAME,"paging-next").click()
@@ -99,20 +130,74 @@ def get_category_data(base_url, category_url):
     finally:
         driver.quit()
         
-def get_products_data(products):
-    data = []
+def get_products_data(products, separate_columns):
+    products_data = []
     
-    for product in products:
+    for i in range(len(products)):
         try:
-            product_name = get_product_name(product)
-            price, price_per_unit = get_product_price(product)
+            text = get_product_string(i)
+            
+            if not separate_columns:
+                products_data.append(text)
+                continue
+            product_name, price, price_per_unit = get_details_from_product_string(text)
+            # product_group = get_product_group(product)
+            # product_name = get_product_name(product_group)
+            # price, price_per_unit = get_product_price(product_group)
         
-        except:
-            logger.log("Item skipped: %s" % product_name)
+        except Exception as e:
+            logger.error(e)
+            try:
+                logger.log("Item skipped: %s" % product_name)
+            except:
+                logger.log("Item skipped")
             continue
-        data.append([product_name, price, price_per_unit])
+        products_data.append([product_name, price, price_per_unit])
     
-    return data
+    return products_data
+
+def get_product_string(i):
+    script = 'return document.querySelector("#search-content > div > shared-grid > div > div:nth-child(' + str(i+1) + ') > shared-product-tile > shared-web-component-wrapper > wc-product-tile").shadowRoot.querySelector("section > div")'
+    text = driver.execute_script(script).text
+    return text
+
+def get_details_from_product_string(text):
+    print(text)
+    rows = text.split('\n')
+    price_regex = "/^\$([0-9])+\.[0-9][0-9]$/g"
+    price_per_unit_regex = ""
+    product_name = ""
+    
+    for row in rows:
+        if re.search(price_regex, row):
+            price = row
+        elif re.search(price_per_unit_regex, row):
+            price_per_unit = row
+        else:
+            product_name += row
+    # product_name = rows[2]
+    # price = rows[0]
+    # price_per_unit = rows[1]
+    return product_name, price, price_per_unit
+
+def get_product_group(product: BeautifulSoup):
+    # print(product, product.arguments)
+    shadow_root = get_shadow_root(product)
+    section = shadow_root.findChildren("section")
+    if (not section):
+        print(product.findChildren())
+        for child in product.children:
+            print(child)
+            
+    product_tile_body = section.find("div", class_="product-tile-body")
+    product_tile_content = product_tile_body.find("div", class_="product-tile-content")
+    return product_tile_content.find("div", class_="product-tile-group")
+
+def get_shadow_root(element: BeautifulSoup):
+    shadow_root = driver.execute_script('return document.querySelector("#search-content > div > shared-grid > div > div:nth-child(1) > shared-product-tile > shared-web-component-wrapper > wc-product-tile").shadowRoot.querySelector("section > div")')
+    # shadow_root = driver.execute_script('return arguments[0].shadowRoot', element)
+    # return driver.execute_script('return arguments[0].innerHTML',shadow_root)
+    return shadow_root
 
 def get_product_name(product: BeautifulSoup):
     container = product.find("div", class_="product-title-container")
