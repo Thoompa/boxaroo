@@ -7,11 +7,12 @@ from web_driver import WebDriver
 
 def main(headless=False, logging_level=LoggingLevel.INFO) -> None:
     logger = Logger(logging_level)
-    list_size = ListSize.TESTING
+    list_size = ListSize.FULL
+    file_path = "Data/{0}".format(date.today())
     file_name = "woolworths-{0}-{1}.csv".format(date.today(), list_size.name)
     header = ["Data"]
          
-    file_handler = FileHandler(file_name, header, logger)
+    file_handler = FileHandler(file_name, file_path, header, logger)
     web_driver = WebDriver(headless)
     
     woollies = Woolworths(file_handler, logger, web_driver)

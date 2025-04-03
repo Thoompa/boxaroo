@@ -7,6 +7,8 @@ class LoggingLevel(Enum):
     ERROR = 3
 
 class ILogger(ABC):
+    
+    @abstractmethod
     def __init__(self, logging_level: LoggingLevel):
         pass
     
@@ -25,7 +27,7 @@ class ILogger(ABC):
 
 class Logger(ILogger):
     def __init__(self, logging_level: LoggingLevel):
-        self.file_name = "Logs.txt"
+        self.file_name = "Logs/Logs.txt"
         self.logging_level = logging_level
         try:
             with open(self.file_name, "x") as file:
@@ -34,22 +36,22 @@ class Logger(ILogger):
             pass # File already exists
         
     def debug(self, message: str) -> None:
-        if self.logging_level >= LoggingLevel.DEBUG:
+        if self.logging_level.value >= LoggingLevel.DEBUG.value:
             print("DEBUG: " + message)
             
         with open(self.file_name, "a") as file:
-            file.write("DEBUG: " + message)
+            file.write("DEBUG: " + message + '\n')
     
     def log(self, message: str) -> None:
-        if self.logging_level >= LoggingLevel.INFO:
+        if self.logging_level.value >= LoggingLevel.INFO.value:
             print("INFO: " + message)
             
         with open(self.file_name, "a") as file:
-            file.write("INFO: " + message)
+            file.write("INFO: " + message + '\n')
         
     def error(self, e: str) -> None:
-        if self.logging_level >= LoggingLevel.ERROR:
+        if self.logging_level.value >= LoggingLevel.ERROR.value:
             print("ERROR: " + e)
             
         with open(self.file_name, "a") as file:
-            file.write("ERROR: " + e)
+            file.write("ERROR: " + str(e) + '\n')
