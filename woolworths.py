@@ -1,38 +1,29 @@
-from bs4 import BeautifulSoup
-from selenium.webdriver.common.by import By
-from selenium.webdriver.support.ui import WebDriverWait
-from selenium.webdriver.support import expected_conditions as EC
-from web_driver import get_web_driver
 import re
-from enum import Enum
+from typing import List, Tuple
+from bs4 import BeautifulSoup
+
+from file_handler import IFileHandler
+from logger import ILogger
+from isupermarket import ISuperMarket, ListSize
+from web_driver import IWebDriver
 
 
-class Categories(Enum):
-    TESTING = 1
-    SHORT = 2
-    FULL = 3
-
-
-# TODO make Woolworths implement a Supermarket interface
-class Woolworths:
-    def __init__(self, file_handler, logger, run_headless, separate_columns) -> None:
+class Woolworths(ISuperMarket):
+    def __init__(self, file_handler: IFileHandler, logger: ILogger, web_driver: IWebDriver):
         self.file_handler = file_handler
         self.logger = logger
-        self.separate_columns = separate_columns
         self.woolworths_product_container_class_names = ["product-tile-v2", "product-tile-group"]
-        self.driver = None
-        self.headless = run_headless
+        self.driver = web_driver
+        self.url = "https://www.woolworths.com.au/shop/browse/"
 
 
-    def get_data(self):
-        woolworths_url = "https://www.woolworths.com.au/shop/browse/"
-        categories = self.get_all_categories(Categories.FULL)
+    def get_data(self, list_size: ListSize = ListSize.FULL) -> None:
+        categories = self._get_all_categories(list_size)
+        # TODO KAN-3 work out what data was doing and whether it's worth keeping
         # data = []
         
-        # TODO make logger log to a file
-        
         for category in categories:
-            category_data = self.get_category_data(woolworths_url, category, self.separate_columns)
+            category_data = self._get_category_data(category)
             
             self.file_handler.store_data(category_data)
             
@@ -45,8 +36,8 @@ class Woolworths:
         # return data
 
     
-    def get_all_categories(self, list_size):
-        # TODO do this properly
+    def _get_all_categories(self, list_size: ListSize) -> List[str]:
+        # TODO KAN-5 do this properly
         # driver = get_web_driver()
         # driver.get(url)
         
@@ -97,94 +88,62 @@ class Woolworths:
             "home-lifestyle",
         ]
         
-        if list_size == Categories.TESTING:
+        if list_size == ListSize.TESTING:
             return testing_list
-        elif list_size == Categories.SHORT:
+        elif list_size == ListSize.SHORT:
             return short_category_list
-        elif list_size == Categories.FULL:
+        elif list_size == ListSize.FULL:
             return full_category_list
 
 
-    def get_category_data(self, base_url, category_url, separate_columns):
-        
-        url = base_url + category_url
-        self.driver = get_web_driver()
+    def _get_category_data(self, category_url: str) -> List[str]:
+        url = self.url + category_url
 
         try:
-            self.driver.get(url)
+            self.driver.get_page(url)
             
-            data = []
-            
-            while True:
-                # Wait for the products to load (you can adjust the wait time if needed)
-                wait = WebDriverWait(self.driver, 10)
-                wait.until(EC.presence_of_all_elements_located((By.XPATH, "//wc-product-tile")))
-                
-                # current_container_class_name = woolworths_product_container_class_names[1]
-                
-                # if current_container_class_name == "":
-                #     for container_class_name in woolworths_product_container_class_names:
-                #         try:
-                #             wait.until(EC.presence_of_all_elements_located((By.XPATH, "//wc-product-tile/section/div[1]/div[2]/div[1]")))
-                #             current_container_class_name = container_class_name
-                #             break
-                #         except:
-                #             pass
-                # else:
-                #     wait.until(EC.presence_of_all_elements_located((By.CLASS_NAME, container_class_name)))
-
-                # Get the page source after waiting for the elements to load
-                page_source = self.driver.page_source
-                soup = BeautifulSoup(page_source, "html.parser")
-                products = soup.find_all("wc-product-tile")
-                data.extend(self.get_products_data(products, separate_columns))
-                
-                try:
-                    self.driver.find_element(By.CLASS_NAME,"paging-next").click()
-                except:
-                    break
-            
-            return data
-        
+            data = self.driver.get_products(self._get_products_data)            
+            return data        
         except Exception as e:
             self.logger.error(e)
             return data
         finally:
             self.driver.quit()
             
-    def get_products_data(self, products, separate_columns):
+    def _get_products_data(self, products: List[str]) -> List[List[str]]:
         products_data = []
+        # KAN-3 work out if I can get rid of the commented out code
+        # add it to another ticket if need be
         
         for i in range(len(products)):
             try:
-                text = self.get_product_string(i)
+                text = self._get_product_string(i)
                 
-                if not separate_columns:
-                    products_data.append(text)
-                    continue
-                product_name, price, price_per_unit = self.get_details_from_product_string(text)
-                # product_group = get_product_group(product)
-                # product_name = get_product_name(product_group)
-                # price, price_per_unit = get_product_price(product_group)
+                # if not separate_columns:
+                products_data.append(text.split('\n'))
+                # product_name, price, price_per_unit = self._get_details_from_product_string(text)
+                # product_group = _get_product_group(product)
+                # product_name = _get_product_name(product_group)
+                # price, price_per_unit = _get_product_price(product_group)
             
             except Exception as e:
                 self.logger.error(e)
-                try:
-                    self.logger.log("Item skipped: %s" % product_name)
-                except:
-                    self.logger.log("Item skipped")
-                continue
-            products_data.append([product_name, price, price_per_unit])
+                # try:
+                #     self.logger.log("Item skipped: %s" % product_name)
+                # except:
+                self.logger.log("Item skipped")
+                # continue
+            # products_data.append([product_name, price, price_per_unit])
         
         return products_data
 
-    def get_product_string(self, i):
-        script = 'return document.querySelector("#search-content > div > shared-grid > div > div:nth-child(' + str(i+1) + ') > shared-product-tile > shared-web-component-wrapper > wc-product-tile").shadowRoot.querySelector("section > div")'
-        text = self.driver.execute_script(script).text
+    def _get_product_string(self, child_index: int) -> str:
+        script = 'return document.querySelector("#search-content > div > shared-grid > div > div:nth-child(' + str(child_index+1) + ') > shared-product-tile > shared-web-component-wrapper > wc-product-tile").shadowRoot.querySelector("section > div")'
+        text = self.driver.execute_script(script)
         return text
 
-    def get_details_from_product_string(self, text):
-        print(text)
+    def _get_details_from_product_string(self, text: str) -> Tuple[str, str, str]:
+        # print(text)
         rows = text.split('\n')
         price_regex = "/^\$([0-9])+\.[0-9][0-9]$/g"
         price_per_unit_regex = ""
@@ -202,31 +161,31 @@ class Woolworths:
         # price_per_unit = rows[1]
         return product_name, price, price_per_unit
 
-    def get_product_group(self, product: BeautifulSoup):
+    def _get_product_group(self, product: BeautifulSoup) -> any:
         # print(product, product.arguments)
-        shadow_root = self.get_shadow_root(product)
+        shadow_root = self._get_shadow_root(product)
         section = shadow_root.findChildren("section")
-        if (not section):
-            print(product.findChildren())
-            for child in product.children:
-                print(child)
+        # if (not section):
+        #     print(product.findChildren())
+        #     for child in product.children:
+        #         print(child)
                 
         product_tile_body = section.find("div", class_="product-tile-body")
         product_tile_content = product_tile_body.find("div", class_="product-tile-content")
         return product_tile_content.find("div", class_="product-tile-group")
 
-    def get_shadow_root(self, element: BeautifulSoup):
+    def _get_shadow_root(self, element: BeautifulSoup) -> str:
         shadow_root = self.driver.execute_script('return document.querySelector("#search-content > div > shared-grid > div > div:nth-child(1) > shared-product-tile > shared-web-component-wrapper > wc-product-tile").shadowRoot.querySelector("section > div")')
         # shadow_root = driver.execute_script('return arguments[0].shadowRoot', element)
         # return driver.execute_script('return arguments[0].innerHTML',shadow_root)
         return shadow_root
 
-    def get_product_name(self, product: BeautifulSoup):
+    def _get_product_name(self, product: BeautifulSoup) -> str:
         container = product.find("div", class_="product-title-container")
         shared_product_tile = container.find("shared-product-tile-title")
         return shared_product_tile.find("div", class_="product-tile-title").text.strip()
 
-    def get_product_price(self, product):
+    def _get_product_price(self, product) -> Tuple[str, str]:
         container = product.find("div", class_="product-information-container")
         product_tile_prices_div = container.find("div", class_="product-tile-v2--prices")
         shared_product_tile_price = product_tile_prices_div.find("shared-product-tile-price")

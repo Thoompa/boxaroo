@@ -1,31 +1,23 @@
-import pandas as pd
+from isupermarket import ListSize
 from woolworths import Woolworths
 from file_handler import FileHandler
 from datetime import date
-from logger import Logger
+from logger import Logger, LoggingLevel
+from web_driver import WebDriver
 
-def main(headless=False, separate_csv_columns=False):
-    logger = Logger()
-    file_name = "woolworths-{0}.csv".format(date.today())
-    header = ["Data"] if not separate_csv_columns else ["Product Name", "Price", "Price per Unit"]
+def main(headless=False, logging_level=LoggingLevel.INFO) -> None:
+    logger = Logger(logging_level)
+    list_size = ListSize.TESTING
+    file_name = "woolworths-{0}-{1}.csv".format(date.today(), list_size.name)
+    header = ["Data"]
          
     file_handler = FileHandler(file_name, header, logger)
+    web_driver = WebDriver(headless)
     
-    woollies = Woolworths(file_handler, logger, headless, separate_csv_columns)
-    woollies.get_data()
+    woollies = Woolworths(file_handler, logger, web_driver)
+    woollies.get_data(list_size=list_size)
     
-    # if not data:
-    #     logger.error("No data - exiting")
-    #     quit()
-        
-    
-        
-    
-    # if split_files_by_category:
-    #     for category in data:
-    #         file_name = "woolworths-{0}-{1}.csv".format(category["name"], date.today())
-    #         store_data(file_name, category["data"], header)
-    # else:
         
 if __name__ == "__main__":
-    main()
+    main(logging_level=LoggingLevel.DEBUG)
+    # main()

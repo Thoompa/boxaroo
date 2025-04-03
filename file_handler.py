@@ -1,13 +1,24 @@
 import csv
+from abc import ABC, abstractmethod
+from typing import Iterable
 
-class FileHandler:
-    def __init__(self, file_name, header, logger) -> None:
+
+class IFileHandler(ABC):
+    
+    @abstractmethod
+    def store_data(self, data: Iterable[Iterable[any]]) -> None:
+        pass
+    
+
+class FileHandler(IFileHandler):
+    
+    def __init__(self, file_name, header, logger):
         self.file_name = file_name
         self.header = header
         self.logger = logger
-        self.create_file()
+        self._create_file()
         
-    def create_file(self):
+    def _create_file(self):
         # Check if the file already exists
         try:
             with open(self.file_name, 'r') as file:
