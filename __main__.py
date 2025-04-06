@@ -16,6 +16,7 @@ def main(headless=False, logging_level=LoggingLevel.INFO) -> None:
     web_driver = WebDriver(headless)
     
     woollies = Woolworths(file_handler, logger, web_driver)
+    logger.log("Running Boxaroo with list size - {0}".format(list_size))
     woollies.get_data(list_size=list_size)
     
         

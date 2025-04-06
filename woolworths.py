@@ -18,21 +18,27 @@ class Woolworths(ISuperMarket):
 
 
     def get_data(self, list_size: ListSize = ListSize.FULL) -> None:
+        self.logger.debug("Getting Woolworths categories (list size - {0})".format(list_size))
         categories = self._get_all_categories(list_size)
+        self.logger.log("Scraping Woolworths categories - {0}".format(categories))
         # TODO KAN-3 work out what data was doing and whether it's worth keeping
         # data = []
+        
+        num_products = 0
         
         for category in categories:
             category_data = self._get_category_data(category)
             
-            self.file_handler.store_data(category_data)
+            if category_data is not None: self.file_handler.store_data(category_data) # TODO KAN-16 inject just this method instead of the whole file handler
             
+            num_products += len(category_data)
             # if split_files_by_category:
             #     data.append({"name": category, "data": category_data})
             # else:
             #     data.extend(category_data)
             # data.extend(category_data)
         
+        self.logger.log("Successfully scraped {0} products".format(num_products))
         # return data
 
     
@@ -100,23 +106,28 @@ class Woolworths(ISuperMarket):
         url = self.url + category_url
 
         try:
+            self.logger.log("Getting page data for {0} - {1}".format(category_url, url))
             self.driver.get_page(url)
             
             data = self.driver.get_products(self._get_products_data)            
             return data        
         except Exception as e:
-            self.logger.error(e)
-            return data
-        finally:
-            self.driver.quit()
+            msg = getattr(e, 'msg', None) or str(e) or repr(e)
+            self.logger.error(f"{type(e).__name__}: {msg}")
+            return
+        # finally:
+        #     self.driver.quit()
             
     def _get_products_data(self, products: List[str]) -> List[List[str]]:
         products_data = []
+        self.logger.log("Reading product data for {0} products".format(len(products)))
+        self.logger.debug("Reading product data for - {0}".format(products))
         # KAN-3 work out if I can get rid of the commented out code
         # add it to another ticket if need be
         
         for i in range(len(products)):
             try:
+                self.logger.debug("Reading data for product - {0}".format(products[i]))
                 text = self._get_product_string(i)
                 
                 # if not separate_columns:
@@ -126,8 +137,16 @@ class Woolworths(ISuperMarket):
                 # product_name = _get_product_name(product_group)
                 # price, price_per_unit = _get_product_price(product_group)
             
+            except TimeoutError as e:
+                msg = getattr(e, 'msg', None) or str(e) or repr(e)
+                self.logger.debug(f"Timeout error!")
+                self.logger.error(f"{type(e).__name__}: {msg}")
+                
+                # KAN-4 reload the webpage and try again
+            
             except Exception as e:
-                self.logger.error(e)
+                msg = getattr(e, 'msg', None) or str(e) or repr(e)
+                self.logger.error(f"{type(e).__name__}: {msg}")
                 # try:
                 #     self.logger.log("Item skipped: %s" % product_name)
                 # except:
@@ -141,6 +160,8 @@ class Woolworths(ISuperMarket):
         script = 'return document.querySelector("#search-content > div > shared-grid > div > div:nth-child(' + str(child_index+1) + ') > shared-product-tile > shared-web-component-wrapper > wc-product-tile").shadowRoot.querySelector("section > div")'
         text = self.driver.execute_script(script)
         return text
+    
+    # KAN-3 the methods below aren't currently used
 
     def _get_details_from_product_string(self, text: str) -> Tuple[str, str, str]:
         # print(text)
