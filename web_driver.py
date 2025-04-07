@@ -26,6 +26,10 @@ class IWebDriver(ABC):
     def execute_script(self, script: str) -> str:
         pass
     
+    @abstractmethod
+    def reload_page(self) -> None:
+        pass
+    
 class WebDriver(IWebDriver):
     
     def __init__(self, headless: bool = False):
@@ -45,6 +49,9 @@ class WebDriver(IWebDriver):
         
     def execute_script(self, script: str) -> str:
         return self.driver.execute_script(script).text
+    
+    def reload_page(self) -> None:
+        self.driver.refresh()
         
     def quit(self) -> None:
         self.driver.quit()

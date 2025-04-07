@@ -5,9 +5,9 @@ from datetime import date
 from logger import Logger, LoggingLevel
 from web_driver import WebDriver
 
-def main(headless=False, logging_level=LoggingLevel.INFO) -> None:
+def main(headless=False, logging_level=LoggingLevel.INFO, default_list_size=ListSize.TESTING) -> None:
     logger = Logger(logging_level)
-    list_size = ListSize.FULL
+    list_size = default_list_size
     file_path = "Data/{0}".format(date.today())
     file_name = "woolworths-{0}-{1}.csv".format(date.today(), list_size.name)
     header = ["Data"]
@@ -22,4 +22,4 @@ def main(headless=False, logging_level=LoggingLevel.INFO) -> None:
         
 if __name__ == "__main__":
     main(logging_level=LoggingLevel.DEBUG)
-    # main()
+    # main(default_list_size=ListSize.FULL)

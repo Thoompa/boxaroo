@@ -14,6 +14,7 @@ class Woolworths(ISuperMarket):
         self.logger = logger
         self.woolworths_product_container_class_names = ["product-tile-v2", "product-tile-group"]
         self.driver = web_driver
+        self.base_url = "https://www.woolworths.com.au"
         self.url = "https://www.woolworths.com.au/shop/browse/"
 
 
@@ -44,9 +45,12 @@ class Woolworths(ISuperMarket):
     
     def _get_all_categories(self, list_size: ListSize) -> List[str]:
         # TODO KAN-5 do this properly
-        # driver = get_web_driver()
-        # driver.get(url)
+        # self.driver.get_page(self.base_url)
+        # find button containing "Browse" => click
+        # find div class = "category-list"
+        # Find each <a> tag, get href
         
+        ##########################################################################
         # # Wait for the products to load (you can adjust the wait time if needed)
         # wait = WebDriverWait(driver, 10)
         # wait.until(EC.presence_of_all_elements_located((By.CLASS_NAME, "browseMenuDesktop")))
@@ -88,9 +92,6 @@ class Woolworths(ISuperMarket):
             "baby",
             "cleaning-maintenance",
             "pet",
-            "halloween",
-            "winter",
-            "summer",
             "home-lifestyle",
         ]
         
@@ -141,8 +142,7 @@ class Woolworths(ISuperMarket):
                 msg = getattr(e, 'msg', None) or str(e) or repr(e)
                 self.logger.debug(f"Timeout error!")
                 self.logger.error(f"{type(e).__name__}: {msg}")
-                
-                # KAN-4 reload the webpage and try again
+                self.driver.reload_page()
             
             except Exception as e:
                 msg = getattr(e, 'msg', None) or str(e) or repr(e)
