@@ -1,3 +1,4 @@
+import re
 from selenium import webdriver
 from selenium.webdriver.chrome.options import Options
 from selenium_stealth import stealth
@@ -92,9 +93,63 @@ class WebDriver(IWebDriver):
     def quit(self) -> None:
         self.driver.quit()
         
-    def get_products(self, _callback: Callable[any, None] = None) -> List[str]: # type: ignore
-        data = []
+    def get_category_total_items(self) -> int | None:
+        # Read visible total count from the page. Try a few common selectors, then fallback to counting tiles.
+        script = '''
+        try {
+            var selectors = [
+                '.ais-Stats-text',
+                '.search-result-count',
+                '.search-results-count',
+                '.ais-SearchResults__status',
+                '.paging-summary',
+                '.results-count',
+                '.search-title',
+                '.search-title-count'
+            ];
+            for (var s of selectors) {
+                var el = document.querySelector(s);
+                if (el && el.textContent && el.textContent.trim().length > 0) {
+                    return el.textContent.trim();
+                }
+            }
+            var tiles = document.querySelectorAll('wc-product-tile');
+            if (tiles) {
+                return 'wc-product-tile:' + tiles.length;
+            }
+            return '';
+        } catch (e) {
+            return '';
+        }
+        '''
+        raw_text = self.execute_script(script)
+        if not raw_text or not raw_text.strip():
+            return None
+
+        if raw_text.startswith('wc-product-tile:'):
+            try:
+                return int(raw_text.split(':', 1)[1])
+            except ValueError:
+                return None
+
+        match = re.search(r"(\d[\d,]*)", raw_text)
+        if match:
+            try:
+                return int(match.group(1).replace(',', ''))
+            except ValueError:
+                return None
+
+        return None
+
+    def get_products(self, _callback: Callable[any, None] = None) -> dict:
+        all_data = []
+        all_incomplete = []
+        page_stats = []
+        page_number = 0
+
         while True:
+            page_number += 1
+
             # Add delay before waiting for products
             time.sleep(random.uniform(1, 2))
             
@@ -111,10 +166,29 @@ class WebDriver(IWebDriver):
             
             # Get all product tiles
             product_elements = self.driver.find_elements(By.TAG_NAME, "wc-product-tile")
-            
+
+            page_products_count = 0
+            page_incomplete_count = 0
             if _callback:
-                data.extend(_callback(product_elements))
-            
+                callback_result = _callback(product_elements)
+                if isinstance(callback_result, dict):
+                    products = callback_result.get('products', [])
+                    incomplete_items = callback_result.get('incomplete_items', [])
+                    all_data.extend(products)
+                    all_incomplete.extend(incomplete_items)
+                    page_products_count = len(products)
+                    page_incomplete_count = len(incomplete_items)
+                else:
+                    all_data.extend(callback_result)
+                    page_products_count = len(callback_result)
+
+            page_stats.append({
+                'page': page_number,
+                'product_tiles': len(product_elements),
+                'scraped': page_products_count,
+                'incomplete': page_incomplete_count
+            })
+
             try:
                 # Add delay before clicking next button
                 time.sleep(random.uniform(2, 4))
@@ -127,5 +201,5 @@ class WebDriver(IWebDriver):
                     break
             except:
                 break
-        
-        return data
+
+        return {'products': all_data, 'incomplete_items': all_incomplete, 'page_stats': page_stats}
