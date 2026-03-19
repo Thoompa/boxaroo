@@ -1,4 +1,4 @@
-# Boxaroo Woolworths Scraper
+# Boxaroo
 
 ## Setup
 
