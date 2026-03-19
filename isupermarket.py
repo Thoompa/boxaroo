@@ -9,7 +9,7 @@ class ListSize(Enum):
 
 
 class ISuperMarket(ABC):
-    
+
     @abstractmethod
     def get_data(self, list_size: ListSize) -> None:
         pass

@@ -1,0 +1,10 @@
+Metadata-Version: 2.4
+Name: boxaroo
+Version: 0.1.0
+Summary: Woolworths scraping automation
+Requires-Python: >=3.14
+Requires-Dist: selenium>=4.14.0
+Requires-Dist: selenium-stealth>=1.0.6
+Requires-Dist: beautifulsoup4>=4.13.0
+Provides-Extra: test
+Requires-Dist: pytest>=9.0.0; extra == "test"

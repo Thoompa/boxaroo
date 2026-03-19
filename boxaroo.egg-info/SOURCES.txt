@@ -1,0 +1,15 @@
+README.md
+__main__.py
+file_handler.py
+isupermarket.py
+logger.py
+pyproject.toml
+web_driver.py
+woolworths.py
+boxaroo.egg-info/PKG-INFO
+boxaroo.egg-info/SOURCES.txt
+boxaroo.egg-info/dependency_links.txt
+boxaroo.egg-info/requires.txt
+boxaroo.egg-info/top_level.txt
+tests/test_web_driver.py
+tests/test_woolworths.py

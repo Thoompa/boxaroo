@@ -1,0 +1,27 @@
+[project]
+name = "boxaroo"
+version = "0.1.0"
+description = "Woolworths scraping automation"
+requires-python = ">=3.14"
+dependencies = [
+    "selenium>=4.14.0",
+    "selenium-stealth>=1.0.6",
+    "beautifulsoup4>=4.13.0"
+]
+
+[project.optional-dependencies]
+test = [
+    "pytest>=9.0.0"
+]
+
+[build-system]
+requires = ["setuptools>=65.0", "wheel"]
+build-backend = "setuptools.build_meta"
+
+[tool.setuptools]
+py-modules = ["__main__", "file_handler", "isupermarket", "logger", "web_driver", "woolworths"]
+
+[tool.pytest.ini_options]
+minversion = "7.0"
+addopts = "-q"
+testpaths = ["tests"]
