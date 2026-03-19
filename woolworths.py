@@ -150,44 +150,78 @@ class Woolworths(ISuperMarket):
     def _parse_product_data(self, text: str) -> List[str]:
         """Parse the raw product text into structured data fields."""
         lines = [line.strip() for line in text.split('\n') if line.strip()]
-        
+
         product_name = ""
         price = ""
         unit_price = ""
         promotion = ""
-        
-        # Find the product name (usually contains words like "each", "kg", "pack", etc.)
+
+        # Remove common UI/clutter lines that are not product name
+        blacklist = [
+            'add to cart', 'save to list', 'promoted', 'new', 'out of stock',
+            'sometimes available', 'compare', 'delisted', 'click to save'
+        ]
+
+        def is_price_line(value: str) -> bool:
+            return bool(re.match(r"^\$\d+(\.\d{2})?$", value.strip()))
+
+        def is_unit_price_line(value: str) -> bool:
+            return bool(re.match(r"^\$.*\/.+$", value.strip()))
+
+        def is_valid_name(value: str) -> bool:
+            v = value.lower().strip()
+            if any(x in v for x in blacklist):
+                return False
+            if value.startswith('$'):
+                return False
+            if 'for $' in v or 'save' in v or 'each' not in v and len(v) < 4:
+                # keep name lines with decent length and non-promo semantics
+                pass
+            return bool(re.search(r"[a-zA-Z]", value))
+
+        # price/unit/promo extraction
         for line in lines:
-            if any(keyword in line.lower() for keyword in ['each', 'kg', 'pack', 'punnet', 'bunch', 'bag', 'box']):
+            if not price and is_price_line(line):
+                price = line
+            if not unit_price and is_unit_price_line(line):
+                unit_price = line
+            if not promotion and ('for $' in line.lower() or re.match(r"^\d+\s*for\s*\$", line.lower())):
+                promotion = line
+
+        def is_product_name_candidate(value: str) -> bool:
+            v = value.strip()
+            if not v or v.startswith('$'):
+                return False
+            if not re.search('[a-zA-Z]', v):
+                return False
+            low = v.lower()
+            if any(x in low for x in blacklist):
+                return False
+            if 'for $' in low or re.match(r"^\d+\s*for\s*\$", low):
+                return False
+            if 'price' in low and len(low.split()) <= 4:
+                return False
+            if 'save' in low and '$' in low:
+                return False
+            if low.startswith('was ') or 'was $' in low:
+                return False
+            if len(v) < 6:
+                return False
+            return True
+
+        # product name: first meaningful non-price line that is not UI text
+        for line in lines:
+            if is_product_name_candidate(line) and not is_price_line(line) and not is_unit_price_line(line):
                 product_name = line
                 break
-        
-        # If no product name found with keywords, take the last meaningful line
-        if not product_name and lines:
-            # Skip obvious non-product lines
+
+        # fallback: last non-price non-blacklist line
+        if not product_name:
             for line in reversed(lines):
-                if not line.startswith('$') and not 'for $' in line.lower() and len(line) > 3:
+                if is_valid_name(line) and not is_price_line(line) and not is_unit_price_line(line):
                     product_name = line
                     break
-        
-        # Extract price (usually starts with $ and doesn't contain '/')
-        for line in lines:
-            if line.startswith('$') and not '/' in line and not 'for $' in line.lower():
-                price = line
-                break
-        
-        # Extract unit price (contains '/' and starts with $)
-        for line in lines:
-            if '$' in line and '/' in line:
-                unit_price = line
-                break
-        
-        # Extract promotion (usually contains "for $" or "each" but not the product name)
-        for line in lines:
-            if 'for $' in line.lower() and line != product_name:
-                promotion = line
-                break
-        
+
         return [product_name, price, unit_price, promotion]
 
     def _get_product_string_from_element(self, element) -> str:
