@@ -61,9 +61,3 @@ class Logger(ILogger):
             print("ERROR: " + e)
             
         self._write("ERROR: " + str(e))
-
-
-# KAN-2
-# turn Logger into a singleton
-# create Logger object on load
-# define public log, debug and error functions that use the Logger
