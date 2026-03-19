@@ -124,8 +124,18 @@ class Woolworths(ISuperMarket):
                 # Parse the product data into structured fields
                 parsed_product = self._parse_product_data(text)
                 if parsed_product:
-                    products_data.append(parsed_product)
-                    self.logger.debug(f"Parsed product {i}: {parsed_product}")
+                    # Skip invalid product rows
+                    product_name, price, unit_price, promotion = parsed_product
+                    if not product_name:
+                        self.logger.debug(f"Skipped empty name row at index {i}")
+                    elif not price and not unit_price:
+                        self.logger.debug(f"Skipped missing prices row at index {i} product={product_name}")
+                    else:
+                        if not price and unit_price:
+                            price = unit_price
+                            parsed_product[1] = price
+                        products_data.append([product_name, price, unit_price, promotion])
+                        self.logger.debug(f"Parsed product {i}: {parsed_product}")
                 ##################################################################
                 # TODO KAN-20
                 # product_name, price, price_per_unit = self._get_details_from_product_string(text)
