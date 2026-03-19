@@ -1,0 +1,4 @@
+selenium>=4.0.0
+selenium-stealth>=1.0.7
+beautifulsoup4>=4.12.2
+pytest>=9.0.0
