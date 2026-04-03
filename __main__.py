@@ -28,11 +28,11 @@ def main(
 
 
 if __name__ == "__main__":
-    parser = argparse.ArgumentParser(description="Boxaroo Woolworths Scraper")
+    parser = argparse.ArgumentParser(description="Boxaroo Woolworths")
     parser.add_argument(
         "--list_size",
         choices=["TESTING", "SHORT", "FULL"],
-        default="TESTING",
+        default="FULL",
         help="Size of the category list to scrape",
     )
     parser.add_argument(
