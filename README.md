@@ -59,7 +59,6 @@ python -m pytest -v  # Show individual test results
 python -m pytest -vv # Extra verbose with full output
 ```
 
-
 ## Clean
 
 - `Data` and `__pycache__` are ignored by `.gitignore` and not tracked.
@@ -92,3 +91,21 @@ This repository uses [pre-commit](https://pre-commit.com/) to enforce code quali
   pre-commit run --all-files
   ```
 4. If any hook fails, fix the reported issues and re-add the files before committing again.
+
+## Agent & Automation Documentation
+
+Agents and automated tools should consult the following files for comprehensive project guidance, test plans, and development automation:
+
+- **.instructions.md** — Full development and environment setup guide for AI agents and automation tools
+- **TESTING.md** — Quick reference for all setup, test, and run commands
+- **BDD_TEST_PLAN.md** — Complete BDD (Given/When/Then) test plan, including implemented and planned scenarios
+- **scripts/dev_setup.sh** — Automated environment setup script
+
+These files provide:
+- Environment and dependency setup instructions
+- Test and run command reference
+- Detailed test coverage and priorities
+- Manual review and logging requirements
+- Project structure and file responsibilities
+
+Agents should always check these files before making changes, running tests, or performing code analysis.

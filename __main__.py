@@ -1,30 +1,10 @@
 from isupermarket import ListSize
-from woolworths import Woolworths
-from file_handler import FileHandler
-from datetime import date
-from logger import Logger, LoggingLevel
-from web_driver import WebDriver
+from logger import LoggingLevel
 import argparse
+from cli import main
 
 
-def main(
-    headless=False,
-    logging_level=LoggingLevel.INFO,
-    default_list_size=ListSize.TESTING,
-    proxy_server=None,
-) -> None:
-    logger = Logger(logging_level)
-    list_size = default_list_size
-    file_path = "Data/{0}".format(date.today())
-    file_name = "woolworths-{0}-{1}.csv".format(date.today(), list_size.name)
-    header = ["Product Name", "Price", "Unit Price", "Promotion"]
-
-    file_handler = FileHandler(file_name, file_path, header, logger)
-    web_driver = WebDriver(headless, proxy_server)
-
-    woollies = Woolworths(file_handler, logger, web_driver)
-    logger.log("Running Boxaroo with list size - {0}".format(list_size))
-    woollies.get_data(list_size=list_size)
+## main is now imported from cli.py
 
 
 if __name__ == "__main__":
