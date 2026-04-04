@@ -2,34 +2,32 @@ import pytest
 from cli import main
 from isupermarket import ListSize
 from logger import LoggingLevel
-from tests.test_helpers import DummyLogger, DummyFileHandler, DummyWebDriver
-
-
-@pytest.mark.parametrize(
-    "list_size_enum,list_size_str",
-    [
-        (ListSize.TESTING, "TESTING"),
-        (ListSize.FULL, "FULL"),
-        (ListSize.SHORT, "SHORT"),
-    ],
+from tests.test_helpers import (
+    DummyLogger,
+    DummyFileHandler,
+    DummyWebDriver,
+    DummySupermarket,
 )
-def test_main_list_size_parameter(monkeypatch, list_size_enum, list_size_str):
-    # Given the application is launched with --list_size {list_size_str}
+
+
+# 1-3: Test each valid ListSize
+@pytest.mark.parametrize(
+    "list_size_enum", [ListSize.TESTING, ListSize.FULL, ListSize.SHORT]
+)
+def test_main_list_size_parameter(monkeypatch, list_size_enum):
+    # GIVEN: The CLI is called with a valid ListSize value
     logger = DummyLogger()
     file_handler = DummyFileHandler()
     web_driver = DummyWebDriver()
-    import woolworths
+    called = {"list_size": None}
 
-    monkeypatch.setattr(
-        woolworths.Woolworths,
-        "_get_all_categories",
-        lambda self, ls: [f"cat-{ls.name}"],
-    )
-    monkeypatch.setattr(
-        woolworths.Woolworths, "_get_category_data", lambda self, cat: {"products": []}
-    )
+    def logic(log, ls):
+        called["list_size"] = ls
 
-    # When the application initialises
+    supermarket = DummySupermarket(logger, logic=logic)
+    monkeypatch.setattr("cli.Woolworths", lambda *args, **kwargs: supermarket)
+
+    # WHEN: main() is invoked
     main(
         headless=True,
         logging_level=LoggingLevel.ERROR,
@@ -40,38 +38,44 @@ def test_main_list_size_parameter(monkeypatch, list_size_enum, list_size_str):
         web_driver=web_driver,
     )
 
-    # Then only the {list_size_str} dataset is processed (verified by logger)
-    found = any(
-        list_size_str in msg for level, msg in logger.records if level == "INFO"
-    )
-    assert found, f"Expected log message with list size {list_size_str}"
+    # THEN: The supermarket receives the correct list_size
+    assert (
+        supermarket.get_data_called
+    ), "Expected get_data to be called on DummySupermarket"
+    assert (
+        called["list_size"] == list_size_enum
+    ), f"Expected list_size {list_size_enum}, got {called['list_size']}"
 
 
-def test_main_invalid_list_size(monkeypatch):
-    # Given the application is launched with an invalid list size
+# 4: Test None defaults to TESTING
+def test_main_default_list_size_none(monkeypatch):
+    # GIVEN: The CLI is called with default_list_size=None
     logger = DummyLogger()
     file_handler = DummyFileHandler()
     web_driver = DummyWebDriver()
-    import woolworths
+    called = {"list_size": None}
 
-    monkeypatch.setattr(
-        woolworths.Woolworths,
-        "_get_all_categories",
-        lambda self, ls: [f"cat-{ls.name}"],
-    )
-    monkeypatch.setattr(
-        woolworths.Woolworths, "_get_category_data", lambda self, cat: {"products": []}
+    def logic(log, ls):
+        called["list_size"] = ls
+
+    supermarket = DummySupermarket(logger, logic=logic)
+    monkeypatch.setattr("cli.Woolworths", lambda *args, **kwargs: supermarket)
+
+    # WHEN: main() is invoked
+    main(
+        headless=True,
+        logging_level=LoggingLevel.ERROR,
+        default_list_size=None,
+        proxy_server=None,
+        file_handler=file_handler,
+        logger=logger,
+        web_driver=web_driver,
     )
 
-    # When the application initialises with an invalid enum
-    # Then an exception is raised
-    with pytest.raises(Exception):
-        main(
-            headless=True,
-            logging_level=LoggingLevel.ERROR,
-            default_list_size=None,  # Invalid
-            proxy_server=None,
-            file_handler=file_handler,
-            logger=logger,
-            web_driver=web_driver,
-        )
+    # THEN: The supermarket receives ListSize.TESTING as the list_size
+    assert (
+        supermarket.get_data_called
+    ), "Expected get_data to be called on DummySupermarket"
+    assert (
+        called["list_size"] == ListSize.TESTING
+    ), f"Expected list_size ListSize.TESTING, got {called['list_size']}"

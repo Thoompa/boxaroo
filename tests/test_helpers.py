@@ -8,15 +8,16 @@ from logger import ILogger, LoggingLevel
 class DummyLogger(ILogger):
     def __init__(self, logging_level=None):
         self.logging_level = logging_level or LoggingLevel.INFO
+        self.records = []
 
     def debug(self, message):
-        pass
+        self.records.append(("DEBUG", message))
 
     def log(self, message):
-        pass
+        self.records.append(("INFO", message))
 
     def error(self, message):
-        pass
+        self.records.append(("ERROR", message))
 
 
 class DummyFileHandler:

@@ -17,7 +17,7 @@ def main(
 ) -> None:
     # Allow dependency injection for unit testing
     logger = logger or Logger(logging_level)
-    list_size = default_list_size
+    list_size = default_list_size if default_list_size is not None else ListSize.TESTING
     file_path = "Data/{0}".format(date.today())
     file_name = "woolworths-{0}-{1}.csv".format(date.today(), list_size.name)
     header = ["Product Name", "Price", "Unit Price", "Promotion"]
