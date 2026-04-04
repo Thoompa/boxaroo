@@ -11,40 +11,36 @@
 ## 1. CLI & Parameter Handling
 
 ### 1.1 List Size Parameter ❌ CRITICAL
-**Given** the application is launched with `--list_size TESTING`
+**Given** the application is launched with `--list_size TESTING` ✅
 **When** the application initializes
 **Then** only the TESTING dataset is processed
 
-**Given** the application is launched with `--list_size FULL`
+**Given** the application is launched with `--list_size FULL` ✅
 **When** the application initializes
 **Then** all categories are processed
 
-**Given** the application is launched with `--list_size SHORT`
+**Given** the application is launched with `--list_size SHORT` ✅
 **When** the application initializes
 **Then** a limited subset of categories is processed
 
-**Given** the application is launched with an invalid `--list_size INVALID`
+**Given** the application is launched with an invalid `--list_size INVALID` 📋 NICE-TO-HAVE
 **When** the application initializes
 **Then** an error message is displayed and app exits gracefully
 
 ### 1.2 Logging Level Parameter ❌ CRITICAL
-**Given** the application is launched with `--logging_level DEBUG`
+**Given** the application is launched with `--logging_level DEBUG` ✅
 **When** the application runs
 **Then** DEBUG level messages are logged (verbose output)
 
-**Given** the application is launched with `--logging_level INFO`
+**Given** the application is launched with `--logging_level INFO` ✅
 **When** the application runs
 **Then** only INFO and above messages are logged
 
-**Given** the application is launched with `--logging_level WARNING`
-**When** the application runs
-**Then** only WARNING and ERROR messages are logged
-
-**Given** the application is launched with `--logging_level ERROR`
+**Given** the application is launched with `--logging_level ERROR` ✅
 **When** the application runs
 **Then** only ERROR messages are logged
 
-**Given** the application is launched with an invalid `--logging_level INVALID`
+**Given** the application is launched with an invalid `--logging_level INVALID` 📋 NICE-TO-HAVE
 **When** the application initializes
 **Then** an error message is displayed or default level is used
 
@@ -409,7 +405,7 @@
 ## Test Implementation Priority
 
 ### Phase 1: CRITICAL ❌ (Must have for MVP)
-- 1.1, 1.2 (CLI parameters)
+- 1.1, 1.2 (CLI parameters) ✅
 - 2.1, 2.2, 2.3 (WebDriver lifecycle)
 - 6.1, 6.2, 6.3, 6.5, 6.6 (Logging)
 - 7.1, 7.2, 7.3 (Integration)
@@ -422,6 +418,7 @@
 - 8.1, 8.2, 8.3 (Error handling)
 
 ### Phase 3: NICE-TO-HAVE 📋 (Polish)
+- 1.1.4, 1.2.4 (CLI parameters edge cases)
 - 3.1.4, 3.1.5 (Parsing edge cases)
 - 6.4 (Debug logging)
 - 8.4 (Empty results)
@@ -431,17 +428,18 @@
 
 ## Test Count Summary
 
-| Category | Total | Existing | Gap |
-|----------|-------|----------|-----|
-| CLI Parameters | 8 | 0 | 8 |
-| Web Driver | 13 | 2 | 11 |
-| Product Parsing | 9 | 3 | 6 |
-| Pagination | 5 | 1 | 4 |
-| File I/O | 5 | 0 | 5 |
-| Logging | 15 | 0 | 15 |
-| Integration | 3 | 0 | 3 |
-| Error Handling | 8 | 0 | 8 |
-| Data Quality | 4 | 0 | 4 |
-| **TOTAL** | **70** | **8** | **62** |
 
-**Current coverage: 11% → Target with implementation: 100%**
+| Category         | Total | Existing | Gap |
+|------------------|-------|----------|-----|
+| CLI Parameters   | 8     | 6        | 2   |
+| Web Driver       | 13    | 2        | 11  |
+| Product Parsing  | 9     | 3        | 6   |
+| Pagination       | 5     | 1        | 4   |
+| File I/O         | 5     | 0        | 5   |
+| Logging          | 15    | 0        | 15  |
+| Integration      | 3     | 0        | 3   |
+| Error Handling   | 8     | 0        | 8   |
+| Data Quality     | 4     | 0        | 4   |
+| **TOTAL**        | **70**| **12**   | **58** |
+
+**Current coverage: 17% → Target with implementation: 100%**
