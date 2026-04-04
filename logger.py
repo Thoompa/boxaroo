@@ -49,17 +49,14 @@ class Logger(ILogger):
     def debug(self, message: str) -> None:
         if self.logging_level.value <= LoggingLevel.DEBUG.value:
             print("DEBUG: " + message)
-
-        self._write("DEBUG: " + message)
+            self._write("DEBUG: " + message)
 
     def log(self, message: str) -> None:
         if self.logging_level.value <= LoggingLevel.INFO.value:
             print("INFO: " + message)
-
-        self._write("INFO: " + message)
+            self._write("INFO: " + message)
 
     def error(self, e: str) -> None:
         if self.logging_level.value <= LoggingLevel.ERROR.value:
             print("ERROR: " + e)
-
-        self._write("ERROR: " + str(e))
+            self._write("ERROR: " + str(e))

@@ -2,20 +2,21 @@
 """
 Shared dummy/mock classes for Boxaroo unit tests.
 """
+from logger import ILogger, LoggingLevel
 
 
-class DummyLogger:
-    def __init__(self):
-        self.records = []
+class DummyLogger(ILogger):
+    def __init__(self, logging_level=None):
+        self.logging_level = logging_level or LoggingLevel.INFO
 
     def debug(self, message):
-        self.records.append(("DEBUG", message))
+        pass
 
     def log(self, message):
-        self.records.append(("INFO", message))
+        pass
 
     def error(self, message):
-        self.records.append(("ERROR", message))
+        pass
 
 
 class DummyFileHandler:
@@ -45,3 +46,15 @@ class DummyWebDriver:
 
     def reload_page(self):
         self.called.append(("reload_page",))
+
+
+class DummySupermarket:
+    def __init__(self, logger, logic=None):
+        self.logger = logger
+        self.logic = logic
+        self.get_data_called = False
+
+    def get_data(self, list_size=None):
+        if self.logic:
+            self.logic(self.logger, list_size)
+        self.get_data_called = True
