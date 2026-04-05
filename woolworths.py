@@ -1,6 +1,7 @@
 import re
 import json
 import os
+import time
 from typing import List, Tuple
 from bs4 import BeautifulSoup
 
@@ -171,9 +172,36 @@ class Woolworths(ISuperMarket):
     def _get_supermarket_categories(self) -> List[dict]:
         self.driver.get_page(self.base_url)
 
-        script = """
+        open_menu_script = """
         try {
-            var links = document.querySelectorAll('a[href*="/shop/browse/"]');
+            function normText(el) {
+                return ((el && (el.innerText || el.textContent || el.getAttribute('aria-label'))) || '')
+                    .toLowerCase()
+                    .trim();
+            }
+
+            var controls = Array.from(document.querySelectorAll('button, a, [role="button"], [aria-label]'));
+            var browseControl = controls.find(function (el) {
+                var t = normText(el);
+                return t === 'browse products' || t.indexOf('browse products') !== -1;
+            });
+
+            if (browseControl && typeof browseControl.click === 'function') {
+                browseControl.click();
+                return true;
+            }
+
+            return false;
+        } catch (e) {
+            return false;
+        }
+        """
+
+        extract_menu_categories_script = """
+        try {
+            var links = document.querySelectorAll(
+                'a.item.ng-star-inserted[href^="/shop/browse/"], a.item[href^="/shop/browse/"]'
+            );
             var seen = {};
             var categories = [];
             for (var i = 0; i < links.length; i++) {
@@ -206,7 +234,15 @@ class Woolworths(ISuperMarket):
         }
         """
 
-        categories = self.driver.execute_script(script)
+        self.driver.execute_script(open_menu_script)
+
+        categories = []
+        for _ in range(6):
+            categories = self.driver.execute_script(extract_menu_categories_script)
+            if isinstance(categories, list) and len(categories) > 0:
+                break
+            time.sleep(0.5)
+
         if not isinstance(categories, list):
             return []
 

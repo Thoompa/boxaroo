@@ -136,6 +136,7 @@ def test_get_all_categories_uses_cache_when_names_match(
 
     woolworths.category_lists_cache_path = str(cache_file)
     web_driver.script_response = [
+        True,
         [
             {
                 "name": "fruit-veg",
@@ -145,7 +146,7 @@ def test_get_all_categories_uses_cache_when_names_match(
                 "name": "pantry",
                 "href": "https://www.woolworths.com.au/shop/browse/pantry",
             },
-        ]
+        ],
     ]
     web_driver.category_total_items_sequence = [999]
 
@@ -176,3 +177,29 @@ def test_get_all_categories_falls_back_to_cache_on_exception(woolworths, tmp_pat
     out = woolworths._get_all_categories(ListSize.TESTING)
 
     assert out == ["fruit-veg"]
+
+
+def test_get_supermarket_categories_returns_drawer_categories(woolworths, web_driver):
+    # First execute_script call opens menu (boolean), second returns drawer categories.
+    web_driver.script_response = [
+        True,
+        [
+            {
+                "name": "fruit-veg",
+                "href": "https://www.woolworths.com.au/shop/browse/fruit-veg",
+            },
+            {
+                "name": "pantry",
+                "href": "https://www.woolworths.com.au/shop/browse/pantry",
+            },
+            {
+                "name": "drinks",
+                "href": "https://www.woolworths.com.au/shop/browse/drinks",
+            },
+        ],
+    ]
+
+    categories = woolworths._get_supermarket_categories()
+    names = [c["name"] for c in categories]
+
+    assert names == ["fruit-veg", "pantry", "drinks"]
