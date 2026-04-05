@@ -11,5 +11,7 @@ class ListSize(Enum):
 class ISuperMarket(ABC):
 
     @abstractmethod
-    def get_data(self, list_size: ListSize) -> None:
+    def get_data(
+        self, list_size: ListSize, refresh_category_lists: bool = False
+    ) -> None:
         pass

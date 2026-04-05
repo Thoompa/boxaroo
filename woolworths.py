@@ -1,4 +1,6 @@
 import re
+import json
+import os
 from typing import List, Tuple
 from bs4 import BeautifulSoup
 
@@ -21,12 +23,21 @@ class Woolworths(ISuperMarket):
         self.driver = web_driver
         self.base_url = "https://www.woolworths.com.au"
         self.url = "https://www.woolworths.com.au/shop/browse/"
+        self.category_lists_cache_path = os.path.join(
+            "Data", "category_lists", "woolworths-category-lists.json"
+        )
 
-    def get_data(self, list_size: ListSize = ListSize.FULL) -> None:
+    def get_data(
+        self,
+        list_size: ListSize = ListSize.FULL,
+        refresh_category_lists: bool = False,
+    ) -> None:
         self.logger.debug(
             "Getting Woolworths categories (list size - {0})".format(list_size)
         )
-        categories = self._get_all_categories(list_size)
+        categories = self._get_all_categories(
+            list_size, refresh_category_lists=refresh_category_lists
+        )
         self.logger.log("Scraping Woolworths categories - {0}".format(categories))
 
         num_products = 0
@@ -46,65 +57,194 @@ class Woolworths(ISuperMarket):
 
         self.logger.log("Successfully scraped {0} products".format(num_products))
 
-    def _get_all_categories(self, list_size: ListSize) -> List[str]:
-        ##########################################################################
-        # TODO KAN-5 do this properly
-        # self.driver.get_page(self.base_url)
-        # find button containing "Browse" => click
-        # find div class = "category-list"
-        # Find each <a> tag, get href
+    def _get_all_categories(
+        self, list_size: ListSize, refresh_category_lists: bool = False
+    ) -> List[str]:
+        cached_lists = self._load_category_lists_cache()
 
-        # # Wait for the products to load (you can adjust the wait time if needed)
-        # wait = WebDriverWait(driver, 10)
-        # wait.until(EC.presence_of_all_elements_located((By.CLASS_NAME, "browseMenuDesktop")))
+        try:
+            website_categories = self._get_supermarket_categories()
+            website_names = [item["name"] for item in website_categories]
 
-        # driver.find_element(By.CLASS_NAME, "browseMenuDesktop").click()
+            if (
+                not refresh_category_lists
+                and cached_lists
+                and self._cache_names_match(website_names, cached_lists)
+            ):
+                self.logger.log("Using cached category lists (names match website)")
+                return self._get_categories_for_size(cached_lists, list_size)
 
-        # # Get the page source after waiting for the elements to load
-        # page_source = driver.page_source
-        # soup = BeautifulSoup(page_source, "html.parser")
-        # products = soup.find_all("section", class_="item")
-        ##########################################################################
-        testing_list = ["fruit-veg"]
-        short_category_list = [
-            "fruit-veg",
-            "lunch-box",
-            "poultry-meat-seafood",
-            "bakery",
-            "deli-chilled-meals",
-            "dairy-eggs-fridge",
-            "pantry",
-            "snacks-confectionery",
-            "freezer",
-            "drinks",
-            "liquor",
-        ]
-        full_category_list = [
-            "fruit-veg",
-            "lunch-box",
-            "poultry-meat-seafood",
-            "bakery",
-            "deli-chilled-meals",
-            "dairy-eggs-fridge",
-            "pantry",
-            "snacks-confectionery",
-            "freezer",
-            "drinks",
-            "liquor",
-            "health-wellness",
-            "beauty-personal-care",
-            "baby",
-            "cleaning-maintenance",
-            "pet",
-            "home-lifestyle",
-        ]
+            refreshed_lists = self._refresh_category_lists_from_site(website_categories)
+            self._save_category_lists_cache(refreshed_lists, website_names)
+            return self._get_categories_for_size(refreshed_lists, list_size)
 
+        except Exception as e:
+            msg = getattr(e, "msg", None) or str(e) or repr(e)
+            self.logger.error(f"{type(e).__name__}: {msg}")
+            self.logger.log("Falling back to cached/default category lists")
+
+            fallback_lists = cached_lists or self._get_default_category_lists()
+            return self._get_categories_for_size(fallback_lists, list_size)
+
+    def _get_default_category_lists(self) -> dict:
+        return {
+            "testing": ["fruit-veg"],
+            "short": [
+                "fruit-veg",
+                "lunch-box",
+                "poultry-meat-seafood",
+                "bakery",
+                "deli-chilled-meals",
+                "dairy-eggs-fridge",
+                "pantry",
+                "snacks-confectionery",
+                "freezer",
+                "drinks",
+                "liquor",
+            ],
+            "full": [
+                "fruit-veg",
+                "lunch-box",
+                "poultry-meat-seafood",
+                "bakery",
+                "deli-chilled-meals",
+                "dairy-eggs-fridge",
+                "pantry",
+                "snacks-confectionery",
+                "freezer",
+                "drinks",
+                "liquor",
+                "health-wellness",
+                "beauty-personal-care",
+                "baby",
+                "cleaning-maintenance",
+                "pet",
+                "home-lifestyle",
+            ],
+        }
+
+    def _get_categories_for_size(
+        self, category_lists: dict, list_size: ListSize
+    ) -> List[str]:
         if list_size == ListSize.TESTING:
-            return testing_list
-        elif list_size == ListSize.SHORT:
-            return short_category_list
-        elif list_size == ListSize.FULL:
-            return full_category_list
+            return category_lists.get("testing", [])
+        if list_size == ListSize.SHORT:
+            return category_lists.get("short", [])
+        return category_lists.get("full", [])
+
+    def _cache_names_match(self, website_names: List[str], cached_lists: dict) -> bool:
+        cached_names = cached_lists.get("supermarket_categories", [])
+        return sorted(website_names) == sorted(cached_names)
+
+    def _load_category_lists_cache(self) -> dict | None:
+        if not os.path.exists(self.category_lists_cache_path):
+            return None
+
+        try:
+            with open(self.category_lists_cache_path, "r", encoding="utf-8") as f:
+                cached = json.load(f)
+
+            if not isinstance(cached, dict):
+                return None
+
+            for key in ["testing", "short", "full"]:
+                if key not in cached or not isinstance(cached.get(key), list):
+                    return None
+            return cached
+        except Exception:
+            return None
+
+    def _save_category_lists_cache(
+        self, category_lists: dict, category_names: List[str]
+    ) -> None:
+        cache_data = {
+            "supermarket_categories": category_names,
+            "testing": category_lists.get("testing", []),
+            "short": category_lists.get("short", []),
+            "full": category_lists.get("full", []),
+        }
+
+        os.makedirs(os.path.dirname(self.category_lists_cache_path), exist_ok=True)
+        with open(self.category_lists_cache_path, "w", encoding="utf-8") as f:
+            json.dump(cache_data, f, indent=2)
+
+    def _get_supermarket_categories(self) -> List[dict]:
+        self.driver.get_page(self.base_url)
+
+        script = """
+        try {
+            var links = document.querySelectorAll('a[href*="/shop/browse/"]');
+            var seen = {};
+            var categories = [];
+            for (var i = 0; i < links.length; i++) {
+                var href = links[i].getAttribute('href') || '';
+                if (!href) {
+                    continue;
+                }
+
+                var fullHref = href;
+                if (href.startsWith('/')) {
+                    fullHref = 'https://www.woolworths.com.au' + href;
+                }
+
+                var path = fullHref.split('?')[0].split('#')[0];
+                if (path.endsWith('/')) {
+                    path = path.slice(0, -1);
+                }
+
+                var name = path.split('/').pop();
+                if (!name || seen[name]) {
+                    continue;
+                }
+
+                seen[name] = true;
+                categories.push({ name: name, href: fullHref });
+            }
+            return categories;
+        } catch (e) {
+            return [];
+        }
+        """
+
+        categories = self.driver.execute_script(script)
+        if not isinstance(categories, list):
+            return []
+
+        clean = []
+        for item in categories:
+            if not isinstance(item, dict):
+                continue
+            name = item.get("name")
+            href = item.get("href")
+            if isinstance(name, str) and name.strip() and isinstance(href, str):
+                clean.append({"name": name.strip(), "href": href})
+        return clean
+
+    def _refresh_category_lists_from_site(
+        self, categories: List[dict] | None = None
+    ) -> dict:
+        categories = categories or self._get_supermarket_categories()
+
+        category_counts = []
+        for item in categories:
+            name = item.get("name")
+            if not name:
+                continue
+
+            category_url = self.url + name
+            self.driver.get_page(category_url)
+            count = self.driver.get_category_total_items()
+            count = count if isinstance(count, int) and count >= 0 else 0
+            category_counts.append({"name": name, "count": count})
+
+        if not category_counts:
+            return self._get_default_category_lists()
+
+        testing = [min(category_counts, key=lambda x: (x["count"], x["name"]))["name"]]
+        short = sorted([x["name"] for x in category_counts if x["count"] < 1000])
+        full = sorted([x["name"] for x in category_counts])
+
+        return {"testing": testing, "short": short, "full": full}
 
     def _get_category_data(self, category_url: str) -> dict:
         url = self.url + category_url

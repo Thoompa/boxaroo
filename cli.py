@@ -10,6 +10,7 @@ def main(
     headless=False,
     logging_level=LoggingLevel.INFO,
     default_list_size=ListSize.TESTING,
+    refresh_category_lists=False,
     proxy_server=None,
     file_handler=None,
     logger=None,
@@ -27,4 +28,6 @@ def main(
 
     woollies = Woolworths(file_handler, logger, web_driver)
     logger.log("Running Boxaroo with list size - {0}".format(list_size))
-    woollies.get_data(list_size=list_size)
+    woollies.get_data(
+        list_size=list_size, refresh_category_lists=refresh_category_lists
+    )

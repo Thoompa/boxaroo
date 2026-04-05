@@ -21,7 +21,7 @@ def test_main_list_size_parameter(monkeypatch, list_size_enum):
     web_driver = DummyWebDriver()
     called = {"list_size": None}
 
-    def logic(log, ls):
+    def logic(log, ls, refresh):
         called["list_size"] = ls
 
     supermarket = DummySupermarket(logger, logic=logic)
@@ -55,7 +55,7 @@ def test_main_default_list_size_none(monkeypatch):
     web_driver = DummyWebDriver()
     called = {"list_size": None}
 
-    def logic(log, ls):
+    def logic(log, ls, refresh):
         called["list_size"] = ls
 
     supermarket = DummySupermarket(logger, logic=logic)
@@ -79,3 +79,47 @@ def test_main_default_list_size_none(monkeypatch):
     assert (
         called["list_size"] == ListSize.TESTING
     ), f"Expected list_size ListSize.TESTING, got {called['list_size']}"
+
+
+def test_main_refresh_category_lists_parameter(monkeypatch):
+    logger = DummyLogger()
+    file_handler = DummyFileHandler()
+    web_driver = DummyWebDriver()
+    supermarket = DummySupermarket(logger)
+    monkeypatch.setattr("cli.Woolworths", lambda *args, **kwargs: supermarket)
+
+    main(
+        headless=True,
+        logging_level=LoggingLevel.INFO,
+        default_list_size=ListSize.FULL,
+        refresh_category_lists=True,
+        proxy_server=None,
+        file_handler=file_handler,
+        logger=logger,
+        web_driver=web_driver,
+    )
+
+    assert supermarket.get_data_called
+    assert supermarket.last_refresh_category_lists is True
+
+
+def test_main_refresh_category_lists_default_false(monkeypatch):
+    logger = DummyLogger()
+    file_handler = DummyFileHandler()
+    web_driver = DummyWebDriver()
+    supermarket = DummySupermarket(logger)
+    monkeypatch.setattr("cli.Woolworths", lambda *args, **kwargs: supermarket)
+
+    main(
+        headless=True,
+        logging_level=LoggingLevel.INFO,
+        default_list_size=ListSize.FULL,
+        refresh_category_lists=False,
+        proxy_server=None,
+        file_handler=file_handler,
+        logger=logger,
+        web_driver=web_driver,
+    )
+
+    assert supermarket.get_data_called
+    assert supermarket.last_refresh_category_lists is False

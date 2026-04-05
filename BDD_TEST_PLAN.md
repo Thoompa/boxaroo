@@ -44,6 +44,15 @@
 **When** the application initializes
 **Then** an error message is displayed or default level is used
 
+### 1.3 Category List Refresh Flag 🔨 PRIORITY
+**Given** the application is launched with `--refresh_category_lists`
+**When** CLI arguments are parsed
+**Then** the refresh flag is passed into the scraper flow
+
+**Given** the application is launched without `--refresh_category_lists`
+**When** CLI arguments are parsed
+**Then** cached category lists are used
+
 ---
 
 ## 2. Web Driver & Page Loading
@@ -56,7 +65,7 @@
 
 **Given** the Woolworths base URL
 **When** the page loads
-**Then** the page contains expected elements (product tiles, category list)
+**Then** the page contains expected elements (category list burger menu)
 
 ### 2.2 Page Reload ❌ CRITICAL
 **Given** a page is already loaded
@@ -80,7 +89,7 @@
 **Then** the browser process is terminated
 **Then** all resources are released
 
-### 2.4 Category Total Items Extraction ✅ EXISTING
+### 2.4 Category Total Items Extraction ❌ CRITICAL
 **Given** a category page is loaded
 **When** get_category_total_items() is called with selector match
 **Then** the item count is extracted from "Showing X products" text → `test_get_category_total_items_from_selector`
@@ -93,26 +102,46 @@
 **When** get_category_total_items() is called
 **Then** a default value (0) is returned
 
-### 2.5 Category List Retrieval 🔨 PRIORITY
+### 2.5 Category Retrieval + Product Count + List Classification ❌ CRITICAL
 **Given** home page is loaded
-**When** get_category_list() is called
-**Then** returns list of categories with names and URLs
+**When** Woolworths category retrieval is called
+**Then** supermarket categories are returned with names and URLs
 
-**Given** HTML has both primary and secondary selectors variant
-**When** get_category_list() is called
-**Then** returns categories from either selector pattern
+**Given** supermarket categories are discovered from the site
+**When** each category is loaded
+**Then** the number of products is extracted for every category
 
-**Given** page has no categories
-**When** get_category_list() is called
-**Then** warning is logged and empty list is returned
+**Given** all category product counts are available
+**When** list-size category lists are built
+**Then** the category with the smallest product count is assigned to TESTING
 
-**Given** some categories are known to be broken  🔨 PRIORITY
-**When** get_category_list() is called
-**Then** broken ones are skipped and logged (with details)
+**Given** all category product counts are available
+**When** list-size category lists are built
+**Then** all categories with fewer than 1000 products are assigned to SHORT
 
-**Given** category list is expected to be used for TESTING selection
-**When** smallest stable category is selected
-**Then** category with least pages/items is chosen (TODO: selection behavior)
+**Given** all category product counts are available
+**When** list-size category lists are built
+**Then** all categories are assigned to FULL
+
+**Given** category list retrieval fails unexpectedly
+**When** a general exception is raised
+**Then** the error is logged and fallback category lists are used
+
+### 2.6 Category List Cache (JSON) 🔨 PRIORITY
+**Given** a JSON category cache exists
+**When** website category names and JSON category names are identical
+**Then** the JSON cache is treated as up to date
+**Then** product-count recrawl is skipped
+
+**Given** website category names and JSON category names are different
+**When** category list retrieval runs
+**Then** categories are re-counted from the website
+**Then** JSON cache is updated with the new lists
+
+**Given** JSON cache is unavailable or invalid
+**When** category lists are requested
+**Then** category retrieval runs from the website
+**Then** generated list categories are saved to JSON cache
 
 ---
 
@@ -334,6 +363,14 @@
 **Then** no duplicate products exist
 **Then** all data is properly formatted
 
+### 7.4 Live Category List Integration (WebDriver) ✅ EXISTING
+**Given** live integration testing is enabled in `pyproject.toml` (`tool.boxaroo.tests.run_live_woolworths=true`)
+**When** `test_live_woolworths_category_discovery_count_classification_and_cache` runs with real Selenium WebDriver
+**Then** category names are discovered from the Woolworths website
+**Then** each discovered category page is opened and product totals are collected
+**Then** categories are classified into TESTING/SHORT/FULL lists
+**Then** classified lists are saved to JSON cache and verified
+
 ---
 
 ## 8. Error Handling & Edge Cases
@@ -406,13 +443,17 @@
 
 ### Phase 1: CRITICAL ❌ (Must have for MVP)
 - 1.1, 1.2 (CLI parameters) ✅
-- 2.1, 2.2, 2.3 (WebDriver lifecycle)
+- 2.1, 2.2, 2.3 (WebDriver lifecycle) ⏳
+- 2.4 (Category total extraction) ✅ partial
 - 6.1, 6.2, 6.3, 6.5, 6.6 (Logging)
 - 7.1, 7.2, 7.3 (Integration)
+- 7.4 (Live category list integration) ✅
 
 ### Phase 2: PRIORITY 🔨 (Important gaps)
-- 2.5.4 (Broken categories)
-- 3.2 (DOM extraction edge cases)
+- 1.3 (Refresh category list CLI flag) ✅
+- 2.5 (Category retrieval + count + classification) ✅
+- 2.6 (Category list cache JSON behavior) ✅
+- 3.2 (DOM extraction edge cases) ✅ partial
 - 4.1 (Pagination)
 - 5.2 (Directory management)
 - 8.1, 8.2, 8.3 (Error handling)
@@ -428,18 +469,43 @@
 
 ## Test Count Summary
 
+### Implemented Test Count Summary
 
-| Category         | Total | Existing | Gap |
-|------------------|-------|----------|-----|
-| CLI Parameters   | 8     | 6        | 2   |
-| Web Driver       | 13    | 2        | 11  |
-| Product Parsing  | 9     | 3        | 6   |
-| Pagination       | 5     | 1        | 4   |
-| File I/O         | 5     | 0        | 5   |
-| Logging          | 15    | 0        | 15  |
-| Integration      | 3     | 0        | 3   |
-| Error Handling   | 8     | 0        | 8   |
-| Data Quality     | 4     | 0        | 4   |
-| **TOTAL**        | **70**| **12**   | **58** |
+| Area | Implemented Tests |
+|------|-------------------|
+| CLI Parameters | 4 |
+| Web Driver + Category Totals | 2 |
+| Product Parsing + Extraction | 5 |
+| Category Retrieval + Cache + Classification | 4 |
+| Pagination + Statistics | 1 |
+| Live Integration | 1 |
+| **TOTAL IMPLEMENTED** | **17** |
 
-**Current coverage: 17% → Target with implementation: 100%**
+### Implemented Test Snapshot (Current)
+- CLI parameter tests:
+  - `test_main_list_size_parameter`
+  - `test_main_default_list_size_none`
+  - `test_main_refresh_category_lists_parameter`
+  - `test_main_refresh_category_lists_default_false`
+- Web driver and category totals:
+  - `test_get_category_total_items_from_selector`
+  - `test_get_category_total_items_fallback_to_tile_count`
+- Product parsing and extraction:
+  - `test_parse_product_data_full`
+  - `test_parse_product_data_missing_price_unit`
+  - `test_parse_product_data_non_string`
+  - `test_get_product_string_from_element_with_shadow_root`
+  - `test_get_products_data_incomplete_tracking`
+- Category list retrieval, classification, and cache behavior:
+  - `test_refresh_category_lists_from_site_classifies_by_count`
+  - `test_get_all_categories_uses_cache_when_names_match`
+  - `test_get_all_categories_falls_back_to_cache_on_exception`
+  - `test_get_all_categories_chain_cache_miss_then_cache_hit`
+- Pagination/statistics:
+  - `test_get_products_page_stats_aggregation`
+- Live integration (real Selenium + Woolworths website):
+  - `test_live_woolworths_category_discovery_count_classification_and_cache`
+
+### Status
+- Unit + integration coverage for category-list refresh, count-based list classification, JSON cache save/reuse, and live website validation is in place.
+- Logging, file I/O edge cases, and broader error-handling scenarios remain planned gaps.

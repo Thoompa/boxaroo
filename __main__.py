@@ -24,6 +24,11 @@ if __name__ == "__main__":
         default="INFO",
         help="Logging level",
     )
+    parser.add_argument(
+        "--refresh_category_lists",
+        action="store_true",
+        help="Force refresh of cached category lists from website",
+    )
     parser.add_argument("--proxy_server", help="Proxy server URL")
 
     args = parser.parse_args()
@@ -46,5 +51,6 @@ if __name__ == "__main__":
         headless=args.headless,
         logging_level=logging_level_map[args.logging_level],
         default_list_size=list_size_map[args.list_size],
+        refresh_category_lists=args.refresh_category_lists,
         proxy_server=args.proxy_server,
     )

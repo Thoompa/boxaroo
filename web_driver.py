@@ -6,7 +6,7 @@ from selenium.webdriver.common.by import By
 from selenium.webdriver.support.ui import WebDriverWait
 from selenium.webdriver.support import expected_conditions as EC
 from abc import ABC, abstractmethod
-from typing import Callable, List
+from typing import Callable
 import time
 import random
 
@@ -18,7 +18,7 @@ class IWebDriver(ABC):
         pass
 
     @abstractmethod
-    def get_products(self, _callback: Callable[any, None]) -> List[str]:  # type: ignore
+    def get_products(self, _callback: Callable[[any], dict] | None = None) -> dict:  # type: ignore
         pass
 
     @abstractmethod
@@ -26,17 +26,21 @@ class IWebDriver(ABC):
         pass
 
     @abstractmethod
-    def execute_script(self, script: str) -> str:
+    def execute_script(self, script: str, *args) -> any:
         pass
 
     @abstractmethod
     def reload_page(self) -> None:
         pass
 
+    @abstractmethod
+    def get_category_total_items(self) -> int | None:
+        pass
+
 
 class WebDriver(IWebDriver):
 
-    def __init__(self, headless: bool = False, proxy_server: str = None):
+    def __init__(self, headless: bool = False, proxy_server: str | None = None):
         self.headless = headless
         self.proxy_server = proxy_server
 
@@ -81,10 +85,10 @@ class WebDriver(IWebDriver):
         # Add delay after page load to simulate reading
         time.sleep(random.uniform(2, 5))
 
-    def execute_script(self, script: str) -> str:
+    def execute_script(self, script: str, *args) -> any:
         # Small delay before executing script
         time.sleep(random.uniform(0.5, 1.5))
-        return self.driver.execute_script(script)
+        return self.driver.execute_script(script, *args)
 
     def reload_page(self) -> None:
         time.sleep(random.uniform(1, 2))

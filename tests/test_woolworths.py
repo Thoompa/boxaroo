@@ -1,47 +1,14 @@
+import json
 import pytest
 
+from isupermarket import ListSize
 from woolworths import Woolworths
-
-
-class DummyLogger:
-    def __init__(self):
-        self.records = []
-
-    def debug(self, message):
-        self.records.append(("DEBUG", message))
-
-    def log(self, message):
-        self.records.append(("INFO", message))
-
-    def error(self, message):
-        self.records.append(("ERROR", message))
-
-
-class DummyFileHandler:
-    def __init__(self):
-        self.saved = []
-
-    def store_data(self, data):
-        self.saved.append(data)
-
-
-class DummyElement:
-    def __init__(self, text):
-        self._text = text
-
-    @property
-    def text(self):
-        return self._text
-
-
-class DummyWebDriver:
-    def __init__(self, script_response=None):
-        self.script_response = script_response
-        self.scripts_executed = []
-
-    def execute_script(self, script, element=None):
-        self.scripts_executed.append(script)
-        return self.script_response
+from tests.test_helpers import (
+    DummyElement,
+    DummyFileHandler,
+    DummyLogger,
+    DummyWebDriver,
+)
 
 
 @pytest.fixture
@@ -56,7 +23,9 @@ def file_handler():
 
 @pytest.fixture
 def web_driver():
-    return DummyWebDriver()
+    driver = DummyWebDriver()
+    driver.script_response = ""
+    return driver
 
 
 @pytest.fixture
@@ -130,3 +99,80 @@ def test_get_products_data_incomplete_tracking(woolworths):
     assert result["products"][0][1] == "$2.00"
     assert result["products"][1][0] == "Product Two each"
     assert result["products"][1][1] == "$1.00 / 1EA" or result["products"][1][1] == ""
+
+
+def test_refresh_category_lists_from_site_classifies_by_count(woolworths, web_driver):
+    categories = [
+        {
+            "name": "fruit-veg",
+            "href": "https://www.woolworths.com.au/shop/browse/fruit-veg",
+        },
+        {"name": "pantry", "href": "https://www.woolworths.com.au/shop/browse/pantry"},
+        {"name": "liquor", "href": "https://www.woolworths.com.au/shop/browse/liquor"},
+    ]
+    web_driver.category_total_items_sequence = [220, 1200, 80]
+
+    out = woolworths._refresh_category_lists_from_site(categories)
+
+    assert out["testing"] == ["liquor"]
+    assert out["short"] == ["fruit-veg", "liquor"]
+    assert out["full"] == ["fruit-veg", "liquor", "pantry"]
+    assert (
+        len([c for c in web_driver.called if c[0] == "get_category_total_items"]) == 3
+    )
+
+
+def test_get_all_categories_uses_cache_when_names_match(
+    woolworths, web_driver, tmp_path
+):
+    cache_file = tmp_path / "woolworths-category-lists.json"
+    cache_data = {
+        "supermarket_categories": ["fruit-veg", "pantry"],
+        "testing": ["fruit-veg"],
+        "short": ["fruit-veg", "pantry"],
+        "full": ["fruit-veg", "pantry"],
+    }
+    cache_file.write_text(json.dumps(cache_data), encoding="utf-8")
+
+    woolworths.category_lists_cache_path = str(cache_file)
+    web_driver.script_response = [
+        [
+            {
+                "name": "fruit-veg",
+                "href": "https://www.woolworths.com.au/shop/browse/fruit-veg",
+            },
+            {
+                "name": "pantry",
+                "href": "https://www.woolworths.com.au/shop/browse/pantry",
+            },
+        ]
+    ]
+    web_driver.category_total_items_sequence = [999]
+
+    out = woolworths._get_all_categories(list_size=ListSize.SHORT)
+
+    assert out == ["fruit-veg", "pantry"]
+    assert (
+        len([c for c in web_driver.called if c[0] == "get_category_total_items"]) == 0
+    )
+
+
+def test_get_all_categories_falls_back_to_cache_on_exception(woolworths, tmp_path):
+    cache_file = tmp_path / "woolworths-category-lists.json"
+    cache_data = {
+        "supermarket_categories": ["fruit-veg", "pantry"],
+        "testing": ["fruit-veg"],
+        "short": ["fruit-veg", "pantry"],
+        "full": ["fruit-veg", "pantry"],
+    }
+    cache_file.write_text(json.dumps(cache_data), encoding="utf-8")
+    woolworths.category_lists_cache_path = str(cache_file)
+
+    def raise_error():
+        raise Exception("boom")
+
+    woolworths._get_supermarket_categories = raise_error
+
+    out = woolworths._get_all_categories(ListSize.TESTING)
+
+    assert out == ["fruit-veg"]

@@ -25,3 +25,6 @@ py-modules = ["__main__", "file_handler", "isupermarket", "logger", "web_driver"
 minversion = "7.0"
 addopts = "-q"
 testpaths = ["tests"]
+
+[tool.boxaroo.tests]
+run_live_woolworths = true

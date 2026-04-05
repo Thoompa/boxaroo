@@ -1,7 +1,7 @@
 import csv
 from abc import ABC, abstractmethod
 import os
-from typing import Iterable
+from typing import Iterable, Sequence
 
 from logger import ILogger
 
@@ -9,7 +9,9 @@ from logger import ILogger
 class IFileHandler(ABC):
 
     @abstractmethod
-    def __init__(self, file_name: str, file_path: str, header: str, logger: ILogger):
+    def __init__(
+        self, file_name: str, file_path: str, header: Sequence[str], logger: ILogger
+    ):
         pass
 
     @abstractmethod
@@ -19,7 +21,9 @@ class IFileHandler(ABC):
 
 class FileHandler(IFileHandler):
 
-    def __init__(self, file_name: str, file_path: str, header: str, logger: ILogger):
+    def __init__(
+        self, file_name: str, file_path: str, header: Sequence[str], logger: ILogger
+    ):
         self.file_name = file_name
         self.file_path = file_path
         self.header = header
