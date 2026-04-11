@@ -1,12 +1,12 @@
 import re
-from selenium import webdriver
 from selenium.webdriver.chrome.options import Options
+from selenium.webdriver.chrome.webdriver import WebDriver as ChromeWebDriver
 from selenium_stealth import stealth
 from selenium.webdriver.common.by import By
 from selenium.webdriver.support.ui import WebDriverWait
 from selenium.webdriver.support import expected_conditions as EC
 from abc import ABC, abstractmethod
-from typing import Callable
+from typing import Any, Callable
 import time
 import random
 
@@ -18,7 +18,7 @@ class IWebDriver(ABC):
         pass
 
     @abstractmethod
-    def get_products(self, _callback: Callable[[any], dict] | None = None) -> dict:  # type: ignore
+    def get_products(self, _callback: Callable[[Any], dict] | None = None) -> dict:
         pass
 
     @abstractmethod
@@ -26,7 +26,7 @@ class IWebDriver(ABC):
         pass
 
     @abstractmethod
-    def execute_script(self, script: str, *args) -> any:
+    def execute_script(self, script: str, *args) -> Any:
         pass
 
     @abstractmethod
@@ -62,7 +62,7 @@ class WebDriver(IWebDriver):
             chrome_options.add_argument(f"--proxy-server={self.proxy_server}")
 
         # Initialize the driver
-        self.driver = webdriver.Chrome(options=chrome_options)
+        self.driver = ChromeWebDriver(options=chrome_options)
 
         # Apply selenium-stealth
         stealth(
@@ -85,7 +85,7 @@ class WebDriver(IWebDriver):
         # Add delay after page load to simulate reading
         time.sleep(random.uniform(2, 5))
 
-    def execute_script(self, script: str, *args) -> any:
+    def execute_script(self, script: str, *args) -> Any:
         # Small delay before executing script
         time.sleep(random.uniform(0.5, 1.5))
         return self.driver.execute_script(script, *args)
@@ -100,7 +100,7 @@ class WebDriver(IWebDriver):
 
     def get_category_total_items(self) -> int | None:
         # Read visible total count from the page. Try a few common selectors, then fallback to counting tiles.
-        script = """
+        script = r"""
         try {
             var selectors = [
                 '.ais-Stats-text',
@@ -117,6 +117,11 @@ class WebDriver(IWebDriver):
                 if (el && el.textContent && el.textContent.trim().length > 0) {
                     return el.textContent.trim();
                 }
+            }
+            var bodyText = (document.body && (document.body.innerText || document.body.textContent)) || '';
+            var displayMatch = bodyText.match(/displaying\s+\d+\s*[–-]\s*(?:to\s*)?\d+\s+of\s+\d[\d,]*\s+products/i);
+            if (displayMatch && displayMatch[0]) {
+                return displayMatch[0].trim();
             }
             var tiles = document.querySelectorAll('wc-product-tile');
             if (tiles) {
@@ -137,16 +142,48 @@ class WebDriver(IWebDriver):
             except ValueError:
                 return None
 
-        match = re.search(r"(\d[\d,]*)", raw_text)
-        if match:
+        total_match = re.search(r"\bof\s+(\d[\d,]*)\b", raw_text, re.IGNORECASE)
+        if total_match:
             try:
-                return int(match.group(1).replace(",", ""))
+                return int(total_match.group(1).replace(",", ""))
+            except ValueError:
+                return None
+
+        matches = re.findall(r"\d[\d,]*", raw_text)
+        if matches:
+            try:
+                return int(matches[-1].replace(",", ""))
             except ValueError:
                 return None
 
         return None
 
-    def get_products(self, _callback: Callable[any, None] = None) -> dict:
+    def _advance_to_next_page(self) -> bool:
+        try:
+            next_button = self.driver.find_element(By.CSS_SELECTOR, ".paging-next")
+            if not next_button.is_displayed() or not next_button.is_enabled():
+                return False
+
+            current_url = self.driver.current_url
+            next_href = (next_button.get_attribute("href") or "").strip()
+
+            if next_href and next_href != current_url:
+                time.sleep(random.uniform(1, 2))
+                self.driver.get(next_href)
+                time.sleep(random.uniform(3, 6))
+                return True
+
+            self.driver.execute_script(
+                "arguments[0].scrollIntoView({block: 'center'});", next_button
+            )
+            time.sleep(random.uniform(0.5, 1.0))
+            self.driver.execute_script("arguments[0].click();", next_button)
+            time.sleep(random.uniform(3, 6))
+            return self.driver.current_url != current_url
+        except Exception:
+            return False
+
+    def get_products(self, _callback: Callable[[Any], dict] | None = None) -> dict:
         all_data = []
         all_incomplete = []
         page_stats = []
@@ -198,17 +235,7 @@ class WebDriver(IWebDriver):
                 }
             )
 
-            try:
-                # Add delay before clicking next button
-                time.sleep(random.uniform(2, 4))
-                next_button = self.driver.find_element(By.CSS_SELECTOR, ".paging-next")
-                if next_button.is_displayed() and next_button.is_enabled():
-                    next_button.click()
-                    # Wait for page to load after click
-                    time.sleep(random.uniform(3, 6))
-                else:
-                    break
-            except Exception:
+            if not self._advance_to_next_page():
                 break
 
         return {

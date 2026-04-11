@@ -2,7 +2,10 @@
 """
 Shared dummy/mock classes for Boxaroo unit tests.
 """
+from typing import Any
+
 from logger import ILogger, LoggingLevel
+from web_driver import WebDriver
 
 
 class DummyLogger(ILogger):
@@ -87,3 +90,89 @@ class DummySupermarket:
         self.get_data_called = True
         self.last_list_size = list_size
         self.last_refresh_category_lists = refresh_category_lists
+
+
+class DummyWebDriverShell(WebDriver):
+    def __init__(self, products_response=None):
+        self.scripts = []
+        self.driver: Any = None
+        self._category_total_script_response: str | None = None
+        self._products_response = products_response or {
+            "products": [],
+            "incomplete_items": [],
+            "page_stats": [],
+        }
+        self.page_saved = 0
+
+    def execute_script(self, script, *args, **kwargs) -> Any:
+        self.scripts.append(script)
+        return self._category_total_script_response
+
+    def get_page(self, url):
+        pass
+
+    def get_products(self, _callback=None):
+        self.page_saved += 1
+        if _callback and "products" in self._products_response:
+            _callback(self._products_response["products"])
+        return self._products_response
+
+    def quit(self):
+        pass
+
+    def reload_page(self):
+        pass
+
+
+class DummyWait:
+    def __init__(self, driver, timeout):
+        self.driver = driver
+        self.timeout = timeout
+
+    def until(self, condition):
+        return True
+
+
+class FakeNextButton:
+    def __init__(self, href):
+        self.href = href
+
+    def is_displayed(self):
+        return True
+
+    def is_enabled(self):
+        return True
+
+    def get_attribute(self, name):
+        if name == "href":
+            return self.href
+        return None
+
+
+class FakeSeleniumDriver:
+    def __init__(self):
+        self.current_url = "https://www.woolworths.com.au/shop/browse/electronics"
+        self.page_index = 0
+        self.pages = [["A", "B"], ["C", "D"]]
+
+    def execute_script(self, script, *args):
+        return None
+
+    def find_elements(self, by, value):
+        if by == "tag name" and value == "wc-product-tile":
+            return self.pages[self.page_index]
+        return []
+
+    def find_element(self, by, value):
+        if by == "css selector" and value == ".paging-next":
+            if self.page_index == 0:
+                return FakeNextButton(
+                    "https://www.woolworths.com.au/shop/browse/electronics?pageNumber=2"
+                )
+            raise Exception("no next page")
+        raise Exception("unsupported selector")
+
+    def get(self, url):
+        self.current_url = url
+        if "pageNumber=2" in url:
+            self.page_index = 1
