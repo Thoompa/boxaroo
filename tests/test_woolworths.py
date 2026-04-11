@@ -122,7 +122,73 @@ def test_refresh_category_lists_from_site_classifies_by_count(woolworths, web_dr
     )
 
 
-def test_get_all_categories_uses_cache_when_names_match(
+def test_refresh_category_lists_from_site_skips_zero_count_categories(
+    woolworths, web_driver
+):
+    categories = [
+        {
+            "name": "front-of-store",
+            "href": "https://www.woolworths.com.au/shop/browse/front-of-store",
+        },
+        {
+            "name": "fruit-veg",
+            "href": "https://www.woolworths.com.au/shop/browse/fruit-veg",
+        },
+        {"name": "liquor", "href": "https://www.woolworths.com.au/shop/browse/liquor"},
+    ]
+    web_driver.category_total_items_sequence = [0, 220, 80]
+
+    out = woolworths._refresh_category_lists_from_site(categories)
+
+    assert out["testing"] == ["liquor"]
+    assert out["short"] == ["fruit-veg", "liquor"]
+    assert out["full"] == ["fruit-veg", "liquor"]
+    assert "front-of-store" not in out["testing"]
+    assert "front-of-store" not in out["short"]
+    assert "front-of-store" not in out["full"]
+
+
+def test_get_all_categories_uses_cache_when_selected_categories_match_site(
+    woolworths, web_driver, tmp_path
+):
+    cache_file = tmp_path / "woolworths-category-lists.json"
+    cache_data = {
+        "supermarket_categories": ["fruit-veg", "pantry", "pet"],
+        "testing": ["fruit-veg"],
+        "short": ["fruit-veg", "pantry"],
+        "full": ["fruit-veg", "pantry", "pet"],
+    }
+    cache_file.write_text(json.dumps(cache_data), encoding="utf-8")
+
+    woolworths.category_lists_cache_path = str(cache_file)
+    web_driver.script_response = [
+        True,
+        [
+            {
+                "name": "fruit-veg",
+                "href": "https://www.woolworths.com.au/shop/browse/fruit-veg",
+            },
+            {
+                "name": "pantry",
+                "href": "https://www.woolworths.com.au/shop/browse/pantry",
+            },
+            {
+                "name": "baby",
+                "href": "https://www.woolworths.com.au/shop/browse/baby",
+            },
+        ],
+    ]
+    web_driver.category_total_items_sequence = [999]
+
+    out = woolworths._get_all_categories(list_size=ListSize.SHORT)
+
+    assert out == ["fruit-veg", "pantry"]
+    assert (
+        len([c for c in web_driver.called if c[0] == "get_category_total_items"]) == 0
+    )
+
+
+def test_get_all_categories_refreshes_when_selected_category_missing(
     woolworths, web_driver, tmp_path
 ):
     cache_file = tmp_path / "woolworths-category-lists.json"
@@ -143,18 +209,57 @@ def test_get_all_categories_uses_cache_when_names_match(
                 "href": "https://www.woolworths.com.au/shop/browse/fruit-veg",
             },
             {
-                "name": "pantry",
-                "href": "https://www.woolworths.com.au/shop/browse/pantry",
+                "name": "baby",
+                "href": "https://www.woolworths.com.au/shop/browse/baby",
             },
         ],
     ]
-    web_driver.category_total_items_sequence = [999]
+    web_driver.category_total_items_sequence = [220, 80]
 
     out = woolworths._get_all_categories(list_size=ListSize.SHORT)
 
-    assert out == ["fruit-veg", "pantry"]
+    assert out == ["baby", "fruit-veg"]
     assert (
-        len([c for c in web_driver.called if c[0] == "get_category_total_items"]) == 0
+        len([c for c in web_driver.called if c[0] == "get_category_total_items"]) == 2
+    )
+
+
+def test_get_all_categories_refreshes_when_testing_category_has_zero_items(
+    woolworths, web_driver, tmp_path
+):
+    cache_file = tmp_path / "woolworths-category-lists.json"
+    cache_data = {
+        "supermarket_categories": ["front-of-store", "fruit-veg"],
+        "testing": ["front-of-store"],
+        "short": ["front-of-store", "fruit-veg"],
+        "full": ["front-of-store", "fruit-veg"],
+    }
+    cache_file.write_text(json.dumps(cache_data), encoding="utf-8")
+
+    woolworths.category_lists_cache_path = str(cache_file)
+    web_driver.script_response = [
+        True,
+        [
+            {
+                "name": "front-of-store",
+                "href": "https://www.woolworths.com.au/shop/browse/front-of-store",
+            },
+            {
+                "name": "fruit-veg",
+                "href": "https://www.woolworths.com.au/shop/browse/fruit-veg",
+            },
+        ],
+    ]
+    # 1) stale TESTING-category validation (front-of-store) -> 0
+    # 2) refresh pass front-of-store -> 0
+    # 3) refresh pass fruit-veg -> 220
+    web_driver.category_total_items_sequence = [0, 0, 220]
+
+    out = woolworths._get_all_categories(list_size=ListSize.TESTING)
+
+    assert out == ["fruit-veg"]
+    assert (
+        len([c for c in web_driver.called if c[0] == "get_category_total_items"]) == 3
     )
 
 

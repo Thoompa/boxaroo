@@ -66,14 +66,29 @@ class Woolworths(ISuperMarket):
         try:
             website_categories = self._get_supermarket_categories()
             website_names = [item["name"] for item in website_categories]
+            selected_cached_categories = (
+                self._get_categories_for_size(cached_lists, list_size)
+                if cached_lists
+                else []
+            )
 
             if (
                 not refresh_category_lists
-                and cached_lists
-                and self._cache_names_match(website_names, cached_lists)
+                and selected_cached_categories
+                and self._selected_categories_match_site(
+                    selected_cached_categories, website_names
+                )
+                and (
+                    list_size != ListSize.TESTING
+                    or self._selected_categories_have_products(
+                        selected_cached_categories
+                    )
+                )
             ):
-                self.logger.log("Using cached category lists (names match website)")
-                return self._get_categories_for_size(cached_lists, list_size)
+                self.logger.log(
+                    "Using cached category lists (selected categories match website)"
+                )
+                return selected_cached_categories
 
             refreshed_lists = self._refresh_category_lists_from_site(website_categories)
             self._save_category_lists_cache(refreshed_lists, website_names)
@@ -133,9 +148,23 @@ class Woolworths(ISuperMarket):
             return category_lists.get("short", [])
         return category_lists.get("full", [])
 
-    def _cache_names_match(self, website_names: List[str], cached_lists: dict) -> bool:
-        cached_names = cached_lists.get("supermarket_categories", [])
-        return sorted(website_names) == sorted(cached_names)
+    def _selected_categories_match_site(
+        self, selected_categories: List[str], website_names: List[str]
+    ) -> bool:
+        return set(selected_categories).issubset(set(website_names))
+
+    def _selected_categories_have_products(
+        self, selected_categories: List[str]
+    ) -> bool:
+        for name in selected_categories:
+            self.driver.get_page(self.url + name)
+            count = self.driver.get_category_total_items()
+            if not isinstance(count, int) or count <= 0:
+                self.logger.log(
+                    f"Refreshing category lists because '{name}' has no products"
+                )
+                return False
+        return True
 
     def _load_category_lists_cache(self) -> dict | None:
         if not os.path.exists(self.category_lists_cache_path):
@@ -271,10 +300,11 @@ class Woolworths(ISuperMarket):
             self.driver.get_page(category_url)
             count = self.driver.get_category_total_items()
             count = count if isinstance(count, int) and count >= 0 else 0
-            category_counts.append({"name": name, "count": count})
+            if count > 0:
+                category_counts.append({"name": name, "count": count})
 
         if not category_counts:
-            return self._get_default_category_lists()
+            return {"testing": [], "short": [], "full": []}
 
         testing = [min(category_counts, key=lambda x: (x["count"], x["name"]))["name"]]
         short = sorted([x["name"] for x in category_counts if x["count"] < 1000])
