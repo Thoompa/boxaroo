@@ -2,8 +2,7 @@ import re
 import json
 import os
 import time
-from typing import List, Tuple
-from bs4 import BeautifulSoup
+from typing import List
 
 from file_handler import IFileHandler
 from logger import ILogger
@@ -46,7 +45,6 @@ class Woolworths(ISuperMarket):
         for category in categories:
             category_data = self._get_category_data(category)
 
-            # TODO KAN-16 inject just this method instead of the whole file handler
             if category_data is not None:
                 products = (
                     category_data.get("products", [])
@@ -503,8 +501,6 @@ class Woolworths(ISuperMarket):
                     "Reading data for product - {0}".format(product_element)
                 )
                 text = self._get_product_string_from_element(product_element)
-
-                # Parse the product data into structured fields
                 parsed_product = self._parse_product_data(text)
                 if parsed_product:
                     product_name, price, unit_price, promotion = parsed_product
@@ -693,124 +689,3 @@ class Woolworths(ISuperMarket):
         except Exception as e:
             self.logger.debug(f"Error extracting text from element: {e}")
             return ""
-
-    def _get_product_string(self, child_index: int) -> str:
-        # First, let's see what product tiles are actually on the page
-        script = (
-            """
-        try {
-            var tiles = document.querySelectorAll("wc-product-tile");
-            if (tiles.length === 0) {
-                return "NO_PRODUCT_TILES_FOUND";
-            }
-            if ("""
-            + str(child_index)
-            + """ >= tiles.length) {
-                return "INDEX_OUT_OF_BOUNDS_" + tiles.length;
-            }
-            var element = tiles["""
-            + str(child_index)
-            + """];
-            return element.outerHTML;
-        } catch (e) {
-            return "ERROR: " + e.message;
-        }
-        """
-        )
-        html = self.driver.execute_script(script)
-        self.logger.debug(
-            f"Product {child_index} HTML: '{html[:200]}...'"
-        )  # Log first 200 chars
-
-        # Parse the HTML to extract text content
-        if (
-            html
-            and not html.startswith("NO_")
-            and not html.startswith("INDEX_")
-            and not html.startswith("ERROR:")
-        ):
-            try:
-                soup = BeautifulSoup(html, "html.parser")
-                # Try to find text content in various ways
-                text_content = soup.get_text(separator="\n", strip=True)
-                self.logger.debug(
-                    f"Product {child_index} parsed text: '{text_content[:200]}...'"
-                )
-                return text_content
-            except Exception as e:
-                self.logger.debug(f"Error parsing HTML for product {child_index}: {e}")
-                return html
-        else:
-            return html
-
-    def _get_details_from_product_string(self, text: str) -> Tuple[str, str, str]:
-        rows = text.split("\n")
-        price_regex = r"^\$([0-9])+\.[0-9][0-9]$"
-        price_per_unit_regex = ""
-        product_name = ""
-
-        for row in rows:
-            if re.search(price_regex, row):
-                price = row
-            elif re.search(price_per_unit_regex, row):
-                price_per_unit = row
-            else:
-                product_name += row
-        ##########################################################################
-        # TODO KAN-20
-        # product_name = rows[2]
-        # price = rows[0]
-        # price_per_unit = rows[1]
-        ##########################################################################
-        return product_name, price, price_per_unit
-
-    def _get_product_group(self, product: BeautifulSoup) -> any:
-        shadow_root = self._get_shadow_root(product)
-        section = shadow_root.findChildren("section")
-        ##########################################################################
-        # TODO KAN-20
-        # if (not section):
-        #     print(product.findChildren())
-        #     for child in product.children:
-        #         print(child)
-        ##########################################################################
-
-        product_tile_body = section.find("div", class_="product-tile-body")
-        product_tile_content = product_tile_body.find(
-            "div", class_="product-tile-content"
-        )
-        return product_tile_content.find("div", class_="product-tile-group")
-
-    def _get_shadow_root(self, element: BeautifulSoup) -> str:
-        shadow_root = self.driver.execute_script(
-            'return document.querySelector("#search-content > div > shared-grid > div > div:nth-child(1) > shared-product-tile > shared-web-component-wrapper > wc-product-tile").shadowRoot.querySelector("section > div")'
-        )
-        ##########################################################################
-        # TODO KAN-20
-        # shadow_root = driver.execute_script('return arguments[0].shadowRoot', element)
-        # return driver.execute_script('return arguments[0].innerHTML',shadow_root)
-        ##########################################################################
-        return shadow_root
-
-    def _get_product_name(self, product: BeautifulSoup) -> str:
-        container = product.find("div", class_="product-title-container")
-        shared_product_tile = container.find("shared-product-tile-title")
-        return shared_product_tile.find("div", class_="product-tile-title").text.strip()
-
-    def _get_product_price(self, product) -> Tuple[str, str]:
-        container = product.find("div", class_="product-information-container")
-        product_tile_prices_div = container.find(
-            "div", class_="product-tile-v2--prices"
-        )
-        shared_product_tile_price = product_tile_prices_div.find(
-            "shared-product-tile-price"
-        )
-        product_price_tile = shared_product_tile_price.find("div", "product-tile-price")
-
-        primary = product_price_tile.find("div", "primary")
-        price = primary.text.strip()
-
-        secondary = product_price_tile.find("div", "secondary")
-        price_per_unit = secondary.find("span", class_="price-per-cup").text.strip()
-
-        return price, price_per_unit
