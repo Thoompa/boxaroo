@@ -10,10 +10,42 @@
 
 ## Run
 
-- DEBUG test run:
+- DEBUG test run (tiny category sample):
   - `python __main__.py --list_size TESTING --logging_level DEBUG`
-- Full run:
+- Short run (~10 min):
+  - `python __main__.py --list_size SHORT --logging_level INFO`
+- Medium run (~35 min):
+  - `python __main__.py --list_size MEDIUM --logging_level INFO`
+- Long run (~2.5 hrs):
+  - `python __main__.py --list_size LONG --logging_level INFO`
+- Full run (~8 hrs):
   - `python __main__.py --list_size FULL --logging_level INFO`
+
+### List sizes
+
+| Size    | Products per category | Approximate runtime |
+|---------|-----------------------|---------------------|
+| TESTING | ≤ 3 categories        | ~2 min              |
+| SHORT   | < 1 000               | ~12 min             |
+| MEDIUM  | < 1 800               | ~35 min             |
+| LONG    | < 10 000              | ~2.5 hrs            |
+| FULL    | all categories        | ~8 hrs              |
+
+Thresholds are based on the number of products in each Woolworths category.
+Run `--help` to see dynamic ETA estimates calculated from cached product totals:
+
+```
+python __main__.py --help
+```
+
+### Refreshing category lists
+
+Category lists and product totals are cached in `Data/category_lists/woolworths-category-lists.json`.
+To rebuild the cache from the live website (required after site structure changes):
+
+```
+python __main__.py --list_size SHORT --refresh_category_lists
+```
 
 ## Output
 
@@ -22,10 +54,13 @@
 
 ## Features
 
+- Five list sizes (TESTING / SHORT / MEDIUM / LONG / FULL) let you balance speed vs. coverage.
+- `--help` displays dynamic ETA estimates per list size, calculated from cached product totals.
+- `--refresh_category_lists` fetches the current category structure from the website and rebuilds the cache, including per-category and per-list product totals.
 - `get_category_total_items` reads displayed product count from the website then falls back to tile count.
 - `get_products` now tracks per-page `tiles/scraped/incomplete` statistics.
 - `get_category_data` logs category totals and incomplete item details.
-- partial product rows are retained with missing fields recorded.
+- Partial product rows are retained with missing fields recorded.
 
 ## Testing
 
