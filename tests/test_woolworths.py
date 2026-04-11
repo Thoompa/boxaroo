@@ -107,18 +107,49 @@ def test_refresh_category_lists_from_site_classifies_by_count(woolworths, web_dr
             "name": "fruit-veg",
             "href": "https://www.woolworths.com.au/shop/browse/fruit-veg",
         },
-        {"name": "pantry", "href": "https://www.woolworths.com.au/shop/browse/pantry"},
+        {
+            "name": "pantry",
+            "href": "https://www.woolworths.com.au/shop/browse/pantry",
+        },
+        {
+            "name": "dairy-eggs-fridge",
+            "href": "https://www.woolworths.com.au/shop/browse/dairy-eggs-fridge",
+        },
+        {
+            "name": "home-lifestyle",
+            "href": "https://www.woolworths.com.au/shop/browse/home-lifestyle",
+        },
+        {
+            "name": "electronics",
+            "href": "https://www.woolworths.com.au/shop/browse/electronics",
+        },
         {"name": "liquor", "href": "https://www.woolworths.com.au/shop/browse/liquor"},
     ]
-    web_driver.category_total_items_sequence = [220, 1200, 80]
+    web_driver.category_total_items_sequence = [220, 1200, 1700, 5000, 12000, 80]
 
     out = woolworths._refresh_category_lists_from_site(categories)
 
     assert out["testing"] == ["liquor"]
     assert out["short"] == ["fruit-veg", "liquor"]
-    assert out["full"] == ["fruit-veg", "liquor", "pantry"]
+    assert out["medium"] == ["dairy-eggs-fridge", "fruit-veg", "liquor", "pantry"]
+    assert out["long"] == [
+        "dairy-eggs-fridge",
+        "fruit-veg",
+        "home-lifestyle",
+        "liquor",
+        "pantry",
+    ]
+    assert out["full"] == [
+        "dairy-eggs-fridge",
+        "electronics",
+        "fruit-veg",
+        "home-lifestyle",
+        "liquor",
+        "pantry",
+    ]
+    assert len(out["short"]) < len(out["medium"]) < len(out["long"]) < len(out["full"])
     assert (
-        len([c for c in web_driver.called if c[0] == "get_category_total_items"]) == 3
+        len([c for c in web_driver.called if c[0] == "get_category_total_items"]) == 6
     )
 
 
@@ -142,6 +173,8 @@ def test_refresh_category_lists_from_site_skips_zero_count_categories(
 
     assert out["testing"] == ["liquor"]
     assert out["short"] == ["fruit-veg", "liquor"]
+    assert out["medium"] == ["fruit-veg", "liquor"]
+    assert out["long"] == ["fruit-veg", "liquor"]
     assert out["full"] == ["fruit-veg", "liquor"]
     assert "front-of-store" not in out["testing"]
     assert "front-of-store" not in out["short"]

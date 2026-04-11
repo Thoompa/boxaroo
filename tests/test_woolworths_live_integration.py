@@ -68,12 +68,17 @@ def test_live_woolworths_category_discovery_count_classification_and_cache(tmp_p
         assert cache_file.exists()
         cache_data = json.loads(cache_file.read_text(encoding="utf-8"))
 
-        assert sorted(cache_data.keys()) == [
-            "full",
-            "short",
-            "supermarket_categories",
+        for key in [
             "testing",
-        ]
+            "short",
+            "medium",
+            "long",
+            "full",
+            "supermarket_categories",
+            "list_product_totals",
+            "category_product_totals",
+        ]:
+            assert key in cache_data
         assert cache_data["full"] == full_list
         assert cache_data["short"] == short_list
         assert cache_data["testing"] == testing_list

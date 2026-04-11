@@ -5,7 +5,9 @@ from enum import Enum
 class ListSize(Enum):
     TESTING = 1
     SHORT = 2
-    FULL = 3
+    MEDIUM = 3
+    LONG = 4
+    FULL = 5
 
 
 class ISuperMarket(ABC):

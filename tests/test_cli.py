@@ -1,5 +1,5 @@
 import pytest
-from cli import main
+from cli import _format_eta, build_list_size_help, main
 from isupermarket import ListSize
 from logger import LoggingLevel
 from tests.test_helpers import (
@@ -12,7 +12,14 @@ from tests.test_helpers import (
 
 # 1-3: Test each valid ListSize
 @pytest.mark.parametrize(
-    "list_size_enum", [ListSize.TESTING, ListSize.FULL, ListSize.SHORT]
+    "list_size_enum",
+    [
+        ListSize.TESTING,
+        ListSize.SHORT,
+        ListSize.MEDIUM,
+        ListSize.LONG,
+        ListSize.FULL,
+    ],
 )
 def test_main_list_size_parameter(monkeypatch, list_size_enum):
     # GIVEN: The CLI is called with a valid ListSize value
@@ -123,3 +130,39 @@ def test_main_refresh_category_lists_default_false(monkeypatch):
 
     assert supermarket.get_data_called
     assert supermarket.last_refresh_category_lists is False
+
+
+@pytest.mark.parametrize(
+    "total_products, expected",
+    [
+        (None, "n/a"),
+        (0, "~0s"),
+        (108, "~27s"),
+        (600, "~2m 30s"),
+        (14892, "~1h 2m 3s"),
+        (14400, "~1h"),
+    ],
+)
+def test_format_eta(total_products, expected):
+    assert _format_eta(total_products) == expected
+
+
+def test_build_list_size_help_uses_formatted_eta(monkeypatch):
+    monkeypatch.setattr(
+        "cli._load_list_product_totals",
+        lambda: {
+            "testing": 108,  # 27s
+            "short": 600,  # 2m 30s
+            "medium": 14400,  # 1h
+            "long": 14892,  # 1h 2m 3s
+            "full": 0,  # 0s
+        },
+    )
+
+    help_text = build_list_size_help()
+
+    assert "TESTING ~27s" in help_text
+    assert "SHORT ~2m 30s" in help_text
+    assert "MEDIUM ~1h" in help_text
+    assert "LONG ~1h 2m 3s" in help_text
+    assert "FULL ~0s" in help_text
