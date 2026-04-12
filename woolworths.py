@@ -532,12 +532,6 @@ class Woolworths(ISuperMarket):
                     else:
                         self.logger.debug(f"Skipped empty product data at index {i}")
 
-            except TimeoutError as e:
-                msg = getattr(e, "msg", None) or str(e) or repr(e)
-                self.logger.debug("Timeout error!")
-                self.logger.error(f"{type(e).__name__}: {msg}")
-                self.driver.reload_page()
-
             except Exception as e:
                 msg = getattr(e, "msg", None) or str(e) or repr(e)
                 self.logger.error(f"{type(e).__name__}: {msg}")
