@@ -59,6 +59,7 @@ python __main__.py --list_size SHORT --refresh_category_lists
 - `--refresh_category_lists` fetches the current category structure from the website and rebuilds the cache, including per-category and per-list product totals.
 - `get_category_total_items` reads displayed product count from the website then falls back to tile count.
 - `get_products` now tracks per-page `tiles/scraped/incomplete` statistics.
+- `get_products` callback contract is plain-data only: callback input is `list[str]` of product text payloads, never Selenium `WebElement` objects.
 - `get_category_data` logs category totals and incomplete item details.
 - Partial product rows are retained with missing fields recorded.
 

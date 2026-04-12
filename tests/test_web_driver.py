@@ -155,3 +155,23 @@ def test_get_products_page_stats_track_incomplete_count(monkeypatch):
     assert len(result["page_stats"]) == 2
     assert result["page_stats"][0]["incomplete"] == 1
     assert result["page_stats"][1]["incomplete"] == 1
+
+
+def test_get_products_callback_receives_plain_string_payloads(monkeypatch):
+    monkeypatch.setattr(web_driver_module, "WebDriverWait", DummyWait)
+    monkeypatch.setattr(web_driver_module.time, "sleep", lambda _: None)
+    monkeypatch.setattr(web_driver_module.random, "uniform", lambda a, b: 0)
+
+    driver = DummyWebDriverShell()
+    driver.driver = FakeSeleniumDriver()
+
+    seen_payloads = []
+
+    def callback(product_texts):
+        seen_payloads.extend(product_texts)
+        return {"products": list(product_texts), "incomplete_items": []}
+
+    WebDriver.get_products(driver, callback)
+
+    assert seen_payloads == ["A", "B", "C", "D"]
+    assert all(isinstance(item, str) for item in seen_payloads)
