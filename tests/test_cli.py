@@ -1,5 +1,6 @@
 import pytest
 from cli import _format_eta, build_list_size_help, main
+import cli as cli_module
 from isupermarket import ListSize
 from logger import LoggingLevel
 from tests.test_helpers import (
@@ -166,3 +167,19 @@ def test_build_list_size_help_uses_formatted_eta(monkeypatch):
     assert "MEDIUM ~1h" in help_text
     assert "LONG ~1h 2m 3s" in help_text
     assert "FULL ~0s" in help_text
+
+
+def test_build_list_size_help_with_no_cache_returns_all_na(monkeypatch):
+    """
+    Test that when the category cache is missing/empty,
+    build_list_size_help shows 'n/a' for all list sizes.
+    """
+    monkeypatch.setattr(cli_module, "_load_list_product_totals", lambda: {})
+
+    help_text = build_list_size_help()
+
+    assert "TESTING n/a" in help_text
+    assert "SHORT n/a" in help_text
+    assert "MEDIUM n/a" in help_text
+    assert "LONG n/a" in help_text
+    assert "FULL n/a" in help_text
