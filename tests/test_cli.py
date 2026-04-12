@@ -166,3 +166,21 @@ def test_build_list_size_help_uses_formatted_eta(monkeypatch):
     assert "MEDIUM ~1h" in help_text
     assert "LONG ~1h 2m 3s" in help_text
     assert "FULL ~0s" in help_text
+
+
+def test_build_list_size_help_with_no_cache_returns_all_na(monkeypatch):
+    """
+    Test that when the category cache is missing/empty,
+    build_list_size_help shows 'n/a' for all list sizes.
+    """
+    import cli
+
+    monkeypatch.setattr(cli, "_load_list_product_totals", lambda: {})
+
+    help_text = build_list_size_help()
+
+    assert "TESTING n/a" in help_text
+    assert "SHORT n/a" in help_text
+    assert "MEDIUM n/a" in help_text
+    assert "LONG n/a" in help_text
+    assert "FULL n/a" in help_text

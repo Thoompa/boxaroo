@@ -756,3 +756,204 @@ def test_get_product_string_from_element_converts_non_string_shadow_result(woolw
     woolworths.driver.script_response = 0
     result = woolworths._get_product_string_from_element(EmptyTextElement())
     assert isinstance(result, str)
+
+
+# ============================================================
+# SEAM: get_data orchestration loop
+# ============================================================
+
+
+def test_get_data_stores_products_for_each_category_and_accumulates_count(
+    file_handler, logger, web_driver
+):
+    """
+    Test that get_data:
+    - Calls store_data once per category with that category's products
+    - Accumulates product count correctly across all categories
+    - Logs the final total
+    """
+    woolworths = Woolworths(
+        file_handler=file_handler, logger=logger, web_driver=web_driver
+    )
+
+    # Mock _get_all_categories to return 3 categories
+    woolworths._get_all_categories = lambda *args, **kwargs: [
+        "fruit-veg",
+        "pantry",
+        "bakery",
+    ]
+
+    # Set up driver responses for the 3 categories
+    responses = [
+        {
+            "products": [
+                ["Apple each", "$1.00", "$1.00 / 1EA", ""],
+                ["Orange each", "$0.80", "$0.80 / 1EA", ""],
+            ],
+            "incomplete_items": [],
+            "page_stats": [],
+        },
+        {
+            "products": [
+                ["Rice 1kg", "$2.50", "$2.50 / 1KG", ""],
+            ],
+            "incomplete_items": [],
+            "page_stats": [],
+        },
+        {
+            "products": [
+                ["Bread each", "$3.50", "$3.50 / 1EA", ""],
+                ["Croissant each", "$2.00", "$2.00 / 1EA", ""],
+                ["Bagel each", "$1.50", "$1.50 / 1EA", ""],
+            ],
+            "incomplete_items": [],
+            "page_stats": [],
+        },
+    ]
+
+    response_iter = iter(responses)
+
+    def mock_get_products(_callback=None):
+        return next(response_iter)
+
+    web_driver.get_products = mock_get_products
+
+    # Call get_data
+    woolworths.get_data(list_size=ListSize.TESTING)
+
+    # Assert store_data was called 3 times (once per category)
+    assert len(file_handler.saved) == 3
+
+    # Assert each saved batch has the correct products
+    assert len(file_handler.saved[0]) == 2  # fruit-veg
+    assert file_handler.saved[0][0][0] == "Apple each"
+    assert file_handler.saved[0][1][0] == "Orange each"
+
+    assert len(file_handler.saved[1]) == 1  # pantry
+    assert file_handler.saved[1][0][0] == "Rice 1kg"
+
+    assert len(file_handler.saved[2]) == 3  # bakery
+    assert file_handler.saved[2][0][0] == "Bread each"
+    assert file_handler.saved[2][2][0] == "Bagel each"
+
+    # Assert final log message shows correct total (2 + 1 + 3 = 6)
+    log_records = logger.records
+    final_log = [msg for level, msg in log_records if "Successfully scraped" in msg]
+    assert len(final_log) > 0
+    assert "6 products" in final_log[0]
+
+
+def test_get_data_continues_on_category_exception(file_handler, logger, web_driver):
+    """
+    Test that get_data continues processing categories even when one raises.
+    This is critical before Ticket 3 restructures the orchestration loop.
+    When _get_category_data catches an exception, it returns an error dict
+    with empty products, and store_data is still called (with []).
+    This test verifies the loop continues despite one category failing.
+    """
+    woolworths = Woolworths(
+        file_handler=file_handler, logger=logger, web_driver=web_driver
+    )
+
+    woolworths._get_all_categories = lambda *args, **kwargs: [
+        "fruit-veg",
+        "pantry",
+        "bakery",
+    ]
+
+    # Mock _get_category_data to return error dict for pantry but succeed on others
+    call_count = {"n": 0}
+
+    def failing_get_category_data(category_url: str):
+        call_count["n"] += 1
+        # Pantry returns empty/error dict (as if exception occurred)
+        if "pantry" in category_url:
+            return {
+                "category": category_url,
+                "total": 0,
+                "products": [],
+                "incomplete_items": [],
+                "scraped": 0,
+                "incomplete": 0,
+            }
+
+        # Return successful data for fruit-veg and bakery
+        if "fruit-veg" in category_url:
+            return {
+                "category": category_url,
+                "total": 1,
+                "products": [["Apple each", "$1.00", "$1.00 / 1EA", ""]],
+                "incomplete_items": [],
+                "scraped": 1,
+                "incomplete": 0,
+            }
+        else:  # bakery
+            return {
+                "category": category_url,
+                "total": 1,
+                "products": [["Bread each", "$3.50", "$3.50 / 1EA", ""]],
+                "incomplete_items": [],
+                "scraped": 1,
+                "incomplete": 0,
+            }
+
+    woolworths._get_category_data = failing_get_category_data
+
+    # Call get_data
+    woolworths.get_data(list_size=ListSize.TESTING)
+
+    # Assert that store_data was called 3 times (once per category)
+    # For pantry, it's called with [] due to the error dict
+    assert len(file_handler.saved) == 3
+
+    # fruit-veg: 1 product
+    assert len(file_handler.saved[0]) == 1
+    assert file_handler.saved[0][0][0] == "Apple each"
+
+    # pantry: empty (from error)
+    assert len(file_handler.saved[1]) == 0
+
+    # bakery: 1 product
+    assert len(file_handler.saved[2]) == 1
+    assert file_handler.saved[2][0][0] == "Bread each"
+
+    # Final log should show only 2 products (apple + bread, not pantry's 0)
+    log_records = logger.records
+    final_log = [msg for level, msg in log_records if "Successfully scraped" in msg]
+    assert len(final_log) > 0
+    assert "2 products" in final_log[0]
+
+
+# ============================================================
+# SEAM: Product parser boundary – all-Empty product skipped
+# ============================================================
+
+
+def test_get_products_data_skips_product_when_all_fields_are_empty(woolworths):
+    """
+    Test that a product with all empty fields (no name, no price, no unit_price, no promo)
+    is silently skipped and logged as debug. This behavior is critical because Ticket 2
+    will extract ProductParser, and the skip gate must stay in _get_products_data,
+    not migrate into the parser.
+    """
+
+    def fake_get_string(element):
+        # Element yields text that parses to all empty fields
+        if element == "empty_elem":
+            return "\n\n\n"  # Just newlines -> parses to ["", "", "", ""]
+        return "Normal Product\n$1.00\n$1.00 / 1EA\n"
+
+    woolworths._get_product_string_from_element = fake_get_string
+
+    result = woolworths._get_products_data(["empty_elem", "good_elem"])
+
+    # Assert the empty product was skipped
+    assert len(result["products"]) == 1
+    assert result["products"][0][0] == "Normal Product"
+
+    # Assert a skip debug message was logged
+    debug_records = [
+        msg for level, msg in woolworths.logger.records if level == "DEBUG"
+    ]
+    skip_logs = [msg for msg in debug_records if "Skipped empty product" in msg]
+    assert len(skip_logs) > 0
