@@ -783,40 +783,42 @@ def test_get_data_stores_products_for_each_category_and_accumulates_count(
         "bakery",
     ]
 
-    # Set up driver responses for the 3 categories
-    responses = [
-        {
+    # Mock category-level results directly so this test isolates get_data loop behavior.
+    category_data = {
+        "fruit-veg": {
+            "category": "fruit-veg",
+            "total": 2,
             "products": [
                 ["Apple each", "$1.00", "$1.00 / 1EA", ""],
                 ["Orange each", "$0.80", "$0.80 / 1EA", ""],
             ],
             "incomplete_items": [],
-            "page_stats": [],
+            "scraped": 2,
+            "incomplete": 0,
         },
-        {
-            "products": [
-                ["Rice 1kg", "$2.50", "$2.50 / 1KG", ""],
-            ],
+        "pantry": {
+            "category": "pantry",
+            "total": 1,
+            "products": [["Rice 1kg", "$2.50", "$2.50 / 1KG", ""]],
             "incomplete_items": [],
-            "page_stats": [],
+            "scraped": 1,
+            "incomplete": 0,
         },
-        {
+        "bakery": {
+            "category": "bakery",
+            "total": 3,
             "products": [
                 ["Bread each", "$3.50", "$3.50 / 1EA", ""],
                 ["Croissant each", "$2.00", "$2.00 / 1EA", ""],
                 ["Bagel each", "$1.50", "$1.50 / 1EA", ""],
             ],
             "incomplete_items": [],
-            "page_stats": [],
+            "scraped": 3,
+            "incomplete": 0,
         },
-    ]
+    }
 
-    response_iter = iter(responses)
-
-    def mock_get_products(_callback=None):
-        return next(response_iter)
-
-    web_driver.get_products = mock_get_products
+    woolworths._get_category_data = lambda category: category_data[category]
 
     # Call get_data
     woolworths.get_data(list_size=ListSize.TESTING)
@@ -905,6 +907,7 @@ def test_get_data_continues_on_category_exception(file_handler, logger, web_driv
     # Assert that store_data was called 3 times (once per category)
     # For pantry, it's called with [] due to the error dict
     assert len(file_handler.saved) == 3
+    assert call_count["n"] == 3
 
     # fruit-veg: 1 product
     assert len(file_handler.saved[0]) == 1
