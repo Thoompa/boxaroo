@@ -73,3 +73,81 @@ def test_get_products_advances_using_next_href(monkeypatch):
     assert result["products"] == ["A", "B", "C", "D"]
     assert len(result["page_stats"]) == 2
     assert result["page_stats"][1]["page"] == 2
+
+
+# ============================================================
+# SEAM: Driver boundary – get_category_total_items edge cases
+# ============================================================
+
+
+def test_get_category_total_items_returns_none_for_empty_text():
+    driver = DummyWebDriverShell()
+    driver._category_total_script_response = ""
+
+    total = driver.get_category_total_items()
+
+    assert total is None
+
+
+def test_get_category_total_items_returns_none_for_non_numeric_text():
+    driver = DummyWebDriverShell()
+    driver._category_total_script_response = "No products found"
+
+    # "No products found" has no digit patterns that match any extractor
+    total = driver.get_category_total_items()
+
+    assert total is None
+
+
+def test_get_category_total_items_returns_none_when_script_returns_none():
+    driver = DummyWebDriverShell()
+    driver._category_total_script_response = None
+
+    total = driver.get_category_total_items()
+
+    assert total is None
+
+
+# ============================================================
+# SEAM: Driver boundary – get_products payload contract
+# ============================================================
+
+
+def test_get_products_payload_always_contains_required_keys():
+    driver = DummyWebDriverShell(
+        products_response={
+            "products": [],
+            "incomplete_items": [],
+            "page_stats": [],
+        }
+    )
+
+    result = driver.get_products(lambda x: {"products": [], "incomplete_items": []})
+
+    assert "products" in result
+    assert "incomplete_items" in result
+    assert "page_stats" in result
+
+
+def test_get_products_page_stats_track_incomplete_count():
+    driver = DummyWebDriverShell(
+        products_response={
+            "products": ["A", "B"],
+            "incomplete_items": [
+                {"name": "A", "missing": ["price"]},
+                {"name": "B", "missing": ["unit_price"]},
+            ],
+            "page_stats": [
+                {"page": 1, "product_tiles": 2, "scraped": 2, "incomplete": 2}
+            ],
+        }
+    )
+
+    result = driver.get_products(
+        lambda x: {
+            "products": ["A", "B"],
+            "incomplete_items": [{"name": "A", "missing": ["price"]}],
+        }
+    )
+
+    assert result["page_stats"][0]["incomplete"] == 2
