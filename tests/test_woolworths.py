@@ -472,7 +472,7 @@ def test_ensure_extended_lists_preserves_existing_medium_and_long(woolworths):
     assert result["long"] == ["fruit-veg", "pantry", "pet"]
 
 
-def test_get_all_categories_falls_back_to_defaults_when_no_cache_and_exception(
+def test_get_all_categories_falls_back_to_default_lists_when_no_cache_and_exception(
     woolworths, tmp_path
 ):
     woolworths.category_lists_cache_path = str(tmp_path / "nope.json")
@@ -696,9 +696,7 @@ def test_get_category_data_uses_scraped_count_when_total_is_none(
 # ============================================================
 
 
-def test_get_products_data_timeout_error_triggers_reload_and_continues(
-    woolworths, web_driver
-):
+def test_get_products_data_timeout_error_triggers_reload_and_continues(woolworths):
     call_count = {"n": 0}
 
     def fake_get_string(element):
@@ -711,7 +709,7 @@ def test_get_products_data_timeout_error_triggers_reload_and_continues(
 
     result = woolworths._get_products_data(["elem1", "elem2"])
 
-    assert any(c[0] == "reload_page" for c in web_driver.called)
+    assert any(c[0] == "reload_page" for c in woolworths.driver.called)
     assert len(result["products"]) == 1
     assert result["products"][0][0] == "Normal Product each"
 

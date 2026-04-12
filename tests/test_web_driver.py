@@ -113,41 +113,45 @@ def test_get_category_total_items_returns_none_when_script_returns_none():
 # ============================================================
 
 
-def test_get_products_payload_always_contains_required_keys():
-    driver = DummyWebDriverShell(
-        products_response={
-            "products": [],
-            "incomplete_items": [],
-            "page_stats": [],
-        }
-    )
+def test_get_products_payload_always_contains_required_keys(monkeypatch):
+    monkeypatch.setattr(web_driver_module, "WebDriverWait", DummyWait)
+    monkeypatch.setattr(web_driver_module.time, "sleep", lambda _: None)
+    monkeypatch.setattr(web_driver_module.random, "uniform", lambda a, b: 0)
 
-    result = driver.get_products(lambda x: {"products": [], "incomplete_items": []})
+    # Run the production method, not the helper passthrough.
+    driver = DummyWebDriverShell()
+    driver.driver = FakeSeleniumDriver()
+
+    result = WebDriver.get_products(
+        driver,
+        lambda elements: {
+            "products": list(elements),
+            "incomplete_items": [{"name": "A", "missing": ["unit_price"]}],
+        },
+    )
 
     assert "products" in result
     assert "incomplete_items" in result
     assert "page_stats" in result
 
 
-def test_get_products_page_stats_track_incomplete_count():
-    driver = DummyWebDriverShell(
-        products_response={
-            "products": ["A", "B"],
-            "incomplete_items": [
-                {"name": "A", "missing": ["price"]},
-                {"name": "B", "missing": ["unit_price"]},
-            ],
-            "page_stats": [
-                {"page": 1, "product_tiles": 2, "scraped": 2, "incomplete": 2}
-            ],
-        }
+def test_get_products_page_stats_track_incomplete_count(monkeypatch):
+    monkeypatch.setattr(web_driver_module, "WebDriverWait", DummyWait)
+    monkeypatch.setattr(web_driver_module.time, "sleep", lambda _: None)
+    monkeypatch.setattr(web_driver_module.random, "uniform", lambda a, b: 0)
+
+    # Use two pages from FakeSeleniumDriver and assert production page_stats math.
+    driver = DummyWebDriverShell()
+    driver.driver = FakeSeleniumDriver()
+
+    result = WebDriver.get_products(
+        driver,
+        lambda elements: {
+            "products": list(elements),
+            "incomplete_items": [{"name": elements[0], "missing": ["price"]}],
+        },
     )
 
-    result = driver.get_products(
-        lambda x: {
-            "products": ["A", "B"],
-            "incomplete_items": [{"name": "A", "missing": ["price"]}],
-        }
-    )
-
-    assert result["page_stats"][0]["incomplete"] == 2
+    assert len(result["page_stats"]) == 2
+    assert result["page_stats"][0]["incomplete"] == 1
+    assert result["page_stats"][1]["incomplete"] == 1
