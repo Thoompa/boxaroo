@@ -684,16 +684,18 @@ def test_get_products_data_skips_empty_payload_and_continues(woolworths):
     assert result["products"][0][0] == "Normal Product each"
 
 
-def test_get_products_data_handles_plain_text_payloads_end_to_end(woolworths):
-    result = woolworths._get_products_data(
-        [
-            "\n\n",
-            "Good Product each\n$1.00\n$1.00 / 1EA\n",
-        ]
-    )
+def test_get_products_data_handles_multiple_valid_plain_text_payloads(woolworths):
+    payloads = [
+        "$2.00\n$2.00 / 1EA\nApple each\n",
+        "$3.50\n$1.75 / 1EA\n2 for $3.50\nBread each\n",
+    ]
+    result = woolworths._get_products_data(payloads)
 
-    assert len(result["products"]) == 1
-    assert result["products"][0][0] == "Good Product each"
+    assert len(result["products"]) == 2
+    assert result["products"][0][0] == "Apple each"
+    assert result["products"][0][1] == "$2.00"
+    assert result["products"][1][0] == "Bread each"
+    assert result["products"][1][3] == "2 for $3.50"
 
 
 # ============================================================

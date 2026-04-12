@@ -203,6 +203,8 @@ class WebDriver(IWebDriver):
 
         try:
             text = element.text or ""
+        except TimeoutError:
+            raise
         except Exception:
             text = ""
 
@@ -220,6 +222,8 @@ class WebDriver(IWebDriver):
         """
         try:
             text = self.driver.execute_script(shadow_script, element)
+        except TimeoutError:
+            raise
         except Exception:
             text = ""
 
@@ -264,10 +268,18 @@ class WebDriver(IWebDriver):
 
             # Get all product tiles
             product_elements = self.driver.find_elements(By.TAG_NAME, "wc-product-tile")
-            product_payloads = [
-                self._extract_text_from_product_element(element)
-                for element in product_elements
-            ]
+            product_payloads = []
+            extraction_failures = 0
+            for element in product_elements:
+                try:
+                    product_payloads.append(
+                        self._extract_text_from_product_element(element)
+                    )
+                except TimeoutError:
+                    extraction_failures += 1
+                    self.reload_page()
+                except Exception:
+                    extraction_failures += 1
 
             page_products_count = 0
             page_incomplete_count = 0
@@ -287,7 +299,8 @@ class WebDriver(IWebDriver):
             page_stats.append(
                 {
                     "page": page_number,
-                    "product_tiles": len(product_payloads),
+                    "product_tiles": len(product_elements),
+                    "extraction_failures": extraction_failures,
                     "scraped": page_products_count,
                     "incomplete": page_incomplete_count,
                 }
