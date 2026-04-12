@@ -489,19 +489,16 @@ class Woolworths(ISuperMarket):
                 "incomplete": 0,
             }
 
-    def _get_products_data(self, products) -> dict:
+    def _get_products_data(self, products: List[str]) -> dict:
         products_data = []
         incomplete_items = []
         self.logger.log("Reading product data for {0} products".format(len(products)))
         self.logger.debug("Reading product data for - {0}".format(products))
 
-        for i, product_element in enumerate(products):
+        for i, product_text in enumerate(products):
             try:
-                self.logger.debug(
-                    "Reading data for product - {0}".format(product_element)
-                )
-                text = self._get_product_string_from_element(product_element)
-                parsed_product = self._parse_product_data(text)
+                self.logger.debug("Reading data for product - {0}".format(product_text))
+                parsed_product = self._parse_product_data(product_text)
                 if parsed_product:
                     product_name, price, unit_price, promotion = parsed_product
 
@@ -534,12 +531,6 @@ class Woolworths(ISuperMarket):
                             )
                     else:
                         self.logger.debug(f"Skipped empty product data at index {i}")
-
-            except TimeoutError as e:
-                msg = getattr(e, "msg", None) or str(e) or repr(e)
-                self.logger.debug("Timeout error!")
-                self.logger.error(f"{type(e).__name__}: {msg}")
-                self.driver.reload_page()
 
             except Exception as e:
                 msg = getattr(e, "msg", None) or str(e) or repr(e)
@@ -648,44 +639,3 @@ class Woolworths(ISuperMarket):
                     break
 
         return [product_name, price, unit_price, promotion]
-
-    def _get_product_string_from_element(self, element) -> str:
-        """Extract product text from a WebElement (wc-product-tile)"""
-        try:
-            if element is None:
-                return ""
-
-            text = ""
-            try:
-                text = element.text or ""
-            except Exception:
-                text = ""
-
-            if isinstance(text, str) and text.strip():
-                self.logger.debug(f"Element text: '{text[:200]}...'")
-                return text.strip()
-
-            # If no text, try to access shadow root
-            shadow_script = """
-            var element = arguments[0];
-            if (element && element.shadowRoot) {
-                var section = element.shadowRoot.querySelector("section > div");
-                return section ? section.textContent.trim() : "";
-            }
-            return "";
-            """
-            text = self.driver.execute_script(shadow_script, element)
-
-            if isinstance(text, str) and text.strip():
-                self.logger.debug(f"Shadow root text: '{text[:200]}...'")
-                return text.strip()
-
-            # Very rarely element might itself be a string-like object
-            if not isinstance(text, str):
-                text = str(text)
-
-            return text.strip()
-
-        except Exception as e:
-            self.logger.debug(f"Error extracting text from element: {e}")
-            return ""

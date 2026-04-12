@@ -1,3 +1,4 @@
+import pytest
 from web_driver import WebDriver
 import web_driver as web_driver_module
 from tests.test_helpers import (
@@ -155,3 +156,152 @@ def test_get_products_page_stats_track_incomplete_count(monkeypatch):
     assert len(result["page_stats"]) == 2
     assert result["page_stats"][0]["incomplete"] == 1
     assert result["page_stats"][1]["incomplete"] == 1
+
+
+def test_get_products_callback_receives_plain_string_payloads(monkeypatch):
+    monkeypatch.setattr(web_driver_module, "WebDriverWait", DummyWait)
+    monkeypatch.setattr(web_driver_module.time, "sleep", lambda _: None)
+    monkeypatch.setattr(web_driver_module.random, "uniform", lambda a, b: 0)
+
+    driver = DummyWebDriverShell()
+    driver.driver = FakeSeleniumDriver()
+
+    seen_payloads = []
+
+    def callback(product_texts):
+        seen_payloads.extend(product_texts)
+        return {"products": list(product_texts), "incomplete_items": []}
+
+    WebDriver.get_products(driver, callback)
+
+    assert seen_payloads == ["A", "B", "C", "D"]
+    assert all(isinstance(item, str) for item in seen_payloads)
+
+
+# ============================================================
+# SEAM: Adapter boundary – _extract_text_from_product_element
+# ============================================================
+
+
+def test_extract_text_returns_empty_for_none_element():
+    driver = DummyWebDriverShell()
+    result = WebDriver._extract_text_from_product_element(driver, None)
+    assert result == ""
+
+
+def test_extract_text_returns_stripped_string_passthrough():
+    driver = DummyWebDriverShell()
+    result = WebDriver._extract_text_from_product_element(driver, "  Milk 2L  ")
+    assert result == "Milk 2L"
+
+
+def test_extract_text_uses_element_dot_text():
+    driver = DummyWebDriverShell()
+
+    class FakeElement:
+        text = "Bread 1 loaf\n$3.00\n$3.00 / 1EA"
+
+    result = WebDriver._extract_text_from_product_element(driver, FakeElement())
+    assert result == "Bread 1 loaf\n$3.00\n$3.00 / 1EA"
+
+
+def test_extract_text_shadow_root_fallback_when_text_is_empty():
+    driver = DummyWebDriverShell()
+
+    class FakeInnerDriver:
+        def execute_script(self, script, *args):
+            return "Shadow Product 500g"
+
+    driver.driver = FakeInnerDriver()
+
+    class EmptyTextElement:
+        text = ""
+
+    result = WebDriver._extract_text_from_product_element(driver, EmptyTextElement())
+    assert result == "Shadow Product 500g"
+
+
+def test_extract_text_falls_through_to_shadow_when_text_raises():
+    driver = DummyWebDriverShell()
+
+    class FakeInnerDriver:
+        def execute_script(self, script, *args):
+            return "Shadow Product 500g"
+
+    driver.driver = FakeInnerDriver()
+
+    class BrokenTextElement:
+        @property
+        def text(self):
+            raise AttributeError("no text attribute")
+
+    result = WebDriver._extract_text_from_product_element(driver, BrokenTextElement())
+    assert result == "Shadow Product 500g"
+
+
+def test_extract_text_stringifies_non_string_shadow_result():
+    driver = DummyWebDriverShell()
+
+    class FakeInnerDriver:
+        def execute_script(self, script, *args):
+            return 42
+
+    driver.driver = FakeInnerDriver()
+
+    class EmptyTextElement:
+        text = ""
+
+    result = WebDriver._extract_text_from_product_element(driver, EmptyTextElement())
+    assert isinstance(result, str)
+
+
+def test_extract_text_propagates_timeout_error_from_shadow_root():
+    driver = DummyWebDriverShell()
+
+    class FakeInnerDriver:
+        def execute_script(self, script, *args):
+            raise TimeoutError("stale element")
+
+    driver.driver = FakeInnerDriver()
+
+    class EmptyTextElement:
+        text = ""
+
+    with pytest.raises(TimeoutError):
+        WebDriver._extract_text_from_product_element(driver, EmptyTextElement())
+
+
+def test_get_products_reloads_page_on_per_element_timeout(monkeypatch):
+    monkeypatch.setattr(web_driver_module, "WebDriverWait", DummyWait)
+    monkeypatch.setattr(web_driver_module.time, "sleep", lambda _: None)
+    monkeypatch.setattr(web_driver_module.random, "uniform", lambda a, b: 0)
+
+    driver = DummyWebDriverShell()
+    driver.driver = FakeSeleniumDriver()
+
+    reload_calls = []
+    driver.reload_page = lambda: reload_calls.append(1)
+
+    call_count = {"n": 0}
+
+    def patched_extract(element):
+        call_count["n"] += 1
+        if call_count["n"] == 1:
+            raise TimeoutError("element stale")
+        return str(element)
+
+    driver._extract_text_from_product_element = patched_extract
+
+    result = WebDriver.get_products(
+        driver, lambda texts: {"products": list(texts), "incomplete_items": []}
+    )
+
+    assert len(reload_calls) == 1
+    assert result["products"] == ["B", "C", "D"]
+    assert len(result["page_stats"]) == 2
+    assert result["page_stats"][0]["product_tiles"] == 2
+    assert result["page_stats"][0]["extraction_failures"] == 1
+    assert result["page_stats"][0]["scraped"] == 1
+    assert result["page_stats"][1]["product_tiles"] == 2
+    assert result["page_stats"][1]["extraction_failures"] == 0
+    assert result["page_stats"][1]["scraped"] == 2

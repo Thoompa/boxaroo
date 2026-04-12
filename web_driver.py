@@ -18,7 +18,17 @@ class IWebDriver(ABC):
         pass
 
     @abstractmethod
-    def get_products(self, _callback: Callable[[Any], dict] | None = None) -> dict:
+    def get_products(
+        self, _callback: Callable[[list[str]], dict | list] | None = None
+    ) -> dict:
+        """Fetch products across pages and return a plain-data payload.
+
+        The callback receives a list of product text strings extracted from
+        `wc-product-tile` elements. It can return either a list of products
+        or a dict with 'products' and 'incomplete_items' keys. The production
+        method will aggregate these across pages and return a final dict with
+        'products', 'incomplete_items', and 'page_stats'.
+        """
         pass
 
     @abstractmethod
@@ -183,7 +193,55 @@ class WebDriver(IWebDriver):
         except Exception:
             return False
 
-    def get_products(self, _callback: Callable[[Any], dict] | None = None) -> dict:
+    def _extract_text_from_product_element(self, element: Any) -> str:
+        """Return plain product text from a Selenium tile element."""
+        if element is None:
+            return ""
+
+        if isinstance(element, str):
+            return element.strip()
+
+        try:
+            text = element.text or ""
+        except TimeoutError:
+            raise
+        except Exception:
+            text = ""
+
+        if isinstance(text, str) and text.strip():
+            return text.strip()
+
+        # If direct text is empty, fallback to shadow root extraction.
+        shadow_script = """
+        var element = arguments[0];
+        if (element && element.shadowRoot) {
+            var section = element.shadowRoot.querySelector("section > div");
+            return section ? section.textContent.trim() : "";
+        }
+        return "";
+        """
+        try:
+            text = self.driver.execute_script(shadow_script, element)
+        except TimeoutError:
+            raise
+        except Exception:
+            text = ""
+
+        if text is None:
+            return ""
+
+        if isinstance(text, str):
+            return text.strip()
+
+        try:
+            return str(text).strip()
+        except Exception:
+            return ""
+
+    def get_products(
+        self, _callback: Callable[[list[str]], dict | list] | None = None
+    ) -> dict:
+        """Paginate product tiles and expose only plain text payloads to callback."""
         all_data = []
         all_incomplete = []
         page_stats = []
@@ -210,11 +268,23 @@ class WebDriver(IWebDriver):
 
             # Get all product tiles
             product_elements = self.driver.find_elements(By.TAG_NAME, "wc-product-tile")
+            product_payloads = []
+            extraction_failures = 0
+            for element in product_elements:
+                try:
+                    product_payloads.append(
+                        self._extract_text_from_product_element(element)
+                    )
+                except TimeoutError:
+                    extraction_failures += 1
+                    self.reload_page()
+                except Exception:
+                    extraction_failures += 1
 
             page_products_count = 0
             page_incomplete_count = 0
             if _callback:
-                callback_result = _callback(product_elements)
+                callback_result = _callback(product_payloads)
                 if isinstance(callback_result, dict):
                     products = callback_result.get("products", [])
                     incomplete_items = callback_result.get("incomplete_items", [])
@@ -230,6 +300,7 @@ class WebDriver(IWebDriver):
                 {
                     "page": page_number,
                     "product_tiles": len(product_elements),
+                    "extraction_failures": extraction_failures,
                     "scraped": page_products_count,
                     "incomplete": page_incomplete_count,
                 }

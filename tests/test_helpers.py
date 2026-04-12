@@ -67,15 +67,6 @@ class DummyWebDriver:
         return self.category_total_items
 
 
-class DummyElement:
-    def __init__(self, text):
-        self._text = text
-
-    @property
-    def text(self):
-        return self._text
-
-
 class DummySupermarket:
     def __init__(self, logger, logic=None):
         self.logger = logger

@@ -4,7 +4,6 @@ import pytest
 from isupermarket import ListSize
 from woolworths import Woolworths
 from tests.test_helpers import (
-    DummyElement,
     DummyFileHandler,
     DummyLogger,
     DummyWebDriver,
@@ -69,27 +68,10 @@ def test_parse_product_data_non_string(woolworths):
     assert parsed == ["", "", "", ""]
 
 
-def test_get_product_string_from_element_with_shadow_root(woolworths):
-    # Simulate a layout where element text is empty, but JavaScript from shadow root returns data
-    element = DummyElement("")
-    woolworths.driver.script_response = "$0.50\n$0.50 / 1EA\nTest Product each\n"
-
-    out = woolworths._get_product_string_from_element(element)
-
-    assert "Test Product each" in out
-
-
 def test_get_products_data_incomplete_tracking(woolworths):
     product_inputs = ["$2.00\nProduct One each\n", "Product Two each\n$1.00 / 1EA\n"]
 
-    # Force _get_product_string_from_element to return our test text per element
-    def fake_get_product_string(element):
-        return element
-
-    woolworths._get_product_string_from_element = fake_get_product_string
-
-    fake_elements = product_inputs
-    result = woolworths._get_products_data(fake_elements)
+    result = woolworths._get_products_data(product_inputs)
 
     assert isinstance(result, dict)
     assert len(result["products"]) == 2
@@ -617,13 +599,7 @@ def test_parse_product_data_out_of_stock_label_filtered_from_name(woolworths):
 
 def test_get_products_data_uses_unit_price_as_price_fallback(woolworths):
     # Product text has unit_price but no standalone price
-    def fake_get_string(element):
-        return element
-
-    woolworths._get_product_string_from_element = fake_get_string
-
-    elements = ["Some Product each\n$2.50 / 1KG\n"]
-    result = woolworths._get_products_data(elements)
+    result = woolworths._get_products_data(["Some Product each\n$2.50 / 1KG\n"])
 
     assert len(result["products"]) == 1
     product = result["products"][0]
@@ -696,66 +672,30 @@ def test_get_category_data_uses_scraped_count_when_total_is_none(
 # ============================================================
 
 
-def test_get_products_data_timeout_error_triggers_reload_and_continues(woolworths):
-    call_count = {"n": 0}
+def test_get_products_data_skips_empty_payload_and_continues(woolworths):
+    result = woolworths._get_products_data(
+        [
+            "\n\n",
+            "Normal Product each\n$1.00\n$1.00 / 1EA\n",
+        ]
+    )
 
-    def fake_get_string(element):
-        call_count["n"] += 1
-        if call_count["n"] == 1:
-            raise TimeoutError("timed out")
-        return "Normal Product each\n$1.00\n$1.00 / 1EA\n"
-
-    woolworths._get_product_string_from_element = fake_get_string
-
-    result = woolworths._get_products_data(["elem1", "elem2"])
-
-    assert any(c[0] == "reload_page" for c in woolworths.driver.called)
     assert len(result["products"]) == 1
     assert result["products"][0][0] == "Normal Product each"
 
 
-def test_get_products_data_generic_exception_skips_item_and_continues(woolworths):
-    def fake_get_string(element):
-        if element == "bad_elem":
-            raise ValueError("unexpected parse error")
-        return "Good Product each\n$1.00\n$1.00 / 1EA\n"
+def test_get_products_data_handles_multiple_valid_plain_text_payloads(woolworths):
+    payloads = [
+        "$2.00\n$2.00 / 1EA\nApple each\n",
+        "$3.50\n$1.75 / 1EA\n2 for $3.50\nBread each\n",
+    ]
+    result = woolworths._get_products_data(payloads)
 
-    woolworths._get_product_string_from_element = fake_get_string
-
-    result = woolworths._get_products_data(["bad_elem", "good_elem"])
-
-    assert len(result["products"]) == 1
-    assert result["products"][0][0] == "Good Product each"
-
-
-def test_get_product_string_from_element_returns_empty_when_element_is_none(woolworths):
-    result = woolworths._get_product_string_from_element(None)
-    assert result == ""
-
-
-def test_get_product_string_from_element_falls_through_to_shadow_when_text_raises(
-    woolworths,
-):
-    class BrokenTextElement:
-        @property
-        def text(self):
-            raise AttributeError("no text attribute")
-
-    woolworths.driver.script_response = "Shadow Product 500g"
-    result = woolworths._get_product_string_from_element(BrokenTextElement())
-    assert result == "Shadow Product 500g"
-
-
-def test_get_product_string_from_element_converts_non_string_shadow_result(woolworths):
-    class EmptyTextElement:
-        @property
-        def text(self):
-            return ""
-
-    # Shadow root script returns a non-string (e.g. 0)
-    woolworths.driver.script_response = 0
-    result = woolworths._get_product_string_from_element(EmptyTextElement())
-    assert isinstance(result, str)
+    assert len(result["products"]) == 2
+    assert result["products"][0][0] == "Apple each"
+    assert result["products"][0][1] == "$2.00"
+    assert result["products"][1][0] == "Bread each"
+    assert result["products"][1][3] == "2 for $3.50"
 
 
 # ============================================================
@@ -940,15 +880,9 @@ def test_get_products_data_skips_product_when_all_fields_are_empty(woolworths):
     not migrate into the parser.
     """
 
-    def fake_get_string(element):
-        # Element yields text that parses to all empty fields
-        if element == "empty_elem":
-            return "\n\n\n"  # Just newlines -> parses to ["", "", "", ""]
-        return "Normal Product\n$1.00\n$1.00 / 1EA\n"
-
-    woolworths._get_product_string_from_element = fake_get_string
-
-    result = woolworths._get_products_data(["empty_elem", "good_elem"])
+    result = woolworths._get_products_data(
+        ["\n\n\n", "Normal Product\n$1.00\n$1.00 / 1EA\n"]
+    )
 
     # Assert the empty product was skipped
     assert len(result["products"]) == 1
