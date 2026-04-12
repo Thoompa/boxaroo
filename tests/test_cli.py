@@ -183,3 +183,155 @@ def test_build_list_size_help_with_no_cache_returns_all_na(monkeypatch):
     assert "MEDIUM n/a" in help_text
     assert "LONG n/a" in help_text
     assert "FULL n/a" in help_text
+
+
+def test_main_quits_webdriver_on_success_and_preserves_output(monkeypatch):
+    logger = DummyLogger()
+    file_handler = DummyFileHandler()
+    web_driver = DummyWebDriver()
+    expected_products = [
+        {
+            "Product Name": "Milk",
+            "Price": "$4.00",
+            "Unit Price": "$2.00/L",
+            "Promotion": "",
+        }
+    ]
+
+    class FakeWoolworths:
+        def __init__(self, file_handler, logger, web_driver):
+            self._file_handler = file_handler
+
+        def get_data(self, list_size=None, refresh_category_lists=False):
+            self._file_handler.store_data(expected_products)
+
+    monkeypatch.setattr("cli.Woolworths", FakeWoolworths)
+
+    main(
+        headless=True,
+        logging_level=LoggingLevel.INFO,
+        default_list_size=ListSize.TESTING,
+        refresh_category_lists=False,
+        proxy_server=None,
+        file_handler=file_handler,
+        logger=logger,
+        web_driver=web_driver,
+    )
+
+    assert web_driver.called.count(("quit",)) == 1
+    assert file_handler.saved == [expected_products]
+    assert ("INFO", "WebDriver lifecycle start") in logger.records
+    assert ("INFO", "WebDriver lifecycle stop") in logger.records
+
+
+def test_main_quits_webdriver_when_get_data_raises(monkeypatch):
+    logger = DummyLogger()
+    file_handler = DummyFileHandler()
+    web_driver = DummyWebDriver()
+
+    class FailingWoolworths:
+        def __init__(self, file_handler, logger, web_driver):
+            pass
+
+        def get_data(self, list_size=None, refresh_category_lists=False):
+            raise RuntimeError("scrape failed")
+
+    monkeypatch.setattr("cli.Woolworths", FailingWoolworths)
+
+    with pytest.raises(RuntimeError, match="scrape failed"):
+        main(
+            headless=True,
+            logging_level=LoggingLevel.INFO,
+            default_list_size=ListSize.TESTING,
+            refresh_category_lists=False,
+            proxy_server=None,
+            file_handler=file_handler,
+            logger=logger,
+            web_driver=web_driver,
+        )
+
+    assert web_driver.called.count(("quit",)) == 1
+    assert ("INFO", "WebDriver lifecycle start") in logger.records
+    assert ("INFO", "WebDriver lifecycle stop") in logger.records
+
+
+def test_main_raises_quit_error_when_scrape_succeeds_and_quit_fails(monkeypatch):
+    logger = DummyLogger()
+    file_handler = DummyFileHandler()
+
+    class QuitFailingDriver(DummyWebDriver):
+        def quit(self):
+            self.called.append(("quit",))
+            raise RuntimeError("quit failed")
+
+    web_driver = QuitFailingDriver()
+
+    class SuccessfulWoolworths:
+        def __init__(self, file_handler, logger, web_driver):
+            pass
+
+        def get_data(self, list_size=None, refresh_category_lists=False):
+            return None
+
+    monkeypatch.setattr("cli.Woolworths", SuccessfulWoolworths)
+
+    with pytest.raises(RuntimeError, match="quit failed"):
+        main(
+            headless=True,
+            logging_level=LoggingLevel.INFO,
+            default_list_size=ListSize.TESTING,
+            refresh_category_lists=False,
+            proxy_server=None,
+            file_handler=file_handler,
+            logger=logger,
+            web_driver=web_driver,
+        )
+
+    assert web_driver.called.count(("quit",)) == 1
+    assert ("INFO", "WebDriver lifecycle start") in logger.records
+    assert ("INFO", "WebDriver lifecycle stop") not in logger.records
+    assert any(
+        level == "ERROR" and "WebDriver quit failed: quit failed" in message
+        for level, message in logger.records
+    )
+
+
+def test_main_preserves_scrape_error_when_quit_also_raises(monkeypatch):
+    logger = DummyLogger()
+    file_handler = DummyFileHandler()
+
+    class QuitFailingDriver(DummyWebDriver):
+        def quit(self):
+            self.called.append(("quit",))
+            raise RuntimeError("quit failed")
+
+    web_driver = QuitFailingDriver()
+
+    class FailingWoolworths:
+        def __init__(self, file_handler, logger, web_driver):
+            pass
+
+        def get_data(self, list_size=None, refresh_category_lists=False):
+            raise RuntimeError("scrape failed")
+
+    monkeypatch.setattr("cli.Woolworths", FailingWoolworths)
+
+    with pytest.raises(RuntimeError, match="scrape failed"):
+        main(
+            headless=True,
+            logging_level=LoggingLevel.INFO,
+            default_list_size=ListSize.TESTING,
+            refresh_category_lists=False,
+            proxy_server=None,
+            file_handler=file_handler,
+            logger=logger,
+            web_driver=web_driver,
+        )
+
+    assert web_driver.called.count(("quit",)) == 1
+    assert ("INFO", "WebDriver lifecycle start") in logger.records
+    assert ("INFO", "WebDriver lifecycle stop") not in logger.records
+    assert any(
+        level == "ERROR" and "WebDriver quit failed: quit failed" in message
+        for level, message in logger.records
+    )
