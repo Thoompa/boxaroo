@@ -84,20 +84,18 @@ def main(
     woollies = Woolworths(file_handler, logger, web_driver)
     logger.log("Running Boxaroo with list size - {0}".format(list_size))
     logger.log("WebDriver lifecycle start")
-    scrape_error: Exception | None = None
+    scrape_succeeded = False
 
     try:
         woollies.get_data(
             list_size=list_size, refresh_category_lists=refresh_category_lists
         )
-    except Exception as exc:
-        scrape_error = exc
-        raise
+        scrape_succeeded = True
     finally:
-        logger.log("WebDriver lifecycle stop")
         try:
             web_driver.quit()
+            logger.log("WebDriver lifecycle stop")
         except Exception as exc:
             logger.error(f"WebDriver quit failed: {exc}")
-            if scrape_error is None:
+            if scrape_succeeded:
                 raise
