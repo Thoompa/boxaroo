@@ -1,8 +1,8 @@
 import pytest
-from cli import _format_eta, build_list_size_help, main
-import cli as cli_module
-from isupermarket import ListSize
-from logger import LoggingLevel
+from Code.cli import _format_eta, build_list_size_help, main
+import Code.cli as cli_module
+from Code.isupermarket import ListSize
+from Code.logger import LoggingLevel
 from tests.test_helpers import (
     DummyLogger,
     DummyFileHandler,

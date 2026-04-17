@@ -3,7 +3,7 @@ from abc import ABC, abstractmethod
 import os
 from typing import Iterable, Sequence
 
-from logger import ILogger
+from Code.logger import ILogger
 
 
 class IFileHandler(ABC):

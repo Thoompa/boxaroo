@@ -132,9 +132,6 @@ This repository uses [pre-commit](https://pre-commit.com/) to enforce code quali
 
 Agents and automated tools should consult the following files for comprehensive project guidance, test plans, and development automation:
 
-- **.instructions.md** — Full development and environment setup guide for AI agents and automation tools
-- **TESTING.md** — Quick reference for all setup, test, and run commands
-- **BDD_TEST_PLAN.md** — Complete BDD (Given/When/Then) test plan, including implemented and planned scenarios
 - **scripts/dev_setup.sh** — Automated environment setup script
 
 These files provide:

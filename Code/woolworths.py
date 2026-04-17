@@ -3,11 +3,11 @@ import os
 import time
 from typing import List
 
-from product_parser import IProductParser
-from file_handler import IFileHandler
-from logger import ILogger
-from isupermarket import ISuperMarket, ListSize
-from web_driver import IWebDriver
+from Code.product_parser import IProductParser
+from Code.file_handler import IFileHandler
+from Code.logger import ILogger
+from Code.isupermarket import ISuperMarket, ListSize
+from Code.web_driver import IWebDriver
 
 
 class Woolworths(ISuperMarket):

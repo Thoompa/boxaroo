@@ -1,13 +1,13 @@
 import json
 import os
 
-from isupermarket import ListSize
-from product_parser import ProductParser
-from woolworths import Woolworths
-from file_handler import FileHandler
+from Code.isupermarket import ListSize
+from Code.product_parser import ProductParser
+from Code.woolworths import Woolworths
+from Code.file_handler import FileHandler
 from datetime import date
-from logger import Logger, LoggingLevel
-from web_driver import WebDriver
+from Code.logger import Logger, LoggingLevel
+from Code.web_driver import WebDriver
 
 
 def _load_list_product_totals() -> dict[str, int]:

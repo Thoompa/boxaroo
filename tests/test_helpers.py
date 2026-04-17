@@ -4,10 +4,10 @@ Shared dummy/mock classes for Boxaroo unit tests.
 """
 from typing import Any
 
-from file_handler import IFileHandler
-from logger import ILogger, LoggingLevel
-from product_parser import IProductParser, ProductParseResult
-from web_driver import WebDriver
+from Code.file_handler import IFileHandler
+from Code.logger import ILogger, LoggingLevel
+from Code.product_parser import IProductParser, ProductParseResult
+from Code.web_driver import WebDriver
 
 
 class DummyLogger(ILogger):

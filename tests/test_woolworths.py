@@ -1,8 +1,8 @@
 import json
 import pytest
 
-from isupermarket import ListSize
-from woolworths import Woolworths
+from Code.isupermarket import ListSize
+from Code.woolworths import Woolworths
 from tests.test_helpers import (
     DummyFileHandler,
     DummyLogger,
