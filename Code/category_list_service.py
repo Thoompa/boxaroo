@@ -162,7 +162,7 @@ class CategoryListService:
         loaded = self.load()
         if loaded is None:
             self.logger.error(
-                f"No category list cache found at {self.cache_path} - cannot provide fallback lists"
+                f"No usable category list cache available at {self.cache_path} - cannot provide fallback lists"
             )
             return {}
         return loaded
