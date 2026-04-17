@@ -5,6 +5,7 @@ import tomllib
 import pytest
 
 from isupermarket import ListSize
+from product_parser import ProductParser
 from tests.test_helpers import DummyFileHandler, DummyLogger
 from web_driver import WebDriver
 from woolworths import Woolworths
@@ -36,10 +37,14 @@ def test_live_woolworths_category_discovery_count_classification_and_cache(tmp_p
     logger = DummyLogger()
     file_handler = DummyFileHandler()
     driver = WebDriver(headless=False)
+    parser = ProductParser()
 
     try:
         woolworths = Woolworths(
-            file_handler=file_handler, logger=logger, web_driver=driver
+            file_handler=file_handler,
+            logger=logger,
+            web_driver=driver,
+            product_parser=parser,
         )
         cache_file = tmp_path / "woolworths-category-lists.json"
         woolworths.category_lists_cache_path = str(cache_file)
