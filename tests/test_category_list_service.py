@@ -275,11 +275,11 @@ def test_select_missing_key_returns_empty(service):
 
 
 # ============================================================
-# SEAM: get_default_lists
+# SEAM: load_cached_lists
 # ============================================================
 
 
-def test_get_default_lists_returns_loaded_cache_when_file_exists(service, cache_file):
+def test_load_cached_lists_returns_loaded_cache_when_file_exists(service, cache_file):
     cache_data = {
         "testing": ["fruit-veg"],
         "short": ["fruit-veg", "pantry"],
@@ -289,16 +289,16 @@ def test_get_default_lists_returns_loaded_cache_when_file_exists(service, cache_
     }
     cache_file.write_text(json.dumps(cache_data), encoding="utf-8")
 
-    result = service.get_default_lists()
+    result = service.load_cached_lists()
 
     assert result["testing"] == ["fruit-veg"]
     assert result["full"] == ["fruit-veg", "pantry", "pet"]
 
 
-def test_get_default_lists_logs_error_and_returns_empty_when_file_missing(
+def test_load_cached_lists_logs_error_and_returns_empty_when_file_missing(
     service, logger
 ):
-    result = service.get_default_lists()
+    result = service.load_cached_lists()
 
     assert result == {}
     assert any(level == "ERROR" for level, _ in logger.records)
