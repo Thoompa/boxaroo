@@ -9,6 +9,7 @@ from abc import ABC, abstractmethod
 from typing import Any, Callable
 import time
 import random
+from Code.isupermarket import ProductsData, ProductsPageResult
 
 
 class IWebDriver(ABC):
@@ -19,8 +20,9 @@ class IWebDriver(ABC):
 
     @abstractmethod
     def get_products(
-        self, _callback: Callable[[list[str]], dict | list] | None = None
-    ) -> dict:
+        self,
+        _callback: Callable[[list[str]], ProductsData | list[list[str]]] | None = None,
+    ) -> ProductsPageResult:
         """Fetch products across pages and return a plain-data payload.
 
         The callback receives a list of product text strings extracted from
@@ -239,8 +241,9 @@ class WebDriver(IWebDriver):
             return ""
 
     def get_products(
-        self, _callback: Callable[[list[str]], dict | list] | None = None
-    ) -> dict:
+        self,
+        _callback: Callable[[list[str]], ProductsData | list[list[str]]] | None = None,
+    ) -> ProductsPageResult:
         """Paginate product tiles and expose only plain text payloads to callback."""
         all_data = []
         all_incomplete = []

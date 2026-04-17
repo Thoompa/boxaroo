@@ -47,7 +47,7 @@ def test_live_woolworths_category_discovery_count_classification_and_cache(tmp_p
             product_parser=parser,
         )
         cache_file = tmp_path / "woolworths-category-lists.json"
-        woolworths.category_lists_cache_path = str(cache_file)
+        woolworths.category_list_service.cache_path = str(cache_file)
 
         # Force a real refresh path: discover categories, count each category page, classify, and persist cache.
         full_list = woolworths._get_all_categories(
