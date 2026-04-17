@@ -132,10 +132,6 @@ This repository uses [pre-commit](https://pre-commit.com/) to enforce code quali
 
 Agents and automated tools should consult the following files for comprehensive project guidance, test plans, and development automation:
 
-- **Agent/** — Primary folder for relevant AI material (agent definitions, role guides, and workflow notes)
-- **.instructions.md** — Full development and environment setup guide for AI agents and automation tools
-- **TESTING.md** — Quick reference for all setup, test, and run commands
-- **BDD_TEST_PLAN.md** — Complete BDD (Given/When/Then) test plan, including implemented and planned scenarios
 - **scripts/dev_setup.sh** — Automated environment setup script
 
 These files provide:
@@ -146,5 +142,3 @@ These files provide:
 - Project structure and file responsibilities
 
 Agents should always check these files before making changes, running tests, or performing code analysis.
-
-When agent-specific guidance exists, agents should check the Agent/ folder first, then use this README and the referenced docs for project-wide instructions.
