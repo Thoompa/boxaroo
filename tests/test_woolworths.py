@@ -204,7 +204,7 @@ def test_get_all_categories_uses_cache_when_selected_categories_match_site(
     }
     cache_file.write_text(json.dumps(cache_data), encoding="utf-8")
 
-    woolworths.category_list_service.cache_path = str(cache_file)
+    woolworths.category_lists_cache_path = str(cache_file)
     web_driver.script_response = [
         True,
         [
@@ -244,7 +244,7 @@ def test_get_all_categories_refreshes_when_selected_category_missing(
     }
     cache_file.write_text(json.dumps(cache_data), encoding="utf-8")
 
-    woolworths.category_list_service.cache_path = str(cache_file)
+    woolworths.category_lists_cache_path = str(cache_file)
     web_driver.script_response = [
         True,
         [
@@ -280,7 +280,7 @@ def test_get_all_categories_refreshes_when_testing_category_has_zero_items(
     }
     cache_file.write_text(json.dumps(cache_data), encoding="utf-8")
 
-    woolworths.category_list_service.cache_path = str(cache_file)
+    woolworths.category_lists_cache_path = str(cache_file)
     web_driver.script_response = [
         True,
         [
@@ -316,7 +316,7 @@ def test_get_all_categories_falls_back_to_cache_on_exception(woolworths, tmp_pat
         "full": ["fruit-veg", "pantry"],
     }
     cache_file.write_text(json.dumps(cache_data), encoding="utf-8")
-    woolworths.category_list_service.cache_path = str(cache_file)
+    woolworths.category_lists_cache_path = str(cache_file)
 
     def raise_error():
         raise Exception("boom")
@@ -359,10 +359,134 @@ def test_get_supermarket_categories_returns_drawer_categories(woolworths, web_dr
 # ============================================================
 
 
+def test_load_category_lists_cache_returns_none_when_file_missing(woolworths, tmp_path):
+    woolworths.category_lists_cache_path = str(tmp_path / "nonexistent.json")
+    assert woolworths._load_category_lists_cache() is None
+
+
+def test_load_category_lists_cache_returns_none_on_invalid_json(woolworths, tmp_path):
+    cache_file = tmp_path / "woolworths-category-lists.json"
+    cache_file.write_text("not valid json { }", encoding="utf-8")
+    woolworths.category_lists_cache_path = str(cache_file)
+    assert woolworths._load_category_lists_cache() is None
+
+
+def test_load_category_lists_cache_returns_none_when_required_key_missing(
+    woolworths, tmp_path
+):
+    cache_file = tmp_path / "woolworths-category-lists.json"
+    # "full" key is missing — should fail validation
+    cache_data = {
+        "supermarket_categories": ["fruit-veg"],
+        "testing": ["fruit-veg"],
+        "short": ["fruit-veg"],
+    }
+    cache_file.write_text(json.dumps(cache_data), encoding="utf-8")
+    woolworths.category_lists_cache_path = str(cache_file)
+    assert woolworths._load_category_lists_cache() is None
+
+
+def test_load_category_lists_cache_happy_path(woolworths, tmp_path):
+    cache_file = tmp_path / "woolworths-category-lists.json"
+    cache_data = {
+        "testing": ["fruit-veg"],
+        "short": ["fruit-veg", "pantry"],
+        "medium": ["fruit-veg", "pantry"],
+        "long": ["fruit-veg", "pantry"],
+        "full": ["fruit-veg", "pantry", "pet"],
+    }
+    cache_file.write_text(json.dumps(cache_data), encoding="utf-8")
+    woolworths.category_lists_cache_path = str(cache_file)
+
+    result = woolworths._load_category_lists_cache()
+
+    assert result is not None
+    assert result["testing"] == ["fruit-veg"]
+    assert result["full"] == ["fruit-veg", "pantry", "pet"]
+
+
+def test_save_category_lists_cache_writes_correct_shape(woolworths, tmp_path):
+    cache_path = tmp_path / "cat" / "woolworths-category-lists.json"
+    woolworths.category_lists_cache_path = str(cache_path)
+    category_lists = {
+        "testing": ["fruit-veg"],
+        "short": ["fruit-veg", "pantry"],
+        "medium": ["fruit-veg", "pantry"],
+        "long": ["fruit-veg", "pantry"],
+        "full": ["fruit-veg", "pantry", "pet"],
+        "list_product_totals": {"testing": 100, "short": 500},
+        "category_product_totals": {"fruit-veg": 300},
+    }
+
+    woolworths._save_category_lists_cache(
+        category_lists, ["fruit-veg", "pantry", "pet"]
+    )
+
+    with open(str(cache_path), "r", encoding="utf-8") as f:
+        saved = json.load(f)
+
+    assert saved["supermarket_categories"] == ["fruit-veg", "pantry", "pet"]
+    assert saved["testing"] == ["fruit-veg"]
+    assert saved["full"] == ["fruit-veg", "pantry", "pet"]
+    assert saved["list_product_totals"] == {"testing": 100, "short": 500}
+    assert saved["category_product_totals"] == {"fruit-veg": 300}
+
+
+def test_ensure_extended_lists_computes_medium_long_from_totals(woolworths):
+    cached = {
+        "testing": ["fruit-veg"],
+        "short": ["fruit-veg"],
+        "full": ["electronics", "fruit-veg", "home-lifestyle", "pantry"],
+        "category_product_totals": {
+            "fruit-veg": 300,
+            "pantry": 1500,
+            "home-lifestyle": 8000,
+            "electronics": 15000,
+        },
+    }
+
+    result = woolworths._ensure_extended_lists(cached)
+
+    # medium threshold < 1800: fruit-veg (300), pantry (1500)
+    assert sorted(result["medium"]) == ["fruit-veg", "pantry"]
+    # long threshold < 10000: fruit-veg (300), pantry (1500), home-lifestyle (8000)
+    assert sorted(result["long"]) == ["fruit-veg", "home-lifestyle", "pantry"]
+
+
+def test_ensure_extended_lists_falls_back_to_short_and_full_when_no_totals(woolworths):
+    cached = {
+        "testing": ["fruit-veg"],
+        "short": ["fruit-veg", "pantry"],
+        "full": ["fruit-veg", "pantry", "pet"],
+    }
+
+    result = woolworths._ensure_extended_lists(cached)
+
+    assert result["medium"] == ["fruit-veg", "pantry"]
+    assert result["long"] == ["fruit-veg", "pantry", "pet"]
+
+
+def test_ensure_extended_lists_preserves_existing_medium_and_long(woolworths):
+    cached = {
+        "testing": ["fruit-veg"],
+        "short": ["fruit-veg"],
+        "medium": ["fruit-veg", "pantry"],
+        "long": ["fruit-veg", "pantry", "pet"],
+        "full": ["fruit-veg", "pantry", "pet", "baby"],
+        "category_product_totals": {"fruit-veg": 300},
+    }
+
+    result = woolworths._ensure_extended_lists(cached)
+
+    # Must not overwrite already-populated medium/long
+    assert result["medium"] == ["fruit-veg", "pantry"]
+    assert result["long"] == ["fruit-veg", "pantry", "pet"]
+
+
 def test_get_all_categories_falls_back_to_default_lists_when_no_cache_and_exception(
     woolworths, tmp_path
 ):
-    woolworths.category_list_service.cache_path = str(tmp_path / "nope.json")
+    woolworths.category_lists_cache_path = str(tmp_path / "nope.json")
 
     def raise_network_error():
         raise Exception("network down")
@@ -371,12 +495,42 @@ def test_get_all_categories_falls_back_to_default_lists_when_no_cache_and_except
 
     out = woolworths._get_all_categories(ListSize.SHORT)
 
-    assert out == []
+    assert out == woolworths._get_default_category_lists()["short"]
 
 
 # ============================================================
 # SEAM: List-size category selection
 # ============================================================
+
+
+@pytest.mark.parametrize(
+    "list_size, key",
+    [
+        (ListSize.TESTING, "testing"),
+        (ListSize.SHORT, "short"),
+        (ListSize.MEDIUM, "medium"),
+        (ListSize.LONG, "long"),
+        (ListSize.FULL, "full"),
+    ],
+)
+def test_get_categories_for_size_all_enum_values(woolworths, list_size, key):
+    category_lists = {
+        "testing": ["fruit-veg"],
+        "short": ["fruit-veg", "pantry"],
+        "medium": ["fruit-veg", "pantry", "bakery"],
+        "long": ["fruit-veg", "pantry", "bakery", "pet"],
+        "full": ["fruit-veg", "pantry", "bakery", "pet", "baby"],
+    }
+
+    result = woolworths._get_categories_for_size(category_lists, list_size)
+
+    assert result == category_lists[key]
+
+
+def test_get_categories_for_size_missing_key_returns_empty(woolworths):
+    # dict has no "full" key — FULL falls back to .get("full", []) == []
+    result = woolworths._get_categories_for_size({}, ListSize.FULL)
+    assert result == []
 
 
 def test_refresh_category_lists_returns_empty_structure_when_all_categories_are_zero(

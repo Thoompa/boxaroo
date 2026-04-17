@@ -1,22 +1,12 @@
+import json
 import os
 import time
 from typing import List
 
-from Code.category_list_service import (
-    CategoryCount,
-    CategoryListCache,
-    CategoryListService,
-)
 from Code.product_parser import IProductParser
 from Code.file_handler import IFileHandler
 from Code.logger import ILogger
-from Code.isupermarket import (
-    ISuperMarket,
-    ListSize,
-    WebsiteCategory,
-    CategoryData,
-    ProductsData,
-)
+from Code.isupermarket import ISuperMarket, ListSize
 from Code.web_driver import IWebDriver
 
 
@@ -40,9 +30,6 @@ class Woolworths(ISuperMarket):
         self.url = "https://www.woolworths.com.au/shop/browse/"
         self.category_lists_cache_path = os.path.join(
             "Data", "category_lists", "woolworths-category-lists.json"
-        )
-        self.category_list_service = CategoryListService(
-            self.category_lists_cache_path, self.logger
         )
 
     def get_data(
@@ -77,13 +64,13 @@ class Woolworths(ISuperMarket):
     def _get_all_categories(
         self, list_size: ListSize, refresh_category_lists: bool = False
     ) -> List[str]:
-        cached_lists = self.category_list_service.load()
+        cached_lists = self._load_category_lists_cache()
 
         try:
             website_categories = self._get_supermarket_categories()
             website_names = [item["name"] for item in website_categories]
             selected_cached_categories = (
-                self.category_list_service.select(cached_lists, list_size)
+                self._get_categories_for_size(cached_lists, list_size)
                 if cached_lists
                 else []
             )
@@ -107,18 +94,131 @@ class Woolworths(ISuperMarket):
                 return selected_cached_categories
 
             refreshed_lists = self._refresh_category_lists_from_site(website_categories)
-            self.category_list_service.save(refreshed_lists, website_names)
-            return self.category_list_service.select(refreshed_lists, list_size)
+            self._save_category_lists_cache(refreshed_lists, website_names)
+            return self._get_categories_for_size(refreshed_lists, list_size)
 
         except Exception as e:
             msg = getattr(e, "msg", None) or str(e) or repr(e)
             self.logger.error(f"{type(e).__name__}: {msg}")
             self.logger.log("Falling back to cached/default category lists")
 
-            fallback_lists = (
-                cached_lists or self.category_list_service.get_default_lists()
-            )
-            return self.category_list_service.select(fallback_lists, list_size)
+            fallback_lists = cached_lists or self._get_default_category_lists()
+            return self._get_categories_for_size(fallback_lists, list_size)
+
+    def _get_default_category_lists(self) -> dict:
+        return {
+            "testing": ["fruit-veg"],
+            "short": [
+                "fruit-veg",
+                "lunch-box",
+                "poultry-meat-seafood",
+                "bakery",
+                "deli-chilled-meals",
+                "dairy-eggs-fridge",
+                "pantry",
+                "snacks-confectionery",
+                "freezer",
+                "drinks",
+                "liquor",
+            ],
+            "medium": [
+                "fruit-veg",
+                "lunch-box",
+                "poultry-meat-seafood",
+                "bakery",
+                "deli-chilled-meals",
+                "dairy-eggs-fridge",
+                "pantry",
+                "snacks-confectionery",
+                "freezer",
+                "drinks",
+                "liquor",
+            ],
+            "long": [
+                "fruit-veg",
+                "lunch-box",
+                "poultry-meat-seafood",
+                "bakery",
+                "deli-chilled-meals",
+                "dairy-eggs-fridge",
+                "pantry",
+                "snacks-confectionery",
+                "freezer",
+                "drinks",
+                "liquor",
+                "health-wellness",
+                "beauty-personal-care",
+                "baby",
+                "cleaning-maintenance",
+                "pet",
+                "home-lifestyle",
+            ],
+            "full": [
+                "fruit-veg",
+                "lunch-box",
+                "poultry-meat-seafood",
+                "bakery",
+                "deli-chilled-meals",
+                "dairy-eggs-fridge",
+                "pantry",
+                "snacks-confectionery",
+                "freezer",
+                "drinks",
+                "liquor",
+                "health-wellness",
+                "beauty-personal-care",
+                "baby",
+                "cleaning-maintenance",
+                "pet",
+                "home-lifestyle",
+            ],
+        }
+
+    def _get_categories_for_size(
+        self, category_lists: dict, list_size: ListSize
+    ) -> List[str]:
+        if list_size == ListSize.TESTING:
+            return category_lists.get("testing", [])
+        if list_size == ListSize.SHORT:
+            return category_lists.get("short", [])
+        if list_size == ListSize.MEDIUM:
+            return category_lists.get("medium", [])
+        if list_size == ListSize.LONG:
+            return category_lists.get("long", [])
+        return category_lists.get("full", [])
+
+    def _ensure_extended_lists(self, cached: dict) -> dict:
+        category_totals = cached.get("category_product_totals", {})
+        full = cached.get("full", [])
+        short = cached.get("short", [])
+
+        if not isinstance(cached.get("medium"), list):
+            if isinstance(category_totals, dict) and category_totals:
+                cached["medium"] = sorted(
+                    [
+                        name
+                        for name in full
+                        if isinstance(category_totals.get(name), int)
+                        and category_totals.get(name, 0) < 1800
+                    ]
+                )
+            else:
+                cached["medium"] = short
+
+        if not isinstance(cached.get("long"), list):
+            if isinstance(category_totals, dict) and category_totals:
+                cached["long"] = sorted(
+                    [
+                        name
+                        for name in full
+                        if isinstance(category_totals.get(name), int)
+                        and category_totals.get(name, 0) < 10000
+                    ]
+                )
+            else:
+                cached["long"] = full
+
+        return cached
 
     def _selected_categories_match_site(
         self, selected_categories: List[str], website_names: List[str]
@@ -138,7 +238,45 @@ class Woolworths(ISuperMarket):
                 return False
         return True
 
-    def _get_supermarket_categories(self) -> List[WebsiteCategory]:
+    def _load_category_lists_cache(self) -> dict | None:
+        if not os.path.exists(self.category_lists_cache_path):
+            return None
+
+        try:
+            with open(self.category_lists_cache_path, "r", encoding="utf-8") as f:
+                cached = json.load(f)
+
+            if not isinstance(cached, dict):
+                return None
+
+            for key in ["testing", "short", "full"]:
+                if key not in cached or not isinstance(cached.get(key), list):
+                    return None
+            return self._ensure_extended_lists(cached)
+        except Exception:
+            return None
+
+    def _save_category_lists_cache(
+        self, category_lists: dict, category_names: List[str]
+    ) -> None:
+        cache_data = {
+            "supermarket_categories": category_names,
+            "testing": category_lists.get("testing", []),
+            "short": category_lists.get("short", []),
+            "medium": category_lists.get("medium", []),
+            "long": category_lists.get("long", []),
+            "full": category_lists.get("full", []),
+            "list_product_totals": category_lists.get("list_product_totals", {}),
+            "category_product_totals": category_lists.get(
+                "category_product_totals", {}
+            ),
+        }
+
+        os.makedirs(os.path.dirname(self.category_lists_cache_path), exist_ok=True)
+        with open(self.category_lists_cache_path, "w", encoding="utf-8") as f:
+            json.dump(cache_data, f, indent=2)
+
+    def _get_supermarket_categories(self) -> List[dict]:
         self.driver.get_page(self.base_url)
 
         open_menu_script = """
@@ -226,11 +364,11 @@ class Woolworths(ISuperMarket):
         return clean
 
     def _refresh_category_lists_from_site(
-        self, categories: List[WebsiteCategory] | None = None
-    ) -> CategoryListCache:
+        self, categories: List[dict] | None = None
+    ) -> dict:
         categories = categories or self._get_supermarket_categories()
 
-        category_counts: list[CategoryCount] = []
+        category_counts = []
         for item in categories:
             name = item.get("name")
             if not name:
@@ -242,9 +380,51 @@ class Woolworths(ISuperMarket):
             count = count if isinstance(count, int) and count >= 0 else 0
             if count > 0:
                 category_counts.append({"name": name, "count": count})
-        return self.category_list_service.refresh(category_counts)
 
-    def _get_category_data(self, category_url: str) -> CategoryData:
+        if not category_counts:
+            return {
+                "testing": [],
+                "short": [],
+                "medium": [],
+                "long": [],
+                "full": [],
+                "list_product_totals": {
+                    "testing": 0,
+                    "short": 0,
+                    "medium": 0,
+                    "long": 0,
+                    "full": 0,
+                },
+                "category_product_totals": {},
+            }
+
+        testing = [min(category_counts, key=lambda x: (x["count"], x["name"]))["name"]]
+        short = sorted([x["name"] for x in category_counts if x["count"] < 1000])
+        medium = sorted([x["name"] for x in category_counts if x["count"] < 1800])
+        long = sorted([x["name"] for x in category_counts if x["count"] < 10000])
+        full = sorted([x["name"] for x in category_counts])
+
+        count_map = {x["name"]: x["count"] for x in category_counts}
+
+        list_product_totals = {
+            "testing": sum(count_map.get(name, 0) for name in testing),
+            "short": sum(count_map.get(name, 0) for name in short),
+            "medium": sum(count_map.get(name, 0) for name in medium),
+            "long": sum(count_map.get(name, 0) for name in long),
+            "full": sum(count_map.get(name, 0) for name in full),
+        }
+
+        return {
+            "testing": testing,
+            "short": short,
+            "medium": medium,
+            "long": long,
+            "full": full,
+            "list_product_totals": list_product_totals,
+            "category_product_totals": count_map,
+        }
+
+    def _get_category_data(self, category_url: str) -> dict:
         url = self.url + category_url
 
         try:
@@ -314,7 +494,7 @@ class Woolworths(ISuperMarket):
                 "incomplete": 0,
             }
 
-    def _get_products_data(self, products: List[str]) -> ProductsData:
+    def _get_products_data(self, products: List[str]) -> dict:
         products_data = []
         incomplete_items = []
         self.logger.log("Reading product data for {0} products".format(len(products)))
