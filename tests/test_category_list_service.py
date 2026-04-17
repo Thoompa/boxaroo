@@ -2,7 +2,7 @@ import json
 
 import pytest
 
-from Code.category_list_service import CategoryListService
+from Code.category_list_service import CategoryListCache, CategoryListService
 from Code.isupermarket import ListSize
 from tests.test_helpers import DummyLogger
 
@@ -183,13 +183,19 @@ def test_refresh_returns_empty_structure_when_all_counts_zero(service):
 def test_save_writes_correct_shape(tmp_path, logger):
     cache_path = tmp_path / "cat" / "woolworths-category-lists.json"
     svc = CategoryListService(str(cache_path), logger)
-    category_lists = {
+    category_lists: CategoryListCache = {
         "testing": ["fruit-veg"],
         "short": ["fruit-veg", "pantry"],
         "medium": ["fruit-veg", "pantry"],
         "long": ["fruit-veg", "pantry"],
         "full": ["fruit-veg", "pantry", "pet"],
-        "list_product_totals": {"testing": 100, "short": 500},
+        "list_product_totals": {
+            "testing": 100,
+            "short": 500,
+            "medium": 0,
+            "long": 0,
+            "full": 0,
+        },
         "category_product_totals": {"fruit-veg": 300},
     }
 
@@ -201,8 +207,38 @@ def test_save_writes_correct_shape(tmp_path, logger):
     assert saved["supermarket_categories"] == ["fruit-veg", "pantry", "pet"]
     assert saved["testing"] == ["fruit-veg"]
     assert saved["full"] == ["fruit-veg", "pantry", "pet"]
-    assert saved["list_product_totals"] == {"testing": 100, "short": 500}
+    assert saved["list_product_totals"] == {
+        "testing": 100,
+        "short": 500,
+        "medium": 0,
+        "long": 0,
+        "full": 0,
+    }
     assert saved["category_product_totals"] == {"fruit-veg": 300}
+
+
+def test_save_works_when_cache_path_has_no_directory(tmp_path, logger, monkeypatch):
+    monkeypatch.chdir(tmp_path)
+    cache_name = "woolworths-category-lists.json"
+    svc = CategoryListService(cache_name, logger)
+    category_lists: CategoryListCache = {
+        "testing": ["fruit-veg"],
+        "short": ["fruit-veg", "pantry"],
+        "full": ["fruit-veg", "pantry", "pet"],
+    }
+
+    svc.save(category_lists, ["fruit-veg", "pantry", "pet"])
+
+    saved = json.loads((tmp_path / cache_name).read_text(encoding="utf-8"))
+    assert saved["supermarket_categories"] == ["fruit-veg", "pantry", "pet"]
+    assert saved["testing"] == ["fruit-veg"]
+    assert saved["list_product_totals"] == {
+        "testing": 0,
+        "short": 0,
+        "medium": 0,
+        "long": 0,
+        "full": 0,
+    }
 
 
 # ============================================================

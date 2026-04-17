@@ -59,6 +59,9 @@ class CategoryListService:
     def save(
         self, category_lists: CategoryListCache, category_names: list[str]
     ) -> None:
+        saved_totals = self._normalized_list_product_totals(
+            category_lists.get("list_product_totals")
+        )
         cache_data = {
             "supermarket_categories": category_names,
             "testing": category_lists.get("testing", []),
@@ -66,15 +69,37 @@ class CategoryListService:
             "medium": category_lists.get("medium", []),
             "long": category_lists.get("long", []),
             "full": category_lists.get("full", []),
-            "list_product_totals": category_lists.get("list_product_totals", {}),
+            "list_product_totals": saved_totals,
             "category_product_totals": category_lists.get(
                 "category_product_totals", {}
             ),
         }
 
-        os.makedirs(os.path.dirname(self.cache_path), exist_ok=True)
+        cache_dir = os.path.dirname(self.cache_path)
+        if cache_dir:
+            os.makedirs(cache_dir, exist_ok=True)
         with open(self.cache_path, "w", encoding="utf-8") as f:
             json.dump(cache_data, f, indent=2)
+
+    def _normalized_list_product_totals(
+        self, list_product_totals: object
+    ) -> ListProductTotals:
+        if not isinstance(list_product_totals, dict):
+            list_product_totals = {}
+
+        testing = list_product_totals.get("testing", 0)
+        short = list_product_totals.get("short", 0)
+        medium = list_product_totals.get("medium", 0)
+        long = list_product_totals.get("long", 0)
+        full = list_product_totals.get("full", 0)
+
+        return {
+            "testing": testing if isinstance(testing, int) else 0,
+            "short": short if isinstance(short, int) else 0,
+            "medium": medium if isinstance(medium, int) else 0,
+            "long": long if isinstance(long, int) else 0,
+            "full": full if isinstance(full, int) else 0,
+        }
 
     def refresh(self, category_counts: list[CategoryCount]) -> CategoryListCache:
         if not category_counts:

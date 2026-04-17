@@ -113,7 +113,9 @@ class Woolworths(ISuperMarket):
         except Exception as e:
             msg = getattr(e, "msg", None) or str(e) or repr(e)
             self.logger.error(f"{type(e).__name__}: {msg}")
-            self.logger.log("Falling back to cached/default category lists")
+            self.logger.log(
+                "Falling back to cached category lists (or empty if cache is missing)"
+            )
 
             fallback_lists = (
                 cached_lists or self.category_list_service.load_cached_lists()
