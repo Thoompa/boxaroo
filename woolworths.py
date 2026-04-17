@@ -1,9 +1,9 @@
-import re
 import json
 import os
 import time
 from typing import List
 
+from product_parser import IProductParser
 from file_handler import IFileHandler
 from logger import ILogger
 from isupermarket import ISuperMarket, ListSize
@@ -12,10 +12,15 @@ from web_driver import IWebDriver
 
 class Woolworths(ISuperMarket):
     def __init__(
-        self, file_handler: IFileHandler, logger: ILogger, web_driver: IWebDriver
+        self,
+        file_handler: IFileHandler,
+        logger: ILogger,
+        web_driver: IWebDriver,
+        product_parser: IProductParser,
     ):
         self.file_handler = file_handler
         self.logger = logger
+        self.product_parser = product_parser
         self.woolworths_product_container_class_names = [
             "product-tile-v2",
             "product-tile-group",
@@ -498,39 +503,33 @@ class Woolworths(ISuperMarket):
         for i, product_text in enumerate(products):
             try:
                 self.logger.debug("Reading data for product - {0}".format(product_text))
-                parsed_product = self._parse_product_data(product_text)
-                if parsed_product:
-                    product_name, price, unit_price, promotion = parsed_product
+                parsed_product = self.product_parser.parse(product_text)
 
-                    missing_fields = []
-                    if not product_name:
-                        missing_fields.append("name")
-                    if not price:
-                        missing_fields.append("price")
-                    if not unit_price:
-                        missing_fields.append("unit_price")
+                product_name = parsed_product["name"]
+                price = parsed_product["price"]
+                unit_price = parsed_product["unit_price"]
+                promotion = parsed_product["promotion"]
+                missing_fields = parsed_product["missing_fields"]
 
-                    if not price and unit_price:
-                        price = unit_price
+                if not price and unit_price:
+                    price = unit_price
 
-                    if any([product_name, price, unit_price, promotion]):
-                        products_data.append(
-                            [product_name, price, unit_price, promotion]
+                if any([product_name, price, unit_price, promotion]):
+                    products_data.append([product_name, price, unit_price, promotion])
+                    self.logger.debug(
+                        f"Parsed product {i}: {[product_name, price, unit_price, promotion]}"
+                    )
+
+                    if missing_fields:
+                        item_name = product_name if product_name else "[unknown]"
+                        incomplete_items.append(
+                            {"name": item_name, "missing": missing_fields}
                         )
                         self.logger.debug(
-                            f"Parsed product {i}: {[product_name, price, unit_price, promotion]}"
+                            f"Marked incomplete product {i}: {item_name}, missing={missing_fields}"
                         )
-
-                        if missing_fields:
-                            item_name = product_name if product_name else "[unknown]"
-                            incomplete_items.append(
-                                {"name": item_name, "missing": missing_fields}
-                            )
-                            self.logger.debug(
-                                f"Marked incomplete product {i}: {item_name}, missing={missing_fields}"
-                            )
-                    else:
-                        self.logger.debug(f"Skipped empty product data at index {i}")
+                else:
+                    self.logger.debug(f"Skipped empty product data at index {i}")
 
             except Exception as e:
                 msg = getattr(e, "msg", None) or str(e) or repr(e)
@@ -540,102 +539,11 @@ class Woolworths(ISuperMarket):
         return {"products": products_data, "incomplete_items": incomplete_items}
 
     def _parse_product_data(self, text: str) -> List[str]:
-        """Parse the raw product text into structured data fields."""
-        if text is None:
-            text = ""
-        elif not isinstance(text, str):
-            try:
-                text = str(text)
-            except Exception:
-                text = ""
-
-        lines = [line.strip() for line in text.split("\n") if line.strip()]
-
-        product_name = ""
-        price = ""
-        unit_price = ""
-        promotion = ""
-        # Remove common UI/clutter lines that are not product name
-        blacklist = [
-            "add to cart",
-            "save to list",
-            "promoted",
-            "new",
-            "out of stock",
-            "sometimes available",
-            "compare",
-            "delisted",
-            "click to save",
+        """Backwards-compatible wrapper around the injected product parser."""
+        parsed = self.product_parser.parse(text)
+        return [
+            parsed["name"],
+            parsed["price"],
+            parsed["unit_price"],
+            parsed["promotion"],
         ]
-
-        def is_price_line(value: str) -> bool:
-            return bool(re.match(r"^\$\d+(\.\d{2})?$", value.strip()))
-
-        def is_unit_price_line(value: str) -> bool:
-            return bool(re.match(r"^\$.*\/.+$", value.strip()))
-
-        def is_valid_name(value: str) -> bool:
-            v = value.lower().strip()
-            if any(x in v for x in blacklist):
-                return False
-            if value.startswith("$"):
-                return False
-            if "for $" in v or "save" in v or "each" not in v and len(v) < 4:
-                # keep name lines with decent length and non-promo semantics
-                pass
-            return bool(re.search(r"[a-zA-Z]", value))
-
-        # price/unit/promo extraction
-        for line in lines:
-            if not price and is_price_line(line):
-                price = line
-            if not unit_price and is_unit_price_line(line):
-                unit_price = line
-            if not promotion and (
-                "for $" in line.lower() or re.match(r"^\d+\s*for\s*\$", line.lower())
-            ):
-                promotion = line
-
-        def is_product_name_candidate(value: str) -> bool:
-            v = value.strip()
-            if not v or v.startswith("$"):
-                return False
-            if not re.search("[a-zA-Z]", v):
-                return False
-            low = v.lower()
-            if any(x in low for x in blacklist):
-                return False
-            if "for $" in low or re.match(r"^\d+\s*for\s*\$", low):
-                return False
-            if "price" in low and len(low.split()) <= 4:
-                return False
-            if "save" in low and "$" in low:
-                return False
-            if low.startswith("was ") or "was $" in low:
-                return False
-            if len(v) < 6:
-                return False
-            return True
-
-        # product name: first meaningful non-price line that is not UI text
-        for line in lines:
-            if (
-                is_product_name_candidate(line)
-                and not is_price_line(line)
-                and not is_unit_price_line(line)
-            ):
-                product_name = line
-                break
-
-        # fallback: last non-price non-blacklist line
-        if not product_name:
-            for line in reversed(lines):
-                if (
-                    is_valid_name(line)
-                    and not is_price_line(line)
-                    and not is_unit_price_line(line)
-                ):
-                    product_name = line
-                    break
-
-        return [product_name, price, unit_price, promotion]

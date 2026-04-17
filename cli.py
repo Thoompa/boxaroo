@@ -2,6 +2,7 @@ import json
 import os
 
 from isupermarket import ListSize
+from product_parser import ProductParser
 from woolworths import Woolworths
 from file_handler import FileHandler
 from datetime import date
@@ -70,6 +71,7 @@ def main(
     file_handler=None,
     logger=None,
     web_driver=None,
+    product_parser=None,
 ) -> None:
     # Allow dependency injection for unit testing
     logger = logger or Logger(logging_level)
@@ -80,8 +82,9 @@ def main(
 
     file_handler = file_handler or FileHandler(file_name, file_path, header, logger)
     web_driver = web_driver or WebDriver(headless, proxy_server)
+    product_parser = product_parser or ProductParser()
 
-    woollies = Woolworths(file_handler, logger, web_driver)
+    woollies = Woolworths(file_handler, logger, web_driver, product_parser)
     logger.log("Running Boxaroo with list size - {0}".format(list_size))
     logger.log("WebDriver lifecycle start")
     scrape_succeeded = False

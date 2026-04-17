@@ -199,7 +199,7 @@ def test_main_quits_webdriver_on_success_and_preserves_output(monkeypatch):
     ]
 
     class FakeWoolworths:
-        def __init__(self, file_handler, logger, web_driver):
+        def __init__(self, file_handler, logger, web_driver, product_parser=None):
             self._file_handler = file_handler
 
         def get_data(self, list_size=None, refresh_category_lists=False):
@@ -230,7 +230,7 @@ def test_main_quits_webdriver_when_get_data_raises(monkeypatch):
     web_driver = DummyWebDriver()
 
     class FailingWoolworths:
-        def __init__(self, file_handler, logger, web_driver):
+        def __init__(self, file_handler, logger, web_driver, product_parser=None):
             pass
 
         def get_data(self, list_size=None, refresh_category_lists=False):
@@ -267,7 +267,7 @@ def test_main_raises_quit_error_when_scrape_succeeds_and_quit_fails(monkeypatch)
     web_driver = QuitFailingDriver()
 
     class SuccessfulWoolworths:
-        def __init__(self, file_handler, logger, web_driver):
+        def __init__(self, file_handler, logger, web_driver, product_parser=None):
             pass
 
         def get_data(self, list_size=None, refresh_category_lists=False):
@@ -308,7 +308,7 @@ def test_main_preserves_scrape_error_when_quit_also_raises(monkeypatch):
     web_driver = QuitFailingDriver()
 
     class FailingWoolworths:
-        def __init__(self, file_handler, logger, web_driver):
+        def __init__(self, file_handler, logger, web_driver, product_parser=None):
             pass
 
         def get_data(self, list_size=None, refresh_category_lists=False):

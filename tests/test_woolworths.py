@@ -6,6 +6,7 @@ from woolworths import Woolworths
 from tests.test_helpers import (
     DummyFileHandler,
     DummyLogger,
+    DummyProductParser,
     DummyWebDriver,
 )
 
@@ -21,6 +22,11 @@ def file_handler():
 
 
 @pytest.fixture
+def parser():
+    return DummyProductParser()
+
+
+@pytest.fixture
 def web_driver():
     driver = DummyWebDriver()
     driver.script_response = ""
@@ -28,59 +34,82 @@ def web_driver():
 
 
 @pytest.fixture
-def woolworths(file_handler, logger, web_driver):
-    return Woolworths(file_handler=file_handler, logger=logger, web_driver=web_driver)
+def woolworths(file_handler, logger, web_driver, parser):
+    return Woolworths(
+        file_handler=file_handler,
+        logger=logger,
+        web_driver=web_driver,
+        product_parser=parser,
+    )
 
 
-def test_parse_product_data_full(woolworths):
-    text = """$1.20
-$1.20 / 1EA
-2 FOR $2.00 - $1.00/1EA
-Avocado Shepard each
-Add to cart
-Save to list..."""
+def test_get_products_data_incomplete_tracking(
+    file_handler, logger, web_driver, parser
+):
+    parser.queue_response(
+        {
+            "name": "Product One each",
+            "price": "$2.00",
+            "unit_price": "",
+            "promotion": "",
+            "missing_fields": ["unit_price"],
+        }
+    )
+    parser.queue_response(
+        {
+            "name": "Product Two each",
+            "price": "",
+            "unit_price": "$1.00 / 1EA",
+            "promotion": "",
+            "missing_fields": ["price"],
+        }
+    )
+    w = Woolworths(
+        file_handler=file_handler,
+        logger=logger,
+        web_driver=web_driver,
+        product_parser=parser,
+    )
 
-    parsed = woolworths._parse_product_data(text)
-
-    assert parsed == [
-        "Avocado Shepard each",
-        "$1.20",
-        "$1.20 / 1EA",
-        "2 FOR $2.00 - $1.00/1EA",
-    ]
-
-
-def test_parse_product_data_missing_price_unit(woolworths):
-    text = """Avocado Shepard each
-Add to cart
-"""
-
-    parsed = woolworths._parse_product_data(text)
-
-    assert parsed[0] == "Avocado Shepard each"
-    assert parsed[1] == ""
-    assert parsed[2] == ""
-
-
-def test_parse_product_data_non_string(woolworths):
-    parsed = woolworths._parse_product_data(None)
-
-    assert parsed == ["", "", "", ""]
-
-
-def test_get_products_data_incomplete_tracking(woolworths):
-    product_inputs = ["$2.00\nProduct One each\n", "Product Two each\n$1.00 / 1EA\n"]
-
-    result = woolworths._get_products_data(product_inputs)
+    result = w._get_products_data(["input1", "input2"])
 
     assert isinstance(result, dict)
     assert len(result["products"]) == 2
     assert len(result["incomplete_items"]) == 2
-
     assert result["products"][0][0] == "Product One each"
     assert result["products"][0][1] == "$2.00"
     assert result["products"][1][0] == "Product Two each"
-    assert result["products"][1][1] == "$1.00 / 1EA" or result["products"][1][1] == ""
+    assert result["products"][1][1] == "$1.00 / 1EA"
+
+
+def test_get_products_data_uses_injected_product_parser(
+    file_handler, logger, web_driver, parser
+):
+    parser.set_default_response(
+        {
+            "name": "Injected Name each",
+            "price": "",
+            "unit_price": "$2.50 / 1EA",
+            "promotion": "",
+            "missing_fields": ["price"],
+        }
+    )
+    w = Woolworths(
+        file_handler=file_handler,
+        logger=logger,
+        web_driver=web_driver,
+        product_parser=parser,
+    )
+
+    result = w._get_products_data(["raw text from UI"])
+
+    assert parser.calls == ["raw text from UI"]
+    assert result["products"] == [
+        ["Injected Name each", "$2.50 / 1EA", "$2.50 / 1EA", ""]
+    ]
+    assert result["incomplete_items"] == [
+        {"name": "Injected Name each", "missing": ["price"]}
+    ]
 
 
 def test_refresh_category_lists_from_site_classifies_by_count(woolworths, web_driver):
@@ -533,84 +562,36 @@ def test_refresh_category_lists_returns_empty_structure_when_all_categories_are_
 
 
 # ============================================================
-# SEAM: Product parsing edge cases
+# SEAM: Driver boundary payload shape
 # ============================================================
 
 
-def test_parse_product_data_empty_string(woolworths):
-    parsed = woolworths._parse_product_data("")
-    assert parsed == ["", "", "", ""]
+def test_get_products_data_uses_unit_price_as_price_fallback(
+    file_handler, logger, web_driver, parser
+):
+    parser.set_default_response(
+        {
+            "name": "Some Product each",
+            "price": "",
+            "unit_price": "$2.50 / 1KG",
+            "promotion": "",
+            "missing_fields": ["price"],
+        }
+    )
+    w = Woolworths(
+        file_handler=file_handler,
+        logger=logger,
+        web_driver=web_driver,
+        product_parser=parser,
+    )
 
-
-def test_parse_product_data_all_blacklisted_lines_yields_no_name(woolworths):
-    text = "Promoted\nAdd to cart\nSave to list"
-    parsed = woolworths._parse_product_data(text)
-    assert parsed[0] == ""
-
-
-def test_parse_product_data_dollar_prefix_line_is_not_used_as_name(woolworths):
-    text = "$5.00\n$5.00 / 1KG\nTest Product each\n"
-    parsed = woolworths._parse_product_data(text)
-    assert parsed[0] == "Test Product each"
-    assert parsed[1] == "$5.00"
-
-
-def test_parse_product_data_was_dollar_line_filtered_from_name(woolworths):
-    text = "$3.00\n$3.00 / 1EA\nWas $5.00\nFresh Bread each\n"
-    parsed = woolworths._parse_product_data(text)
-    assert parsed[0] == "Fresh Bread each"
-
-
-def test_parse_product_data_save_with_dollar_filtered_from_name(woolworths):
-    text = "$2.50\nSave $1.50\nYoghurt Berry 500g\n"
-    parsed = woolworths._parse_product_data(text)
-    assert parsed[0] == "Yoghurt Berry 500g"
-
-
-def test_parse_product_data_short_name_is_filtered(woolworths):
-    # "Abc" is < 6 chars and must not be chosen as product name
-    text = "$1.00\nAbc\nGood Product each\n"
-    parsed = woolworths._parse_product_data(text)
-    assert parsed[0] == "Good Product each"
-
-
-def test_parse_product_data_non_string_non_none_input(woolworths):
-    # Integers should not raise; they are stringified
-    parsed = woolworths._parse_product_data(42)
-    assert isinstance(parsed, list)
-    assert len(parsed) == 4
-    assert parsed == ["", "", "", ""]
-
-
-def test_parse_product_data_promotion_multi_for(woolworths):
-    text = "$1.50\n$3.00 / 2EA\n3 for $4.00\nPasta Sauce 500g\n"
-    parsed = woolworths._parse_product_data(text)
-    assert parsed[0] == "Pasta Sauce 500g"
-    assert parsed[1] == "$1.50"
-    assert parsed[2] == "$3.00 / 2EA"
-    assert parsed[3] == "3 for $4.00"
-
-
-def test_parse_product_data_out_of_stock_label_filtered_from_name(woolworths):
-    text = "$4.00\nOut of stock\nButter Unsalted 250g\n"
-    parsed = woolworths._parse_product_data(text)
-    assert parsed[0] == "Butter Unsalted 250g"
-
-
-def test_get_products_data_uses_unit_price_as_price_fallback(woolworths):
-    # Product text has unit_price but no standalone price
-    result = woolworths._get_products_data(["Some Product each\n$2.50 / 1KG\n"])
+    result = w._get_products_data(["any text"])
 
     assert len(result["products"]) == 1
     product = result["products"][0]
     # _get_products_data promotes unit_price → price when price is absent
     assert product[1] == "$2.50 / 1KG"
     assert product[2] == "$2.50 / 1KG"
-
-
-# ============================================================
-# SEAM: Driver boundary payload shape
-# ============================================================
 
 
 def test_get_category_data_returns_correct_shape_on_success(woolworths, web_driver):
@@ -672,24 +653,70 @@ def test_get_category_data_uses_scraped_count_when_total_is_none(
 # ============================================================
 
 
-def test_get_products_data_skips_empty_payload_and_continues(woolworths):
-    result = woolworths._get_products_data(
-        [
-            "\n\n",
-            "Normal Product each\n$1.00\n$1.00 / 1EA\n",
-        ]
+def test_get_products_data_skips_empty_payload_and_continues(
+    file_handler, logger, web_driver, parser
+):
+    # First call returns all-empty (simulates whitespace-only input)
+    parser.queue_response(
+        {
+            "name": "",
+            "price": "",
+            "unit_price": "",
+            "promotion": "",
+            "missing_fields": ["name", "price", "unit_price"],
+        }
     )
+    parser.queue_response(
+        {
+            "name": "Normal Product each",
+            "price": "$1.00",
+            "unit_price": "$1.00 / 1EA",
+            "promotion": "",
+            "missing_fields": [],
+        }
+    )
+    w = Woolworths(
+        file_handler=file_handler,
+        logger=logger,
+        web_driver=web_driver,
+        product_parser=parser,
+    )
+
+    result = w._get_products_data(["empty", "normal"])
 
     assert len(result["products"]) == 1
     assert result["products"][0][0] == "Normal Product each"
 
 
-def test_get_products_data_handles_multiple_valid_plain_text_payloads(woolworths):
-    payloads = [
-        "$2.00\n$2.00 / 1EA\nApple each\n",
-        "$3.50\n$1.75 / 1EA\n2 for $3.50\nBread each\n",
-    ]
-    result = woolworths._get_products_data(payloads)
+def test_get_products_data_handles_multiple_valid_plain_text_payloads(
+    file_handler, logger, web_driver, parser
+):
+    parser.queue_response(
+        {
+            "name": "Apple each",
+            "price": "$2.00",
+            "unit_price": "$2.00 / 1EA",
+            "promotion": "",
+            "missing_fields": [],
+        }
+    )
+    parser.queue_response(
+        {
+            "name": "Bread each",
+            "price": "$3.50",
+            "unit_price": "$1.75 / 1EA",
+            "promotion": "2 for $3.50",
+            "missing_fields": [],
+        }
+    )
+    w = Woolworths(
+        file_handler=file_handler,
+        logger=logger,
+        web_driver=web_driver,
+        product_parser=parser,
+    )
+
+    result = w._get_products_data(["payload1", "payload2"])
 
     assert len(result["products"]) == 2
     assert result["products"][0][0] == "Apple each"
@@ -704,7 +731,7 @@ def test_get_products_data_handles_multiple_valid_plain_text_payloads(woolworths
 
 
 def test_get_data_stores_products_for_each_category_and_accumulates_count(
-    file_handler, logger, web_driver
+    file_handler, logger, web_driver, parser
 ):
     """
     Test that get_data:
@@ -713,7 +740,10 @@ def test_get_data_stores_products_for_each_category_and_accumulates_count(
     - Logs the final total
     """
     woolworths = Woolworths(
-        file_handler=file_handler, logger=logger, web_driver=web_driver
+        file_handler=file_handler,
+        logger=logger,
+        web_driver=web_driver,
+        product_parser=parser,
     )
 
     # Mock _get_all_categories to return 3 categories
@@ -785,7 +815,9 @@ def test_get_data_stores_products_for_each_category_and_accumulates_count(
     assert "6 products" in final_log[0]
 
 
-def test_get_data_continues_on_category_exception(file_handler, logger, web_driver):
+def test_get_data_continues_on_category_exception(
+    file_handler, logger, web_driver, parser
+):
     """
     Test that get_data continues processing categories even when one raises.
     This is critical before Ticket 3 restructures the orchestration loop.
@@ -794,7 +826,10 @@ def test_get_data_continues_on_category_exception(file_handler, logger, web_driv
     This test verifies the loop continues despite one category failing.
     """
     woolworths = Woolworths(
-        file_handler=file_handler, logger=logger, web_driver=web_driver
+        file_handler=file_handler,
+        logger=logger,
+        web_driver=web_driver,
+        product_parser=parser,
     )
 
     woolworths._get_all_categories = lambda *args, **kwargs: [
@@ -872,25 +907,47 @@ def test_get_data_continues_on_category_exception(file_handler, logger, web_driv
 # ============================================================
 
 
-def test_get_products_data_skips_product_when_all_fields_are_empty(woolworths):
+def test_get_products_data_skips_product_when_all_fields_are_empty(
+    file_handler, logger, web_driver, parser
+):
     """
     Test that a product with all empty fields (no name, no price, no unit_price, no promo)
-    is silently skipped and logged as debug. This behavior is critical because Ticket 2
-    will extract ProductParser, and the skip gate must stay in _get_products_data,
-    not migrate into the parser.
+    is silently skipped and logged as debug. The skip gate lives in _get_products_data,
+    not in the parser.
     """
-
-    result = woolworths._get_products_data(
-        ["\n\n\n", "Normal Product\n$1.00\n$1.00 / 1EA\n"]
+    # First call returns all-empty — should be skipped by _get_products_data
+    parser.queue_response(
+        {
+            "name": "",
+            "price": "",
+            "unit_price": "",
+            "promotion": "",
+            "missing_fields": ["name", "price", "unit_price"],
+        }
     )
+    parser.queue_response(
+        {
+            "name": "Normal Product",
+            "price": "$1.00",
+            "unit_price": "$1.00 / 1EA",
+            "promotion": "",
+            "missing_fields": [],
+        }
+    )
+    w = Woolworths(
+        file_handler=file_handler,
+        logger=logger,
+        web_driver=web_driver,
+        product_parser=parser,
+    )
+
+    result = w._get_products_data(["empty", "normal"])
 
     # Assert the empty product was skipped
     assert len(result["products"]) == 1
     assert result["products"][0][0] == "Normal Product"
 
     # Assert a skip debug message was logged
-    debug_records = [
-        msg for level, msg in woolworths.logger.records if level == "DEBUG"
-    ]
+    debug_records = [msg for level, msg in logger.records if level == "DEBUG"]
     skip_logs = [msg for msg in debug_records if "Skipped empty product" in msg]
     assert len(skip_logs) > 0
