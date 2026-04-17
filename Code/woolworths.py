@@ -38,11 +38,11 @@ class Woolworths(ISuperMarket):
         self.driver = web_driver
         self.base_url = "https://www.woolworths.com.au"
         self.url = "https://www.woolworths.com.au/shop/browse/"
-        self.category_lists_cache_path = os.path.join(
+        default_cache_path = os.path.join(
             "Data", "category_lists", "woolworths-category-lists.json"
         )
         self.category_list_service = CategoryListService(
-            self.category_lists_cache_path, self.logger
+            default_cache_path, self.logger
         )
 
     def get_data(
@@ -116,7 +116,7 @@ class Woolworths(ISuperMarket):
             self.logger.log("Falling back to cached/default category lists")
 
             fallback_lists = (
-                cached_lists or self.category_list_service.get_default_lists()
+                cached_lists or self.category_list_service.load_cached_lists()
             )
             return self.category_list_service.select(fallback_lists, list_size)
 

@@ -133,7 +133,7 @@ class CategoryListService:
             return category_lists.get("long", [])
         return category_lists.get("full", [])
 
-    def get_default_lists(self) -> CategoryListCache:
+    def load_cached_lists(self) -> CategoryListCache:
         loaded = self.load()
         if loaded is None:
             self.logger.error(

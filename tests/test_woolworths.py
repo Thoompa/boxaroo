@@ -359,7 +359,7 @@ def test_get_supermarket_categories_returns_drawer_categories(woolworths, web_dr
 # ============================================================
 
 
-def test_get_all_categories_falls_back_to_default_lists_when_no_cache_and_exception(
+def test_get_all_categories_falls_back_to_empty_when_no_cache_and_exception(
     woolworths, tmp_path
 ):
     woolworths.category_list_service.cache_path = str(tmp_path / "nope.json")
@@ -372,6 +372,14 @@ def test_get_all_categories_falls_back_to_default_lists_when_no_cache_and_except
     out = woolworths._get_all_categories(ListSize.SHORT)
 
     assert out == []
+
+
+def test_cache_path_source_of_truth_is_category_list_service(woolworths, tmp_path):
+    cache_file = tmp_path / "woolworths-category-lists.json"
+    woolworths.category_list_service.cache_path = str(cache_file)
+
+    assert woolworths.category_list_service.cache_path == str(cache_file)
+    assert not hasattr(woolworths, "category_lists_cache_path")
 
 
 # ============================================================
