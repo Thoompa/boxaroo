@@ -6,7 +6,7 @@ from typing import Any
 
 from file_handler import IFileHandler
 from logger import ILogger, LoggingLevel
-from product_parser import IProductParser
+from product_parser import IProductParser, ProductParseResult
 from web_driver import WebDriver
 
 
@@ -73,9 +73,9 @@ class DummyProductParser(IProductParser):
     """Configurable test double for IProductParser."""
 
     def __init__(self):
-        self.calls = []
-        self._queued = []
-        self._default_response = {
+        self.calls: list[object] = []
+        self._queued: list[ProductParseResult] = []
+        self._default_response: ProductParseResult = {
             "name": "",
             "price": "",
             "unit_price": "",
@@ -83,15 +83,15 @@ class DummyProductParser(IProductParser):
             "missing_fields": ["name", "price", "unit_price"],
         }
 
-    def queue_response(self, response: dict) -> None:
+    def queue_response(self, response: ProductParseResult) -> None:
         """Enqueue a response; returned FIFO until queue is empty."""
         self._queued.append(response)
 
-    def set_default_response(self, response: dict) -> None:
+    def set_default_response(self, response: ProductParseResult) -> None:
         """Set the response returned when the queue is empty."""
         self._default_response = response
 
-    def parse(self, text):
+    def parse(self, text: object | None) -> ProductParseResult:
         self.calls.append(text)
         if self._queued:
             return self._queued.pop(0)

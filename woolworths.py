@@ -505,11 +505,11 @@ class Woolworths(ISuperMarket):
                 self.logger.debug("Reading data for product - {0}".format(product_text))
                 parsed_product = self.product_parser.parse(product_text)
 
-                product_name = parsed_product.get("name", "")
-                price = parsed_product.get("price", "")
-                unit_price = parsed_product.get("unit_price", "")
-                promotion = parsed_product.get("promotion", "")
-                missing_fields = parsed_product.get("missing_fields", [])
+                product_name = parsed_product["name"]
+                price = parsed_product["price"]
+                unit_price = parsed_product["unit_price"]
+                promotion = parsed_product["promotion"]
+                missing_fields = parsed_product["missing_fields"]
 
                 if not price and unit_price:
                     price = unit_price
@@ -542,8 +542,8 @@ class Woolworths(ISuperMarket):
         """Backwards-compatible wrapper around the injected product parser."""
         parsed = self.product_parser.parse(text)
         return [
-            parsed.get("name", ""),
-            parsed.get("price", ""),
-            parsed.get("unit_price", ""),
-            parsed.get("promotion", ""),
+            parsed["name"],
+            parsed["price"],
+            parsed["unit_price"],
+            parsed["promotion"],
         ]

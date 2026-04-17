@@ -1,12 +1,20 @@
 import re
 from abc import ABC, abstractmethod
-from typing import Dict, List, Optional, Sequence
+from typing import List, Optional, Sequence, TypedDict
+
+
+class ProductParseResult(TypedDict):
+    name: str
+    price: str
+    unit_price: str
+    promotion: str
+    missing_fields: List[str]
 
 
 class IProductParser(ABC):
 
     @abstractmethod
-    def parse(self, text: object | None) -> Dict[str, object]:
+    def parse(self, text: object | None) -> ProductParseResult:
         pass
 
 
@@ -28,7 +36,7 @@ class ProductParser(IProductParser):
         if blacklist:
             self.blacklist = list(self.blacklist) + list(blacklist)
 
-    def parse(self, text: Optional[object]) -> Dict[str, object]:
+    def parse(self, text: Optional[object]) -> ProductParseResult:
         text = self._normalize_text(text)
         lines = [line.strip() for line in text.split("\n") if line.strip()]
 
