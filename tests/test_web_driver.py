@@ -1,6 +1,6 @@
 import pytest
-from web_driver import WebDriver
-import web_driver as web_driver_module
+from Code.web_driver import WebDriver
+import Code.web_driver as web_driver_module
 from tests.test_helpers import (
     DummyWebDriverShell,
     DummyWait,

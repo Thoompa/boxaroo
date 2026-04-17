@@ -1,6 +1,6 @@
 import pytest
 
-from product_parser import ProductParser
+from Code.product_parser import ProductParser
 
 
 @pytest.fixture

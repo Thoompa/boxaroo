@@ -1,5 +1,5 @@
 import pytest
-from logger import Logger, LoggingLevel
+from Code.logger import Logger, LoggingLevel
 from unittest.mock import mock_open
 
 

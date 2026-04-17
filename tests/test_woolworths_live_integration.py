@@ -4,11 +4,11 @@ import tomllib
 
 import pytest
 
-from isupermarket import ListSize
-from product_parser import ProductParser
+from Code.isupermarket import ListSize
+from Code.product_parser import ProductParser
 from tests.test_helpers import DummyFileHandler, DummyLogger
-from web_driver import WebDriver
-from woolworths import Woolworths
+from Code.web_driver import WebDriver
+from Code.woolworths import Woolworths
 
 
 def _is_live_test_enabled() -> bool:

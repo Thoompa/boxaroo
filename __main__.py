@@ -1,8 +1,8 @@
 import argparse
 
-from isupermarket import ListSize
-from logger import LoggingLevel
-from cli import main, build_list_size_help
+from Code.isupermarket import ListSize
+from Code.logger import LoggingLevel
+from Code.cli import main, build_list_size_help
 
 
 if __name__ == "__main__":
