@@ -6,7 +6,7 @@ import pytest
 
 from Code.isupermarket import ListSize
 from Code.product_parser import ProductParser
-from tests.test_helpers import DummyFileHandler, DummyLogger
+from Tests.test_helpers import DummyFileHandler, DummyLogger
 from Code.web_driver import WebDriver
 from Code.woolworths import Woolworths
 

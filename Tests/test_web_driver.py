@@ -1,7 +1,7 @@
 import pytest
 from Code.web_driver import WebDriver
 import Code.web_driver as web_driver_module
-from tests.test_helpers import (
+from Tests.test_helpers import (
     DummyWebDriverShell,
     DummyWait,
     FakeSeleniumDriver,

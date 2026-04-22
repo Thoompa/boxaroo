@@ -3,7 +3,7 @@ import pytest
 
 from Code.isupermarket import ListSize
 from Code.woolworths import Woolworths
-from tests.test_helpers import (
+from Tests.test_helpers import (
     DummyFileHandler,
     DummyLogger,
     DummyProductParser,
@@ -667,6 +667,14 @@ def test_get_data_stores_products_for_each_category_and_accumulates_count(
     final_log = [msg for level, msg in log_records if "Successfully scraped" in msg]
     assert len(final_log) > 0
     assert "6 products" in final_log[0]
+
+    start_log = [
+        msg
+        for level, msg in log_records
+        if "Scraping" in msg and "Woolworths categories" in msg
+    ]
+    assert len(start_log) > 0
+    assert "Scraping 3 Woolworths categories" in start_log[0]
 
 
 def test_get_data_continues_on_category_exception(

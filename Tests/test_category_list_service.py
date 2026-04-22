@@ -4,7 +4,7 @@ import pytest
 
 from Code.category_list_service import CategoryListCache, CategoryListService
 from Code.isupermarket import ListSize
-from tests.test_helpers import DummyLogger
+from Tests.test_helpers import DummyLogger
 
 
 @pytest.fixture
