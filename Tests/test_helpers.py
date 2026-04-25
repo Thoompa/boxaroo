@@ -99,9 +99,26 @@ class DummyProductParser(IProductParser):
 
 
 class DummySupermarket:
-    def __init__(self, logger, logic=None):
+    def __init__(
+        self,
+        logger=None,
+        file_handler=None,
+        web_driver=None,
+        product_parser=None,
+        logic=None,
+        products_to_store=None,
+        get_data_error=None,
+        get_data_result=None,
+    ):
+        self.file_handler = file_handler
         self.logger = logger
+        self.web_driver = web_driver
+        self.product_parser = product_parser
+
         self.logic = logic
+        self.products_to_store = products_to_store
+        self.get_data_error = get_data_error
+        self.get_data_result = get_data_result
         self.get_data_called = False
         self.last_list_size = None
         self.last_refresh_category_lists = None
@@ -112,6 +129,11 @@ class DummySupermarket:
         self.get_data_called = True
         self.last_list_size = list_size
         self.last_refresh_category_lists = refresh_category_lists
+        if self.products_to_store is not None and self.file_handler is not None:
+            self.file_handler.store_data(self.products_to_store)
+        if self.get_data_error is not None:
+            raise self.get_data_error
+        return self.get_data_result
 
 
 class DummyWebDriverShell(WebDriver):
