@@ -14,7 +14,7 @@ from Tests.test_helpers import (
 # ============================================================
 
 
-def test_get_category_total_items_from_selector(monkeypatch):
+def test_get_category_total_items_from_selector():
     # GIVEN: the script response contains a plain product count
     driver = DummyWebDriverShell()
     driver._category_total_script_response = "Showing 480 products"
@@ -26,7 +26,7 @@ def test_get_category_total_items_from_selector(monkeypatch):
     assert total == 480
 
 
-def test_get_category_total_items_fallback_to_tile_count(monkeypatch):
+def test_get_category_total_items_fallback_to_tile_count():
     # GIVEN: the product count is only available from tile elements on the page
     driver = DummyWebDriverShell()
     driver._category_total_script_response = "wc-product-tile:42"
