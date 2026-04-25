@@ -180,15 +180,17 @@ class DummyWait:
         return True
 
 
-class FakeNextButton:
-    def __init__(self, href):
+class DummyNextButton:
+    def __init__(self, href, displayed=True, enabled=True):
         self.href = href
+        self._displayed = displayed
+        self._enabled = enabled
 
     def is_displayed(self):
-        return True
+        return self._displayed
 
     def is_enabled(self):
-        return True
+        return self._enabled
 
     def get_attribute(self, name):
         if name == "href":
@@ -196,14 +198,56 @@ class FakeNextButton:
         return None
 
 
-class FakeSeleniumDriver:
-    def __init__(self):
-        self.current_url = "https://www.woolworths.com.au/shop/browse/electronics"
+class DummyProductElement:
+    """Configurable test double for a Selenium product element."""
+
+    def __init__(
+        self,
+        text: str = "",
+        raise_on_text: bool = False,
+        text_error: Exception | None = None,
+    ):
+        self._text = text
+        self._raise_on_text = raise_on_text
+        self._text_error = text_error
+
+    @property
+    def text(self):
+        if self._text_error is not None:
+            raise self._text_error
+        if self._raise_on_text:
+            raise AttributeError("no text attribute")
+        return self._text
+
+
+class DummySeleniumDriver:
+    def __init__(
+        self,
+        script_result=None,
+        script_side_effect=None,
+        next_button_href="page-2",
+        next_button_displayed=True,
+        next_button_enabled=True,
+        next_button_missing=False,
+        click_advances_url_to=None,
+    ):
+        self.current_url = "page-1"
         self.page_index = 0
         self.pages = [["A", "B"], ["C", "D"]]
+        self._script_result = script_result
+        self._script_side_effect = script_side_effect
+        self._next_button_href = next_button_href
+        self._next_button_displayed = next_button_displayed
+        self._next_button_enabled = next_button_enabled
+        self._next_button_missing = next_button_missing
+        self._click_advances_url_to = click_advances_url_to
 
     def execute_script(self, script, *args):
-        return None
+        if self._script_side_effect is not None:
+            raise self._script_side_effect
+        if self._click_advances_url_to is not None and "click()" in script:
+            self.current_url = self._click_advances_url_to
+        return self._script_result
 
     def find_elements(self, by, value):
         if by == "tag name" and value == "wc-product-tile":
@@ -212,14 +256,18 @@ class FakeSeleniumDriver:
 
     def find_element(self, by, value):
         if by == "css selector" and value == ".paging-next":
+            if self._next_button_missing:
+                raise Exception("no next button")
             if self.page_index == 0:
-                return FakeNextButton(
-                    "https://www.woolworths.com.au/shop/browse/electronics?pageNumber=2"
+                return DummyNextButton(
+                    self._next_button_href,
+                    displayed=self._next_button_displayed,
+                    enabled=self._next_button_enabled,
                 )
             raise Exception("no next page")
         raise Exception("unsupported selector")
 
     def get(self, url):
         self.current_url = url
-        if "pageNumber=2" in url:
+        if url == "page-2":
             self.page_index = 1
