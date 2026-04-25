@@ -24,7 +24,7 @@ py-modules = ["__main__", "cli", "file_handler", "isupermarket", "logger", "prod
 [tool.pytest.ini_options]
 minversion = "7.0"
 addopts = "-q"
-testpaths = ["tests"]
+testpaths = ["Tests"]
 
 [tool.boxaroo.tests]
 run_live_woolworths = true
