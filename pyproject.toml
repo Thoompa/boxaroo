@@ -19,7 +19,8 @@ requires = ["setuptools>=65.0", "wheel"]
 build-backend = "setuptools.build_meta"
 
 [tool.setuptools]
-py-modules = ["__main__", "cli", "file_handler", "isupermarket", "logger", "product_parser", "category_list_service", "web_driver", "woolworths"]
+packages = ["Code"]
+py-modules = ["__main__"]
 
 [tool.pytest.ini_options]
 minversion = "7.0"

@@ -84,13 +84,13 @@ def main(
     web_driver = web_driver or WebDriver(headless, proxy_server)
     product_parser = product_parser or ProductParser()
 
-    woollies = Woolworths(file_handler, logger, web_driver, product_parser)
+    woolworths = Woolworths(file_handler, logger, web_driver, product_parser)
     logger.log("Running Boxaroo with list size - {0}".format(list_size))
     logger.log("WebDriver lifecycle start")
     scrape_succeeded = False
 
     try:
-        woollies.get_data(
+        woolworths.get_data(
             list_size=list_size, refresh_category_lists=refresh_category_lists
         )
         scrape_succeeded = True

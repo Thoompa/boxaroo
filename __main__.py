@@ -2,7 +2,7 @@ import argparse
 
 from Code.isupermarket import ListSize
 from Code.logger import LoggingLevel
-from Code.cli import main, build_list_size_help
+from Code.main import main, build_list_size_help
 
 
 if __name__ == "__main__":
