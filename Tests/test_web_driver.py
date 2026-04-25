@@ -38,7 +38,7 @@ def test_get_category_total_items_fallback_to_tile_count(monkeypatch):
     assert total == 42
 
 
-def test_get_category_total_items_parses_total_from_range_text(monkeypatch):
+def test_get_category_total_items_parses_total_from_range_text():
     # GIVEN: the page displays the product count as a pagination range
     driver = DummyWebDriverShell()
     driver._category_total_script_response = "1 - 36 of 10,000 Products"
