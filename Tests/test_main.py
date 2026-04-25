@@ -1,6 +1,6 @@
 import pytest
-from Code.cli import _format_eta, build_list_size_help, main
-import Code.cli as cli_module
+from Code.main import _format_eta, build_list_size_help, main
+import Code.main as main_module
 from Code.isupermarket import ListSize
 from Code.logger import LoggingLevel
 from Tests.test_helpers import (
@@ -33,7 +33,7 @@ def test_main_list_size_parameter(monkeypatch, list_size_enum):
         called["list_size"] = ls
 
     supermarket = DummySupermarket(logger=logger, logic=logic)
-    monkeypatch.setattr("Code.cli.Woolworths", lambda *args, **kwargs: supermarket)
+    monkeypatch.setattr("Code.main.Woolworths", lambda *args, **kwargs: supermarket)
 
     # WHEN: main() is invoked
     main(
@@ -67,7 +67,7 @@ def test_main_default_list_size_none(monkeypatch):
         called["list_size"] = ls
 
     supermarket = DummySupermarket(logger=logger, logic=logic)
-    monkeypatch.setattr("Code.cli.Woolworths", lambda *args, **kwargs: supermarket)
+    monkeypatch.setattr("Code.main.Woolworths", lambda *args, **kwargs: supermarket)
 
     # WHEN: main() is invoked
     main(
@@ -94,7 +94,7 @@ def test_main_refresh_category_lists_parameter(monkeypatch):
     file_handler = DummyFileHandler()
     web_driver = DummyWebDriver()
     supermarket = DummySupermarket(logger=logger)
-    monkeypatch.setattr("Code.cli.Woolworths", lambda *args, **kwargs: supermarket)
+    monkeypatch.setattr("Code.main.Woolworths", lambda *args, **kwargs: supermarket)
 
     main(
         headless=True,
@@ -116,7 +116,7 @@ def test_main_refresh_category_lists_default_false(monkeypatch):
     file_handler = DummyFileHandler()
     web_driver = DummyWebDriver()
     supermarket = DummySupermarket(logger=logger)
-    monkeypatch.setattr("Code.cli.Woolworths", lambda *args, **kwargs: supermarket)
+    monkeypatch.setattr("Code.main.Woolworths", lambda *args, **kwargs: supermarket)
 
     main(
         headless=True,
@@ -150,7 +150,7 @@ def test_format_eta(total_products, expected):
 
 def test_build_list_size_help_uses_formatted_eta(monkeypatch):
     monkeypatch.setattr(
-        "Code.cli._load_list_product_totals",
+        "Code.main._load_list_product_totals",
         lambda: {
             "testing": 108,  # 27s
             "short": 600,  # 2m 30s
@@ -174,7 +174,7 @@ def test_build_list_size_help_with_no_cache_returns_all_na(monkeypatch):
     Test that when the category cache is missing/empty,
     build_list_size_help shows 'n/a' for all list sizes.
     """
-    monkeypatch.setattr(cli_module, "_load_list_product_totals", lambda: {})
+    monkeypatch.setattr(main_module, "_load_list_product_totals", lambda: {})
 
     help_text = build_list_size_help()
 
@@ -204,7 +204,7 @@ def test_main_quits_webdriver_on_success_and_preserves_output(monkeypatch):
         web_driver=web_driver,
         products_to_store=expected_products,
     )
-    monkeypatch.setattr("Code.cli.Woolworths", lambda *args, **kwargs: supermarket)
+    monkeypatch.setattr("Code.main.Woolworths", lambda *args, **kwargs: supermarket)
 
     main(
         headless=True,
@@ -234,7 +234,7 @@ def test_main_quits_webdriver_when_get_data_raises(monkeypatch):
         web_driver=web_driver,
         get_data_error=RuntimeError("scrape failed"),
     )
-    monkeypatch.setattr("Code.cli.Woolworths", lambda *args, **kwargs: supermarket)
+    monkeypatch.setattr("Code.main.Woolworths", lambda *args, **kwargs: supermarket)
 
     with pytest.raises(RuntimeError, match="scrape failed"):
         main(
@@ -269,7 +269,7 @@ def test_main_raises_quit_error_when_scrape_succeeds_and_quit_fails(monkeypatch)
         file_handler=file_handler,
         web_driver=web_driver,
     )
-    monkeypatch.setattr("Code.cli.Woolworths", lambda *args, **kwargs: supermarket)
+    monkeypatch.setattr("Code.main.Woolworths", lambda *args, **kwargs: supermarket)
 
     with pytest.raises(RuntimeError, match="quit failed"):
         main(
@@ -309,7 +309,7 @@ def test_main_preserves_scrape_error_when_quit_also_raises(monkeypatch):
         web_driver=web_driver,
         get_data_error=RuntimeError("scrape failed"),
     )
-    monkeypatch.setattr("Code.cli.Woolworths", lambda *args, **kwargs: supermarket)
+    monkeypatch.setattr("Code.main.Woolworths", lambda *args, **kwargs: supermarket)
 
     with pytest.raises(RuntimeError, match="scrape failed"):
         main(
