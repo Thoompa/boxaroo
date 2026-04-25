@@ -330,3 +330,82 @@ def test_main_preserves_scrape_error_when_quit_also_raises(monkeypatch):
         level == "ERROR" and "WebDriver quit failed: quit failed" in message
         for level, message in logger.records
     )
+
+
+# logging_level tests
+@pytest.mark.parametrize(
+    "logging_level",
+    [LoggingLevel.DEBUG, LoggingLevel.INFO, LoggingLevel.ERROR],
+)
+def test_main_logging_level_passed_to_logger(monkeypatch, logging_level):
+    # GIVEN: No logger is injected and logging_level is provided
+    file_handler = DummyFileHandler()
+    web_driver = DummyWebDriver()
+    supermarket = DummySupermarket(logger=DummyLogger())
+    monkeypatch.setattr(DummyLogger, "instances", [])
+    monkeypatch.setattr("Code.main.Logger", DummyLogger)
+    monkeypatch.setattr("Code.main.Woolworths", lambda *args, **kwargs: supermarket)
+
+    # WHEN: main() is called without a logger
+    main(
+        headless=True,
+        logging_level=logging_level,
+        default_list_size=ListSize.TESTING,
+        proxy_server=None,
+        file_handler=file_handler,
+        logger=None,
+        web_driver=web_driver,
+    )
+
+    # THEN: Logger is constructed once with the given logging_level
+    assert len(DummyLogger.instances) == 1
+    assert DummyLogger.instances[0].logging_level == logging_level
+
+
+def test_main_logging_level_default_is_info(monkeypatch):
+    # GIVEN: main() is called without specifying logging_level
+    file_handler = DummyFileHandler()
+    web_driver = DummyWebDriver()
+    supermarket = DummySupermarket(logger=DummyLogger())
+    monkeypatch.setattr(DummyLogger, "instances", [])
+    monkeypatch.setattr("Code.main.Logger", DummyLogger)
+    monkeypatch.setattr("Code.main.Woolworths", lambda *args, **kwargs: supermarket)
+
+    # WHEN: main() is called with logger=None and no logging_level
+    main(
+        headless=True,
+        default_list_size=ListSize.TESTING,
+        proxy_server=None,
+        file_handler=file_handler,
+        logger=None,
+        web_driver=web_driver,
+    )
+
+    # THEN: Logger defaults to LoggingLevel.INFO
+    assert len(DummyLogger.instances) == 1
+    assert DummyLogger.instances[0].logging_level == LoggingLevel.INFO
+
+
+def test_main_injected_logger_not_replaced(monkeypatch):
+    # GIVEN: A logger is injected
+    logger = DummyLogger()
+    file_handler = DummyFileHandler()
+    web_driver = DummyWebDriver()
+    supermarket = DummySupermarket(logger=logger)
+    monkeypatch.setattr(DummyLogger, "instances", [])
+    monkeypatch.setattr("Code.main.Logger", DummyLogger)
+    monkeypatch.setattr("Code.main.Woolworths", lambda *args, **kwargs: supermarket)
+
+    # WHEN: main() is called with an injected logger
+    main(
+        headless=True,
+        logging_level=LoggingLevel.ERROR,
+        default_list_size=ListSize.TESTING,
+        proxy_server=None,
+        file_handler=file_handler,
+        logger=logger,
+        web_driver=web_driver,
+    )
+
+    # THEN: The Logger constructor is not called; the injected logger is used as-is
+    assert len(DummyLogger.instances) == 0

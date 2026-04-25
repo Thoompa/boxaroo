@@ -11,9 +11,12 @@ from Code.web_driver import WebDriver
 
 
 class DummyLogger(ILogger):
+    instances: list["DummyLogger"] = []
+
     def __init__(self, logging_level=None):
         self.logging_level = logging_level or LoggingLevel.INFO
         self.records = []
+        DummyLogger.instances.append(self)
 
     def debug(self, message):
         self.records.append(("DEBUG", message))
