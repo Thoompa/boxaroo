@@ -230,6 +230,7 @@ class DummySeleniumDriver:
         next_button_enabled=True,
         next_button_missing=False,
         click_advances_url_to=None,
+        mark_incomplete_a=False,
     ):
         self.current_url = "page-1"
         self.page_index = 0
@@ -241,6 +242,14 @@ class DummySeleniumDriver:
         self._next_button_enabled = next_button_enabled
         self._next_button_missing = next_button_missing
         self._click_advances_url_to = click_advances_url_to
+        self._mark_incomplete_a = mark_incomplete_a
+
+    def get_products_callback(self, elements):
+        products = list(elements)
+        incomplete_items = []
+        if self._mark_incomplete_a and "A" in products:
+            incomplete_items.append({"name": "A", "missing": ["unit_price"]})
+        return {"products": products, "incomplete_items": incomplete_items}
 
     def execute_script(self, script, *args):
         if self._script_side_effect is not None:

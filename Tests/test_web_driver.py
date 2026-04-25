@@ -121,24 +121,15 @@ def test_get_category_total_items_returns_none_for_malformed_tile_count():
 
 
 def test_get_products_page_stats_aggregation(monkeypatch):
-    # GIVEN: a single page with 2 products scraped, 1 of which is incomplete
-    driver = DummyWebDriverShell(
-        products_response={
-            "products": ["A", "B"],
-            "incomplete_items": [{"name": "A", "missing": ["unit_price"]}],
-            "page_stats": [
-                {"page": 1, "product_tiles": 2, "scraped": 2, "incomplete": 1}
-            ],
-        }
-    )
+    # GIVEN: a two-page category where only the first page reports an incomplete item
+    monkeypatch.setattr(web_driver_module, "WebDriverWait", DummyWait)
+    monkeypatch.setattr(web_driver_module.time, "sleep", lambda _: None)
+    monkeypatch.setattr(web_driver_module.random, "uniform", lambda a, b: 0)
+    driver = DummyWebDriverShell()
+    driver.driver = DummySeleniumDriver(mark_incomplete_a=True)
 
     # WHEN: the products are retrieved
-    res = driver.get_products(
-        lambda x: {
-            "products": ["A", "B"],
-            "incomplete_items": [{"name": "A", "missing": ["unit_price"]}],
-        }
-    )
+    res = WebDriver.get_products(driver, driver.driver.get_products_callback)
 
     # THEN: the scrape summary correctly reports the page number, total scraped, and incomplete count
     assert isinstance(res, dict)
@@ -478,7 +469,8 @@ def test_extract_text_propagates_timeout_error_from_shadow_root():
     )
     element = DummyProductElement(text="")
 
-    # WHEN / THEN: the TimeoutError propagates
+    # WHEN: text is retrieved from the element
+    # THEN: a TimeoutError is raised
     with pytest.raises(TimeoutError):
         WebDriver._extract_text_from_product_element(driver, element)
 
@@ -488,7 +480,8 @@ def test_extract_text_propagates_timeout_error_from_element_dot_text():
     driver = DummyWebDriverShell()
     element = DummyProductElement(text_error=TimeoutError("stale element"))
 
-    # WHEN / THEN: the TimeoutError propagates
+    # WHEN: text is retrieved from the element
+    # THEN: a TimeoutError is raised
     with pytest.raises(TimeoutError):
         WebDriver._extract_text_from_product_element(driver, element)
 
