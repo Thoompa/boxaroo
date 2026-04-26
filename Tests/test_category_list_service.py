@@ -211,7 +211,7 @@ def test_refresh_builds_correct_lists_from_counts(service):
     assert out["category_product_totals"]["electronics"] == 12000
 
 
-def test_refresh_excludes_boundary_counts_from_short_medium_long(service):
+def test_refresh_applies_strict_per_list_threshold_boundaries(service):
     # GIVEN: category counts positioned on and around list-size boundaries
     category_counts = [
         {"name": "short-below", "count": 999},
@@ -225,7 +225,7 @@ def test_refresh_excludes_boundary_counts_from_short_medium_long(service):
     # WHEN: category lists are refreshed
     out = service.refresh(category_counts)
 
-    # THEN: boundary values are excluded by strict less-than thresholds
+    # THEN: each list applies its own strict less-than boundary threshold
     assert out["short"] == ["short-below"]
     assert out["medium"] == ["medium-below", "short-below", "short-boundary"]
     assert out["long"] == [
@@ -275,8 +275,8 @@ def test_refresh_computes_non_empty_list_product_totals(service):
     }
 
 
-def test_refresh_returns_empty_structure_when_all_counts_zero(service):
-    # GIVEN: there are no category counts
+def test_refresh_returns_empty_structure_when_category_counts_are_empty(service):
+    # GIVEN: the category counts input is empty
 
     # WHEN: category lists are refreshed
     out = service.refresh([])
@@ -342,7 +342,7 @@ def test_save_writes_correct_shape(tmp_path, logger):
     assert saved["category_product_totals"] == {"fruit-veg": 300}
 
 
-def test_save_normalizes_totals_when_list_product_totals_is_not_dict(tmp_path, logger):
+def test_save_normalises_totals_when_list_product_totals_is_not_dict(tmp_path, logger):
     # GIVEN: list product totals are provided as a non-dictionary value
     cache_path = tmp_path / "woolworths-category-lists.json"
     svc = CategoryListService(str(cache_path), logger)
@@ -358,7 +358,7 @@ def test_save_normalizes_totals_when_list_product_totals_is_not_dict(tmp_path, l
 
     saved = json.loads(cache_path.read_text(encoding="utf-8"))
 
-    # THEN: all totals are normalized to zero
+    # THEN: all totals are normalised to zero
     assert saved["list_product_totals"] == {
         "testing": 0,
         "short": 0,
@@ -368,7 +368,7 @@ def test_save_normalizes_totals_when_list_product_totals_is_not_dict(tmp_path, l
     }
 
 
-def test_save_normalizes_non_int_total_values_to_zero(tmp_path, logger):
+def test_save_normalises_non_int_total_values_to_zero(tmp_path, logger):
     # GIVEN: list product totals include non-integer values
     cache_path = tmp_path / "woolworths-category-lists.json"
     svc = CategoryListService(str(cache_path), logger)
@@ -390,7 +390,7 @@ def test_save_normalizes_non_int_total_values_to_zero(tmp_path, logger):
 
     saved = json.loads(cache_path.read_text(encoding="utf-8"))
 
-    # THEN: only integer values are preserved and others are normalized to zero
+    # THEN: only integer values are preserved and others are normalised to zero
     assert saved["list_product_totals"] == {
         "testing": 123,
         "short": 0,
@@ -416,7 +416,7 @@ def test_save_works_when_cache_path_has_no_directory(tmp_path, logger, monkeypat
 
     saved = json.loads((tmp_path / cache_name).read_text(encoding="utf-8"))
 
-    # THEN: the cache is written and missing totals are normalized to zero
+    # THEN: the cache is written and missing totals are normalised to zero
     assert saved["supermarket_categories"] == ["fruit-veg", "pantry", "pet"]
     assert saved["testing"] == ["fruit-veg"]
     assert saved["list_product_totals"] == {
