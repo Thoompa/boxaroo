@@ -3,10 +3,14 @@
 ## Setup
 
 1. Create a virtual environment (recommended):
-   - `python -m venv .venv`
-   - `source .venv/bin/activate`
+  - macOS / Linux:
+    - `python3 -m venv .venv`
+    - `source .venv/bin/activate`
+  - Windows PowerShell:
+    - `python -m venv .venv`
+    - `.\.venv\Scripts\Activate.ps1`
 2. Install requirements:
-   - `pip install -r requirements.txt`
+  - `python -m pip install -r requirements.txt`
 
 ## Run
 
@@ -68,7 +72,11 @@ python __main__.py --list_size SHORT --refresh_category_lists
 ### Quick Start
 ```bash
 # Activate virtual environment (if not already active)
+# macOS / Linux:
 source .venv/bin/activate
+
+# Windows PowerShell:
+.\.venv\Scripts\Activate.ps1
 
 # Run tests
 python -m pytest -q
@@ -80,8 +88,14 @@ python -m pytest -q
 ### Setup Requirements
 Before running tests, ensure the virtual environment and dependencies are installed:
 ```bash
+# macOS / Linux:
 python3 -m venv .venv
 source .venv/bin/activate
+
+# Windows PowerShell:
+python -m venv .venv
+.\.venv\Scripts\Activate.ps1
+
 python -m pip install -r requirements.txt
 ```
 
@@ -115,11 +129,15 @@ This repository uses [pre-commit](https://pre-commit.com/) to enforce code quali
 
 1. Ensure your virtual environment is activated:
   ```bash
+  # macOS / Linux:
   source .venv/bin/activate
+
+  # Windows PowerShell:
+  .\.venv\Scripts\Activate.ps1
   ```
 2. Install pre-commit (if not already):
   ```bash
-  pip install pre-commit
+  python -m pip install pre-commit
   pre-commit install
   ```
 3. Hooks run automatically on `git commit`. To run all hooks manually on all files:
