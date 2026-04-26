@@ -246,6 +246,37 @@ class Woolworths(ISuperMarket):
                 category_counts.append({"name": name, "count": count})
         return self.category_list_service.refresh(category_counts)
 
+    def _dedupe_products(self, products: list[list[str]]) -> list[list[str]]:
+        seen: set[tuple[str, ...]] = set()
+        deduped: list[list[str]] = []
+
+        for product in products:
+            key = tuple(product)
+            if key in seen:
+                continue
+            seen.add(key)
+            deduped.append(product)
+
+        return deduped
+
+    def _dedupe_incomplete_items(
+        self, incomplete_items: list[dict[str, object]]
+    ) -> list[dict[str, object]]:
+        seen: set[tuple[str, tuple[str, ...]]] = set()
+        deduped: list[dict[str, object]] = []
+
+        for item in incomplete_items:
+            name = str(item.get("name", ""))
+            missing = item.get("missing", [])
+            missing_key = tuple(str(field) for field in missing)
+            key = (name, missing_key)
+            if key in seen:
+                continue
+            seen.add(key)
+            deduped.append(item)
+
+        return deduped
+
     def _get_category_data(self, category_url: str) -> CategoryData:
         url = self.url + category_url
 
@@ -274,6 +305,9 @@ class Woolworths(ISuperMarket):
                 if isinstance(data_result, dict)
                 else []
             )
+
+            products = self._dedupe_products(products)
+            incomplete_items = self._dedupe_incomplete_items(incomplete_items)
 
             for page_info in page_stats:
                 self.logger.log(
@@ -307,14 +341,7 @@ class Woolworths(ISuperMarket):
         except Exception as e:
             msg = getattr(e, "msg", None) or str(e) or repr(e)
             self.logger.error(f"{type(e).__name__}: {msg}")
-            return {
-                "category": category_url,
-                "total": 0,
-                "products": [],
-                "incomplete_items": [],
-                "scraped": 0,
-                "incomplete": 0,
-            }
+            raise
 
     def _get_products_data(self, products: List[str]) -> ProductsData:
         products_data = []

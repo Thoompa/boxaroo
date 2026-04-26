@@ -1,3 +1,4 @@
+import os
 from abc import ABC, abstractmethod
 from datetime import date
 from enum import Enum
@@ -33,6 +34,9 @@ class Logger(ILogger):
     def __init__(self, logging_level: LoggingLevel):
         self.file_name = "Logs/Log-{0}.txt".format(date.today())
         self.logging_level = logging_level
+        log_dir = os.path.dirname(self.file_name)
+        if log_dir:
+            os.makedirs(log_dir, exist_ok=True)
         try:
             with open(self.file_name, "x"):
                 pass  # Creates the file but does not write anything

@@ -472,14 +472,13 @@ def test_get_category_data_returns_correct_shape_on_exception(woolworths, web_dr
 
     web_driver.get_page = boom
 
-    result = woolworths._get_category_data("fruit-veg")
+    with pytest.raises(RuntimeError, match="Driver exploded"):
+        woolworths._get_category_data("fruit-veg")
 
-    assert result["category"] == "fruit-veg"
-    assert result["total"] == 0
-    assert result["products"] == []
-    assert result["incomplete_items"] == []
-    assert result["scraped"] == 0
-    assert result["incomplete"] == 0
+    assert any(
+        level == "ERROR" and "RuntimeError: Driver exploded" in message
+        for level, message in woolworths.logger.records
+    )
 
 
 def test_get_category_data_uses_scraped_count_when_total_is_none(
@@ -500,6 +499,36 @@ def test_get_category_data_uses_scraped_count_when_total_is_none(
     # When driver returns None for total, fall back to scraped count
     assert result["total"] == 2
     assert result["scraped"] == 2
+
+
+def test_get_category_data_deduplicates_products_and_incomplete_items(
+    woolworths, web_driver
+):
+    web_driver.category_total_items = 5
+    web_driver.products_response = {
+        "products": [
+            ["Apple each", "$1.00", "$1.00 / 1EA", ""],
+            ["Apple each", "$1.00", "$1.00 / 1EA", ""],
+            ["Bread each", "$2.00", "$2.00 / 1EA", ""],
+        ],
+        "incomplete_items": [
+            {"name": "Apple each", "missing": ["unit_price"]},
+            {"name": "Apple each", "missing": ["unit_price"]},
+        ],
+        "page_stats": [{"page": 1, "product_tiles": 3, "scraped": 3, "incomplete": 2}],
+    }
+
+    result = woolworths._get_category_data("fruit-veg")
+
+    assert result["products"] == [
+        ["Apple each", "$1.00", "$1.00 / 1EA", ""],
+        ["Bread each", "$2.00", "$2.00 / 1EA", ""],
+    ]
+    assert result["incomplete_items"] == [
+        {"name": "Apple each", "missing": ["unit_price"]}
+    ]
+    assert result["scraped"] == 2
+    assert result["incomplete"] == 1
 
 
 # ============================================================
