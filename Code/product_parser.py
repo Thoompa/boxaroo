@@ -125,7 +125,11 @@ class ProductParser(IProductParser):
             re.match(r"^\$\d+(\.\d{2})?$", stripped)
             or re.match(r"^\$\d+(\.\d{2})?\s+each$", stripped, re.IGNORECASE)
         )
-        if not is_price and stripped.startswith("$"):
+        if (
+            not is_price
+            and stripped.startswith("$")
+            and not self._is_unit_price_line(stripped)
+        ):
             self.logger.log(f"Rejected price line: {stripped}")
         return is_price
 
