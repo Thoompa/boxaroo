@@ -37,7 +37,7 @@ def test_live_woolworths_category_discovery_count_classification_and_cache(tmp_p
     logger = DummyLogger()
     file_handler = DummyFileHandler()
     driver = WebDriver(headless=False)
-    parser = ProductParser()
+    parser = ProductParser(logger=logger)
 
     try:
         woolworths = Woolworths(

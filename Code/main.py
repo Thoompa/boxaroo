@@ -82,7 +82,7 @@ def main(
 
     file_handler = file_handler or FileHandler(file_name, file_path, header, logger)
     web_driver = web_driver or WebDriver(headless, proxy_server)
-    product_parser = product_parser or ProductParser()
+    product_parser = product_parser or ProductParser(logger=logger)
 
     woolworths = Woolworths(file_handler, logger, web_driver, product_parser)
     logger.log("Running Boxaroo with list size - {0}".format(list_size))

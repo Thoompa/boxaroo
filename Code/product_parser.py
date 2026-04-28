@@ -1,6 +1,7 @@
 import re
 from abc import ABC, abstractmethod
 from typing import List, Optional, Sequence, TypedDict
+from Code.logger import ILogger
 
 
 class ProductParseResult(TypedDict):
@@ -21,7 +22,11 @@ class IProductParser(ABC):
 class ProductParser(IProductParser):
     """Parser for raw product text into structured product fields."""
 
-    def __init__(self, blacklist: Optional[Sequence[str]] = None):
+    def __init__(
+        self,
+        logger: ILogger,
+        blacklist: Optional[Sequence[str]] = None,
+    ):
         self.blacklist = [
             "add to cart",
             "save to list",
@@ -33,6 +38,7 @@ class ProductParser(IProductParser):
             "delisted",
             "click to save",
         ]
+        self.logger = logger
         if blacklist:
             self.blacklist = list(self.blacklist) + list(blacklist)
 
@@ -83,12 +89,22 @@ class ProductParser(IProductParser):
         for line in lines:
             if self._is_unit_price_line(line):
                 return line
+            each_match = re.match(
+                r"^(\$\d+(?:\.\d{2})?)\s+each$", line.strip(), re.IGNORECASE
+            )
+            if each_match:
+                return each_match.group(1)
         return ""
 
     def _extract_promotion(self, lines: List[str]) -> str:
         for line in lines:
             text = line.lower().strip()
-            if "for $" in text or re.match(r"^\d+\s*for\s*\$", text):
+            if (
+                "for $" in text
+                or re.match(r"^\d+\s*for\s*\$", text)
+                or re.match(r"^was\s*\$\d", text)
+                or re.match(r"^save\s*\$\d", text)
+            ):
                 return line
         return ""
 
@@ -104,7 +120,18 @@ class ProductParser(IProductParser):
         return ""
 
     def _is_price_line(self, value: str) -> bool:
-        return bool(re.match(r"^\$\d+(\.\d{2})?$", value.strip()))
+        stripped = value.strip()
+        is_price = bool(
+            re.match(r"^\$\d+(\.\d{2})?$", stripped)
+            or re.match(r"^\$\d+(\.\d{2})?\s+each$", stripped, re.IGNORECASE)
+        )
+        if (
+            not is_price
+            and stripped.startswith("$")
+            and not self._is_unit_price_line(stripped)
+        ):
+            self.logger.log(f"Rejected price line: {stripped}")
+        return is_price
 
     def _is_unit_price_line(self, value: str) -> bool:
         return bool(re.match(r"^\$.*\/.+$", value.strip()))
