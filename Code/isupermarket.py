@@ -66,7 +66,7 @@ class ISuperMarket(ABC):
 
     @abstractmethod
     def get_categories(
-        self, list_size: ListSize, refresh_category_lists: bool = False
+        self, list_size: ListSize = ListSize.FULL, refresh_category_lists: bool = False
     ) -> list[str]:
         """Return the category names selected for the current run."""
         pass
@@ -78,7 +78,7 @@ class ISuperMarket(ABC):
 
     @abstractmethod
     def get_data(
-        self, list_size: ListSize, refresh_category_lists: bool = False
+        self, list_size: ListSize = ListSize.FULL, refresh_category_lists: bool = False
     ) -> None:
         """Legacy compatibility entry point that runs the full scrape."""
         pass
