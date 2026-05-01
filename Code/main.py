@@ -3,16 +3,12 @@
 Ownership:
 - Build and wire concrete dependencies for one scrape run.
 - Own process lifecycle concerns such as logger setup and WebDriver teardown.
-- Invoke the configured supermarket adapter through the current compatibility path.
+- Invoke the coordinator as the runtime orchestration boundary.
 
 Non-ownership:
 - Does not own category-level orchestration.
 - Does not own supermarket-specific scraping rules.
 - Does not own parser or category-list persistence logic.
-
-Goal 1 note:
-Runtime still calls the supermarket adapter directly to preserve behavior until
-ScrapeCoordinator becomes the enforced orchestration boundary.
 """
 
 import json
@@ -24,6 +20,7 @@ from Code.woolworths import Woolworths
 from Code.file_handler import FileHandler
 from datetime import date
 from Code.logger import Logger, LoggingLevel
+from Code.scrape_coordinator import ScrapeCoordinator
 from Code.web_driver import WebDriver
 
 
@@ -104,12 +101,13 @@ def main(
     supermarket: ISuperMarket = Woolworths(
         file_handler, logger, web_driver, product_parser
     )
+    coordinator = ScrapeCoordinator(supermarket, logger, file_handler)
     logger.log("Running Boxaroo with list size - {0}".format(list_size))
     logger.log("WebDriver lifecycle start")
     scrape_succeeded = False
 
     try:
-        supermarket.get_data(
+        coordinator.run(
             list_size=list_size, refresh_category_lists=refresh_category_lists
         )
         scrape_succeeded = True
