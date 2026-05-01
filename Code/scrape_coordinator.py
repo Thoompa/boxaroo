@@ -1,4 +1,4 @@
-"""Future orchestration boundary for supermarket scraping.
+"""Orchestration boundary for supermarket scraping.
 
 Ownership for the coordinator layer:
 - Ask a supermarket adapter for the selected categories for the current run.
@@ -11,23 +11,51 @@ Non-ownership:
 - Supermarket-specific navigation, DOM extraction, cache refresh mechanics, and
   product parsing remain inside the supermarket adapter and its collaborators.
 
-Goal 1 note:
-This module documents the intended orchestration boundary, but it is not wired
-into runtime yet to avoid changing behavior before the deeper refactor.
 """
 
+from Code.file_handler import IFileHandler
 from Code.isupermarket import ISuperMarket
+from Code.isupermarket import ListSize
 from Code.logger import ILogger
 
 
 class ScrapeCoordinator:
-    """Future orchestration entry point for category-level scraping.
+    """Runtime orchestration entry point for category-level scraping."""
 
-    The active runtime still calls ISuperMarket.get_data() directly. This class
-    exists so contributors can see where category-level orchestration will move
-    in Goal 2 without moving behavior yet.
-    """
-
-    def __init__(self, supermarket: ISuperMarket, logger: ILogger) -> None:
+    def __init__(
+        self,
+        supermarket: ISuperMarket,
+        logger: ILogger,
+        file_handler: IFileHandler,
+    ) -> None:
         self.supermarket = supermarket
         self.logger = logger
+        self.file_handler = file_handler
+
+    def run(
+        self,
+        list_size: ListSize = ListSize.FULL,
+        refresh_category_lists: bool = False,
+    ) -> None:
+        self.logger.log("Scraping Woolworths categories")
+        categories = self.supermarket.get_categories(
+            list_size, refresh_category_lists=refresh_category_lists
+        )
+
+        total_products = 0
+        for category in categories:
+            try:
+                category_data = self.supermarket.get_category_data(category)
+            except Exception as exc:
+                self.logger.error(f"Failed to scrape category '{category}': {exc}")
+                continue
+
+            products = (
+                category_data.get("products", [])
+                if isinstance(category_data, dict)
+                else []
+            )
+            self.file_handler.store_data(products)
+            total_products += len(products)
+
+        self.logger.log(f"Successfully scraped {total_products} products")

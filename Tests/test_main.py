@@ -48,8 +48,8 @@ def test_main_list_size_parameter(monkeypatch, list_size_enum):
 
     # THEN: The supermarket receives the correct list_size
     assert (
-        supermarket.get_data_called
-    ), "Expected get_data to be called on DummySupermarket"
+        supermarket.get_categories_called
+    ), "Expected get_categories to be called on DummySupermarket"
     assert (
         called["list_size"] == list_size_enum
     ), f"Expected list_size {list_size_enum}, got {called['list_size']}"
@@ -82,8 +82,8 @@ def test_main_default_list_size_none(monkeypatch):
 
     # THEN: The supermarket receives ListSize.TESTING as the list_size
     assert (
-        supermarket.get_data_called
-    ), "Expected get_data to be called on DummySupermarket"
+        supermarket.get_categories_called
+    ), "Expected get_categories to be called on DummySupermarket"
     assert (
         called["list_size"] == ListSize.TESTING
     ), f"Expected list_size ListSize.TESTING, got {called['list_size']}"
@@ -110,7 +110,7 @@ def test_main_refresh_category_lists_parameter(monkeypatch):
     )
 
     # THEN: refresh_category_lists=True is forwarded to the supermarket
-    assert supermarket.get_data_called
+    assert supermarket.get_categories_called
     assert supermarket.last_refresh_category_lists is True
 
 
@@ -135,7 +135,7 @@ def test_main_refresh_category_lists_default_false(monkeypatch):
     )
 
     # THEN: refresh_category_lists=False is forwarded to the supermarket
-    assert supermarket.get_data_called
+    assert supermarket.get_categories_called
     assert supermarket.last_refresh_category_lists is False
 
 

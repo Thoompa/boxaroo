@@ -141,18 +141,40 @@ class DummySupermarket(ISuperMarket):
         self.get_data_error = get_data_error
         self.get_data_result = get_data_result
         self.get_data_called = False
+        self.get_categories_called = False
         self.last_list_size = None
         self.last_refresh_category_lists = None
+        self.get_category_data_calls: list[str] = []
 
     def get_categories(
         self, list_size: ListSize = ListSize.FULL, refresh_category_lists: bool = False
     ) -> list[str]:
+        if self.logic:
+            self.logic(self.logger, list_size, refresh_category_lists)
         self.last_list_size = list_size
         self.last_refresh_category_lists = refresh_category_lists
+        self.get_categories_called = True
+        if self.get_data_error is not None:
+            raise self.get_data_error
+        if self.categories:
+            return self.categories
+        if self.products_to_store is not None:
+            return ["default-category"]
         return self.categories
 
     def get_category_data(self, category_name: str) -> CategoryData:
-        return self.category_data[category_name]
+        self.get_category_data_calls.append(category_name)
+        if category_name in self.category_data:
+            return self.category_data[category_name]
+        products = self.products_to_store if self.products_to_store is not None else []
+        return {
+            "category": category_name,
+            "total": len(products),
+            "products": products,
+            "incomplete_items": [],
+            "scraped": len(products),
+            "incomplete": 0,
+        }
 
     def get_data(
         self, list_size: ListSize = ListSize.FULL, refresh_category_lists: bool = False

@@ -27,6 +27,7 @@ from Code.category_list_service import (
 from Code.product_parser import IProductParser
 from Code.file_handler import IFileHandler
 from Code.logger import ILogger
+from Code.scrape_coordinator import ScrapeCoordinator
 from Code.isupermarket import (
     ISuperMarket,
     ListSize,
@@ -90,29 +91,11 @@ class Woolworths(ISuperMarket):
         refresh_category_lists: bool = False,
     ) -> None:
         """Temporary full-run entry point kept for backward compatibility."""
-        self.logger.debug(
-            "Getting Woolworths categories (list size - {0})".format(list_size)
+        # Compatibility shim: remove once callers invoke ScrapeCoordinator directly.
+        coordinator = ScrapeCoordinator(self, self.logger, self.file_handler)
+        coordinator.run(
+            list_size=list_size, refresh_category_lists=refresh_category_lists
         )
-        categories = self.get_categories(
-            list_size, refresh_category_lists=refresh_category_lists
-        )
-        self.logger.log("Scraping Woolworths categories - {0}".format(categories))
-
-        num_products = 0
-
-        for category in categories:
-            category_data = self.get_category_data(category)
-
-            if category_data is not None:
-                products = (
-                    category_data.get("products", [])
-                    if isinstance(category_data, dict)
-                    else []
-                )
-                self.file_handler.store_data(products)
-                num_products += len(products)
-
-        self.logger.log("Successfully scraped {0} products".format(num_products))
 
     def _get_all_categories(
         self, list_size: ListSize, refresh_category_lists: bool = False
@@ -381,7 +364,14 @@ class Woolworths(ISuperMarket):
         except Exception as e:
             msg = getattr(e, "msg", None) or str(e) or repr(e)
             self.logger.error(f"{type(e).__name__}: {msg}")
-            raise
+            return {
+                "category": category_url,
+                "total": 0,
+                "products": [],
+                "incomplete_items": [],
+                "scraped": 0,
+                "incomplete": 0,
+            }
 
     def _get_products_data(self, products: List[str]) -> ProductsData:
         products_data = []
