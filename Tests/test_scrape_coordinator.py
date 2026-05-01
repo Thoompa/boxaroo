@@ -252,6 +252,6 @@ def test_coordinator_run_logs_start_message():
     # WHEN: coordinator.run() is executed
     coordinator.run()
 
-    # THEN: an INFO message containing "Scraping" is recorded
+    # THEN: an INFO message records generic scraping plus adapter identity
     info_messages = [msg for level, msg in logger.records if level == "INFO"]
-    assert any("Scraping" in msg for msg in info_messages)
+    assert any("Scraping DummySupermarket categories" in msg for msg in info_messages)

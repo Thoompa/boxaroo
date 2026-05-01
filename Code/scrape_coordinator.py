@@ -37,7 +37,7 @@ class ScrapeCoordinator:
         list_size: ListSize = ListSize.FULL,
         refresh_category_lists: bool = False,
     ) -> None:
-        self.logger.log("Scraping supermarket categories")
+        self.logger.log(f"Scraping {type(self.supermarket).__name__} categories")
         categories = self.supermarket.get_categories(
             list_size, refresh_category_lists=refresh_category_lists
         )

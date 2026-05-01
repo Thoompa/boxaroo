@@ -237,8 +237,8 @@ def test_main_quits_webdriver_on_success_and_preserves_output(monkeypatch):
     assert ("INFO", "WebDriver lifecycle stop") in logger.records
 
 
-def test_main_quits_webdriver_when_get_category_data_raises(monkeypatch):
-    # GIVEN: A category scrape raises an error during coordinator run
+def test_main_logs_category_failure_and_quits_webdriver(monkeypatch):
+    # GIVEN: A category scrape fails during coordinator run
     logger = DummyLogger()
     file_handler = DummyFileHandler()
     web_driver = DummyWebDriver()
