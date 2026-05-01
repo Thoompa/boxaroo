@@ -2,12 +2,19 @@
 """
 Shared dummy/mock classes for Boxaroo unit tests.
 """
-from typing import Any
+from typing import Any, Callable
 
 from Code.file_handler import IFileHandler
 from Code.logger import ILogger, LoggingLevel
 from Code.product_parser import IProductParser, ProductParseResult
-from Code.web_driver import WebDriver
+from Code.web_driver import IWebDriver, WebDriver
+from Code.isupermarket import (
+    CategoryData,
+    ISuperMarket,
+    ListSize,
+    ProductsData,
+    ProductsPageResult,
+)
 
 
 class DummyLogger(ILogger):
@@ -36,25 +43,32 @@ class DummyFileHandler(IFileHandler):
         self.saved.append(data)
 
 
-class DummyWebDriver:
+class DummyWebDriver(IWebDriver):
     def __init__(self):
         self.called = []
         self.script_response = ""
         self.category_total_items = None
         self.category_total_items_sequence = []
-        self.products_response = []
+        self.products_response: ProductsPageResult = {
+            "products": [],
+            "incomplete_items": [],
+            "page_stats": [],
+        }
 
-    def get_page(self, url):
+    def get_page(self, url: str) -> None:
         self.called.append(("get_page", url))
 
-    def get_products(self, _callback=None):
+    def get_products(
+        self,
+        _callback: Callable[[list[str]], ProductsData | list[list[str]]] | None = None,
+    ) -> ProductsPageResult:
         self.called.append(("get_products",))
         return self.products_response
 
-    def quit(self):
+    def quit(self) -> None:
         self.called.append(("quit",))
 
-    def execute_script(self, script, *args):
+    def execute_script(self, script: str, *args) -> Any:
         self.called.append(("execute_script", script))
         if callable(self.script_response):
             return self.script_response(script, *args)
@@ -62,10 +76,10 @@ class DummyWebDriver:
             return self.script_response.pop(0) if self.script_response else ""
         return self.script_response
 
-    def reload_page(self):
+    def reload_page(self) -> None:
         self.called.append(("reload_page",))
 
-    def get_category_total_items(self):
+    def get_category_total_items(self) -> int | None:
         self.called.append(("get_category_total_items",))
         if self.category_total_items_sequence:
             return self.category_total_items_sequence.pop(0)
@@ -101,7 +115,7 @@ class DummyProductParser(IProductParser):
         return self._default_response
 
 
-class DummySupermarket:
+class DummySupermarket(ISuperMarket):
     def __init__(
         self,
         logger=None,
@@ -109,6 +123,8 @@ class DummySupermarket:
         web_driver=None,
         product_parser=None,
         logic=None,
+        categories: list[str] | None = None,
+        category_data: dict[str, CategoryData] | None = None,
         products_to_store=None,
         get_data_error=None,
         get_data_result=None,
@@ -119,6 +135,8 @@ class DummySupermarket:
         self.product_parser = product_parser
 
         self.logic = logic
+        self.categories = categories or []
+        self.category_data = category_data or {}
         self.products_to_store = products_to_store
         self.get_data_error = get_data_error
         self.get_data_result = get_data_result
@@ -126,7 +144,19 @@ class DummySupermarket:
         self.last_list_size = None
         self.last_refresh_category_lists = None
 
-    def get_data(self, list_size=None, refresh_category_lists=False):
+    def get_categories(
+        self, list_size: ListSize = ListSize.FULL, refresh_category_lists: bool = False
+    ) -> list[str]:
+        self.last_list_size = list_size
+        self.last_refresh_category_lists = refresh_category_lists
+        return self.categories
+
+    def get_category_data(self, category_name: str) -> CategoryData:
+        return self.category_data[category_name]
+
+    def get_data(
+        self, list_size: ListSize = ListSize.FULL, refresh_category_lists: bool = False
+    ) -> None:
         if self.logic:
             self.logic(self.logger, list_size, refresh_category_lists)
         self.get_data_called = True
@@ -136,7 +166,7 @@ class DummySupermarket:
             self.file_handler.store_data(self.products_to_store)
         if self.get_data_error is not None:
             raise self.get_data_error
-        return self.get_data_result
+        return None
 
 
 class DummyWebDriverShell(WebDriver):

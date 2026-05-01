@@ -50,9 +50,35 @@ class CategoryData(TypedDict):
 
 
 class ISuperMarket(ABC):
+    """Contract for supermarket-specific adapter implementations.
+
+    Ownership:
+    - Supermarket adapters own supermarket-specific navigation, payload
+      extraction, and translation into Boxaroo category/product structures.
+    - Category list services own persistence and list-size selection rules.
+    - Product parsers own parsing raw product payloads into normalized fields.
+
+    Boundary direction:
+    - Coordinators should depend on category-level methods.
+    - get_data() remains as the backward-compatible entry point while
+      orchestration still lives inside adapters.
+    """
+
+    @abstractmethod
+    def get_categories(
+        self, list_size: ListSize = ListSize.FULL, refresh_category_lists: bool = False
+    ) -> list[str]:
+        """Return the category names selected for the current run."""
+        pass
+
+    @abstractmethod
+    def get_category_data(self, category_name: str) -> CategoryData:
+        """Return normalized data for one category scrape attempt."""
+        pass
 
     @abstractmethod
     def get_data(
-        self, list_size: ListSize, refresh_category_lists: bool = False
+        self, list_size: ListSize = ListSize.FULL, refresh_category_lists: bool = False
     ) -> None:
+        """Legacy compatibility entry point that runs the full scrape."""
         pass

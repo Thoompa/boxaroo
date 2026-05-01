@@ -1,3 +1,20 @@
+"""Woolworths supermarket adapter.
+
+Ownership:
+- Own Woolworths-specific URLs, DOM access, category discovery, and translation
+    of browser payloads into Boxaroo data structures.
+- Own the temporary orchestration compatibility path via get_data() until the
+    dedicated coordinator is wired.
+- Decide when to consult CategoryListService, while CategoryListService owns
+    cache persistence and list-size selection rules.
+- Delegate product field extraction to the injected product parser, which owns
+    parsing rules for raw product text.
+
+Non-ownership:
+- Does not own application composition or WebDriver lifecycle.
+- Should not remain the long-term home for cross-category orchestration.
+"""
+
 import os
 import time
 from typing import List
@@ -21,6 +38,8 @@ from Code.web_driver import IWebDriver
 
 
 class Woolworths(ISuperMarket):
+    """Supermarket adapter for Woolworths scraping and payload normalization."""
+
     def __init__(
         self,
         file_handler: IFileHandler,
@@ -45,15 +64,36 @@ class Woolworths(ISuperMarket):
             default_cache_path, self.logger
         )
 
+    def get_categories(
+        self,
+        list_size: ListSize = ListSize.FULL,
+        refresh_category_lists: bool = False,
+    ) -> List[str]:
+        """Coordinator-facing category selection seam.
+
+        This delegates to the existing adapter logic so Goal 1 can expose the
+        future orchestration boundary without changing runtime behavior.
+        """
+
+        return self._get_all_categories(
+            list_size, refresh_category_lists=refresh_category_lists
+        )
+
+    def get_category_data(self, category_name: str) -> CategoryData:
+        """Coordinator-facing category scrape seam backed by existing logic."""
+
+        return self._get_category_data(category_name)
+
     def get_data(
         self,
         list_size: ListSize = ListSize.FULL,
         refresh_category_lists: bool = False,
     ) -> None:
+        """Temporary full-run entry point kept for backward compatibility."""
         self.logger.debug(
             "Getting Woolworths categories (list size - {0})".format(list_size)
         )
-        categories = self._get_all_categories(
+        categories = self.get_categories(
             list_size, refresh_category_lists=refresh_category_lists
         )
         self.logger.log("Scraping Woolworths categories - {0}".format(categories))
@@ -61,7 +101,7 @@ class Woolworths(ISuperMarket):
         num_products = 0
 
         for category in categories:
-            category_data = self._get_category_data(category)
+            category_data = self.get_category_data(category)
 
             if category_data is not None:
                 products = (
