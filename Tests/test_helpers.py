@@ -145,7 +145,7 @@ class DummySupermarket(ISuperMarket):
         self.last_refresh_category_lists = None
 
     def get_categories(
-        self, list_size: ListSize, refresh_category_lists: bool = False
+        self, list_size: ListSize = ListSize.FULL, refresh_category_lists: bool = False
     ) -> list[str]:
         self.last_list_size = list_size
         self.last_refresh_category_lists = refresh_category_lists
@@ -155,7 +155,7 @@ class DummySupermarket(ISuperMarket):
         return self.category_data[category_name]
 
     def get_data(
-        self, list_size: ListSize, refresh_category_lists: bool = False
+        self, list_size: ListSize = ListSize.FULL, refresh_category_lists: bool = False
     ) -> None:
         if self.logic:
             self.logic(self.logger, list_size, refresh_category_lists)
