@@ -127,6 +127,54 @@ def test_coordinator_run_continues_when_a_category_raises(monkeypatch):
     assert file_handler.saved[1][0][0] == "Bread each"
 
 
+def test_coordinator_run_skips_invalid_non_dict_category_payload(monkeypatch):
+    # GIVEN: categories where one returns malformed non-dict payload
+    file_handler = DummyFileHandler()
+    logger = DummyLogger()
+    supermarket = DummySupermarket(
+        logger=logger,
+        categories=["fruit-veg", "pantry", "bakery"],
+    )
+    coordinator = ScrapeCoordinator(
+        supermarket=supermarket,
+        logger=logger,
+        file_handler=file_handler,
+    )
+
+    def fake_get_category_data(category_name: str):
+        if category_name == "pantry":
+            return ["invalid-payload"]
+        if category_name == "fruit-veg":
+            return {
+                "category": "fruit-veg",
+                "total": 1,
+                "products": [["Apple each", "$1.00", "$1.00 / 1EA", ""]],
+                "incomplete_items": [],
+                "scraped": 1,
+                "incomplete": 0,
+            }
+        return {
+            "category": "bakery",
+            "total": 1,
+            "products": [["Bread each", "$3.50", "$3.50 / 1EA", ""]],
+            "incomplete_items": [],
+            "scraped": 1,
+            "incomplete": 0,
+        }
+
+    monkeypatch.setattr(supermarket, "get_category_data", fake_get_category_data)
+
+    # WHEN: coordinator.run() is called
+    coordinator.run(list_size=ListSize.TESTING)
+
+    # THEN: malformed payload is skipped, valid categories are stored, and an error is logged
+    assert len(file_handler.saved) == 2
+    assert file_handler.saved[0][0][0] == "Apple each"
+    assert file_handler.saved[1][0][0] == "Bread each"
+    error_messages = [msg for level, msg in logger.records if level == "ERROR"]
+    assert any("Invalid category data for 'pantry'" in msg for msg in error_messages)
+
+
 def test_coordinator_run_continues_when_a_category_returns_empty_payload():
     # GIVEN: three categories where one returns an empty products list
     file_handler = DummyFileHandler()

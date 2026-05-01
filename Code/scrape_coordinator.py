@@ -50,11 +50,21 @@ class ScrapeCoordinator:
                 self.logger.error(f"Failed to scrape category '{category}': {exc}")
                 continue
 
-            products = (
-                category_data.get("products", [])
-                if isinstance(category_data, dict)
-                else []
-            )
+            if not isinstance(category_data, dict):
+                self.logger.error(
+                    f"Invalid category data for '{category}': expected dict, got "
+                    f"{type(category_data).__name__}"
+                )
+                continue
+
+            products = category_data.get("products")
+            if not isinstance(products, list):
+                self.logger.error(
+                    f"Invalid category data for '{category}': expected 'products' "
+                    f"to be a list, got {type(products).__name__}"
+                )
+                continue
+
             self.file_handler.store_data(products)
             total_products += len(products)
 
