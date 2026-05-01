@@ -87,7 +87,7 @@ def main(
     web_driver=None,
     product_parser=None,
 ) -> None:
-    """Compose a scrape run and hand control to the current supermarket adapter."""
+    """Compose a scrape run and hand control to the scrape coordinator."""
     logger = logger or Logger(logging_level)
     list_size = default_list_size if default_list_size is not None else ListSize.TESTING
     file_path = "Data/{0}".format(date.today())

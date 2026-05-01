@@ -126,8 +126,8 @@ class DummySupermarket(ISuperMarket):
         categories: list[str] | None = None,
         category_data: dict[str, CategoryData] | None = None,
         products_to_store=None,
-        get_data_error=None,
-        get_data_result=None,
+        get_categories_error=None,
+        get_category_data_error=None,
     ):
         self.file_handler = file_handler
         self.logger = logger
@@ -138,9 +138,8 @@ class DummySupermarket(ISuperMarket):
         self.categories = categories or []
         self.category_data = category_data or {}
         self.products_to_store = products_to_store
-        self.get_data_error = get_data_error
-        self.get_data_result = get_data_result
-        self.get_data_called = False
+        self.get_categories_error = get_categories_error
+        self.get_category_data_error = get_category_data_error
         self.get_categories_called = False
         self.last_list_size = None
         self.last_refresh_category_lists = None
@@ -154,8 +153,8 @@ class DummySupermarket(ISuperMarket):
         self.last_list_size = list_size
         self.last_refresh_category_lists = refresh_category_lists
         self.get_categories_called = True
-        if self.get_data_error is not None:
-            raise self.get_data_error
+        if self.get_categories_error is not None:
+            raise self.get_categories_error
         if self.categories:
             return self.categories
         if self.products_to_store is not None:
@@ -164,6 +163,8 @@ class DummySupermarket(ISuperMarket):
 
     def get_category_data(self, category_name: str) -> CategoryData:
         self.get_category_data_calls.append(category_name)
+        if self.get_category_data_error is not None:
+            raise self.get_category_data_error
         if category_name in self.category_data:
             return self.category_data[category_name]
         products = self.products_to_store if self.products_to_store is not None else []
@@ -175,20 +176,6 @@ class DummySupermarket(ISuperMarket):
             "scraped": len(products),
             "incomplete": 0,
         }
-
-    def get_data(
-        self, list_size: ListSize = ListSize.FULL, refresh_category_lists: bool = False
-    ) -> None:
-        if self.logic:
-            self.logic(self.logger, list_size, refresh_category_lists)
-        self.get_data_called = True
-        self.last_list_size = list_size
-        self.last_refresh_category_lists = refresh_category_lists
-        if self.products_to_store is not None and self.file_handler is not None:
-            self.file_handler.store_data(self.products_to_store)
-        if self.get_data_error is not None:
-            raise self.get_data_error
-        return None
 
 
 class DummyWebDriverShell(WebDriver):

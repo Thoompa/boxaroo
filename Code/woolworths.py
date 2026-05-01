@@ -3,8 +3,6 @@
 Ownership:
 - Own Woolworths-specific URLs, DOM access, category discovery, and translation
     of browser payloads into Boxaroo data structures.
-- Own the temporary orchestration compatibility path via get_data() until the
-    dedicated coordinator is wired.
 - Decide when to consult CategoryListService, while CategoryListService owns
     cache persistence and list-size selection rules.
 - Delegate product field extraction to the injected product parser, which owns
@@ -12,7 +10,7 @@ Ownership:
 
 Non-ownership:
 - Does not own application composition or WebDriver lifecycle.
-- Should not remain the long-term home for cross-category orchestration.
+- Does not own cross-category runtime orchestration.
 """
 
 import os
@@ -27,7 +25,6 @@ from Code.category_list_service import (
 from Code.product_parser import IProductParser
 from Code.file_handler import IFileHandler
 from Code.logger import ILogger
-from Code.scrape_coordinator import ScrapeCoordinator
 from Code.isupermarket import (
     ISuperMarket,
     ListSize,
@@ -39,7 +36,7 @@ from Code.web_driver import IWebDriver
 
 
 class Woolworths(ISuperMarket):
-    """Supermarket adapter for Woolworths scraping and payload normalization."""
+    """Supermarket adapter for Woolworths category scraping and normalization."""
 
     def __init__(
         self,
@@ -84,18 +81,6 @@ class Woolworths(ISuperMarket):
         """Coordinator-facing category scrape seam backed by existing logic."""
 
         return self._get_category_data(category_name)
-
-    def get_data(
-        self,
-        list_size: ListSize = ListSize.FULL,
-        refresh_category_lists: bool = False,
-    ) -> None:
-        """Temporary full-run entry point kept for backward compatibility."""
-        # Compatibility shim: remove once callers invoke ScrapeCoordinator directly.
-        coordinator = ScrapeCoordinator(self, self.logger, self.file_handler)
-        coordinator.run(
-            list_size=list_size, refresh_category_lists=refresh_category_lists
-        )
 
     def _get_all_categories(
         self, list_size: ListSize, refresh_category_lists: bool = False
