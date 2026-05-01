@@ -1,12 +1,9 @@
 from Code.isupermarket import ListSize
 from Code.scrape_coordinator import ScrapeCoordinator
-from Code.woolworths import Woolworths
 from Tests.test_helpers import (
     DummyFileHandler,
     DummyLogger,
-    DummyProductParser,
     DummySupermarket,
-    DummyWebDriver,
 )
 
 
@@ -255,63 +252,6 @@ def test_coordinator_run_logs_start_message():
     # WHEN: coordinator.run() is executed
     coordinator.run()
 
-    # THEN: an INFO message containing "Scraping" is recorded
+    # THEN: an INFO message records generic scraping plus adapter identity
     info_messages = [msg for level, msg in logger.records if level == "INFO"]
-    assert any("Scraping" in msg for msg in info_messages)
-
-
-def test_get_data_delegates_through_category_level_seams(monkeypatch):
-    # GIVEN: a Woolworths adapter with shim-chain seams instrumented
-    file_handler = DummyFileHandler()
-    logger = DummyLogger()
-    woolworths = Woolworths(
-        file_handler=file_handler,
-        logger=logger,
-        web_driver=DummyWebDriver(),
-        product_parser=DummyProductParser(),
-    )
-    called = {
-        "run": False,
-        "get_categories": False,
-        "get_category_data": [],
-    }
-
-    original_run = ScrapeCoordinator.run
-
-    def tracking_run(self, list_size: ListSize, refresh_category_lists: bool = False):
-        called["run"] = True
-        return original_run(
-            self,
-            list_size=list_size,
-            refresh_category_lists=refresh_category_lists,
-        )
-
-    def fake_get_categories(list_size: ListSize, refresh_category_lists: bool = False):
-        called["get_categories"] = True
-        assert list_size == ListSize.MEDIUM
-        assert refresh_category_lists is True
-        return ["fruit-veg", "bakery"]
-
-    def fake_get_category_data(category_name: str):
-        called["get_category_data"].append(category_name)
-        return {
-            "category": category_name,
-            "total": 1,
-            "products": [[f"{category_name} item", "$1.00", "$1.00 / 1EA", ""]],
-            "incomplete_items": [],
-            "scraped": 1,
-            "incomplete": 0,
-        }
-
-    monkeypatch.setattr("Code.woolworths.ScrapeCoordinator.run", tracking_run)
-    monkeypatch.setattr(woolworths, "get_categories", fake_get_categories)
-    monkeypatch.setattr(woolworths, "get_category_data", fake_get_category_data)
-
-    # WHEN: get_data is called on the compatibility shim path
-    woolworths.get_data(list_size=ListSize.MEDIUM, refresh_category_lists=True)
-
-    # THEN: shim delegation reaches coordinator.run and category-level seams
-    assert called["run"] is True
-    assert called["get_categories"] is True
-    assert called["get_category_data"] == ["fruit-veg", "bakery"]
-    assert len(file_handler.saved) == 2
+    assert any("Scraping DummySupermarket categories" in msg for msg in info_messages)

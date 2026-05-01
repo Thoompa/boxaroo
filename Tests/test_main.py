@@ -237,8 +237,8 @@ def test_main_quits_webdriver_on_success_and_preserves_output(monkeypatch):
     assert ("INFO", "WebDriver lifecycle stop") in logger.records
 
 
-def test_main_quits_webdriver_when_get_data_raises(monkeypatch):
-    # GIVEN: Scraping raises an error
+def test_main_logs_category_failure_and_quits_webdriver(monkeypatch):
+    # GIVEN: A category scrape fails during coordinator run
     logger = DummyLogger()
     file_handler = DummyFileHandler()
     web_driver = DummyWebDriver()
@@ -247,12 +247,50 @@ def test_main_quits_webdriver_when_get_data_raises(monkeypatch):
         logger=logger,
         file_handler=file_handler,
         web_driver=web_driver,
-        get_data_error=RuntimeError("scrape failed"),
+        categories=["fruit-veg"],
+        get_category_data_error=RuntimeError("scrape failed"),
     )
     monkeypatch.setattr("Code.main.Woolworths", lambda *args, **kwargs: supermarket)
 
     # WHEN: main() is invoked
-    with pytest.raises(RuntimeError, match="scrape failed"):
+    main(
+        headless=True,
+        logging_level=LoggingLevel.INFO,
+        default_list_size=ListSize.TESTING,
+        refresh_category_lists=False,
+        proxy_server=None,
+        file_handler=file_handler,
+        logger=logger,
+        web_driver=web_driver,
+    )
+
+    # THEN: category failure is logged and WebDriver teardown still completes
+    assert web_driver.called.count(("quit",)) == 1
+    assert ("INFO", "WebDriver lifecycle start") in logger.records
+    assert ("INFO", "WebDriver lifecycle stop") in logger.records
+    assert any(
+        level == "ERROR"
+        and "Failed to scrape category 'fruit-veg': scrape failed" in message
+        for level, message in logger.records
+    )
+
+
+def test_main_quits_webdriver_when_get_categories_raises(monkeypatch):
+    # GIVEN: Category selection raises an error before category scraping starts
+    logger = DummyLogger()
+    file_handler = DummyFileHandler()
+    web_driver = DummyWebDriver()
+
+    supermarket = DummySupermarket(
+        logger=logger,
+        file_handler=file_handler,
+        web_driver=web_driver,
+        get_categories_error=RuntimeError("category selection failed"),
+    )
+    monkeypatch.setattr("Code.main.Woolworths", lambda *args, **kwargs: supermarket)
+
+    # WHEN: main() is invoked
+    with pytest.raises(RuntimeError, match="category selection failed"):
         main(
             headless=True,
             logging_level=LoggingLevel.INFO,
@@ -328,7 +366,7 @@ def test_main_preserves_scrape_error_when_quit_also_raises(monkeypatch):
         logger=logger,
         file_handler=file_handler,
         web_driver=web_driver,
-        get_data_error=RuntimeError("scrape failed"),
+        get_categories_error=RuntimeError("scrape failed"),
     )
     monkeypatch.setattr("Code.main.Woolworths", lambda *args, **kwargs: supermarket)
 
