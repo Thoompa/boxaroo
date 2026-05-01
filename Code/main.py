@@ -1,7 +1,24 @@
+"""Application composition and process lifecycle entry point.
+
+Ownership:
+- Build and wire concrete dependencies for one scrape run.
+- Own process lifecycle concerns such as logger setup and WebDriver teardown.
+- Invoke the configured supermarket adapter through the current compatibility path.
+
+Non-ownership:
+- Does not own category-level orchestration.
+- Does not own supermarket-specific scraping rules.
+- Does not own parser or category-list persistence logic.
+
+Goal 1 note:
+Runtime still calls the supermarket adapter directly to preserve behavior until
+ScrapeCoordinator becomes the enforced orchestration boundary.
+"""
+
 import json
 import os
 
-from Code.isupermarket import ListSize
+from Code.isupermarket import ISuperMarket, ListSize
 from Code.product_parser import ProductParser
 from Code.woolworths import Woolworths
 from Code.file_handler import FileHandler
@@ -73,7 +90,7 @@ def main(
     web_driver=None,
     product_parser=None,
 ) -> None:
-    # Allow dependency injection for unit testing
+    """Compose a scrape run and hand control to the current supermarket adapter."""
     logger = logger or Logger(logging_level)
     list_size = default_list_size if default_list_size is not None else ListSize.TESTING
     file_path = "Data/{0}".format(date.today())
@@ -84,13 +101,15 @@ def main(
     web_driver = web_driver or WebDriver(headless, proxy_server)
     product_parser = product_parser or ProductParser(logger=logger)
 
-    woolworths = Woolworths(file_handler, logger, web_driver, product_parser)
+    supermarket: ISuperMarket = Woolworths(
+        file_handler, logger, web_driver, product_parser
+    )
     logger.log("Running Boxaroo with list size - {0}".format(list_size))
     logger.log("WebDriver lifecycle start")
     scrape_succeeded = False
 
     try:
-        woolworths.get_data(
+        supermarket.get_data(
             list_size=list_size, refresh_category_lists=refresh_category_lists
         )
         scrape_succeeded = True
