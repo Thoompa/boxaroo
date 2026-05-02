@@ -117,7 +117,7 @@ class IFileHandler(ABC):
         pass
 
     @abstractmethod
-    def store_data(self, data: Iterable[Iterable[any]]) -> None:
+    def store_data(self, data: Iterable[Iterable[Any]]) -> None:
         pass
 
 
