@@ -4,6 +4,7 @@ from Code.contracts import (
     CategoryData,
     IncompleteProductItem,
     ISuperMarket,
+    IWebDriver,
     ListSize,
     PageStats,
     ProductsData,
@@ -14,7 +15,6 @@ from Code.contracts import (
 from Code.file_handler import IFileHandler
 from Code.logger import ILogger
 from Code.product_parser import IProductParser
-from Code.web_driver import IWebDriver
 from Code.woolworths import Woolworths
 
 __all__ = [

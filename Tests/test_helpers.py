@@ -5,10 +5,15 @@ Shared dummy/mock classes for Boxaroo unit tests.
 from typing import Any, Callable
 
 from Code.file_handler import IFileHandler
-from Code.contracts import CategoryData, ListSize, ProductsData, ProductsPageResult
+from Code.contracts import (
+    CategoryData,
+    ISuperMarket,
+    ListSize,
+    ProductsData,
+    ProductsPageResult,
+)
 from Code.logger import ILogger, LoggingLevel
 from Code.product_parser import IProductParser, ProductParseResult
-from Code.supermarket_factory import ISuperMarket
 from Code.web_driver import IWebDriver, WebDriver
 
 

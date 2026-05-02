@@ -23,6 +23,7 @@ from Code.contracts import (
     CategoryData,
     CategoryListCache,
     IncompleteProductItem,
+    ISuperMarket,
     ListSize,
     ProductsData,
     WebsiteCategory,
@@ -30,7 +31,6 @@ from Code.contracts import (
 from Code.product_parser import IProductParser
 from Code.file_handler import IFileHandler
 from Code.logger import ILogger
-from Code.supermarket_factory import ISuperMarket
 from Code.web_driver import IWebDriver
 
 
