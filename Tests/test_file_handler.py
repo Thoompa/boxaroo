@@ -13,9 +13,15 @@ from Tests.test_helpers import DummyLogger, make_file_handler, FILE_HANDLER_HEAD
 
 def test_file_handler_creates_file_with_header_row(tmp_path):
     # GIVEN: a FileHandler with a known header and a writable output directory
-    handler, _ = make_file_handler(tmp_path)
+    logger = DummyLogger()
 
     # WHEN: the handler is constructed
+    FileHandler(
+        file_name="out.csv",
+        file_path=str(tmp_path),
+        header=FILE_HANDLER_HEADER,
+        logger=logger,
+    )
     output_file = tmp_path / "out.csv"
 
     # THEN: the file exists and its first row matches the header exactly
