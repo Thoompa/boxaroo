@@ -4,7 +4,7 @@ Shared dummy/mock classes for Boxaroo unit tests.
 """
 from typing import Any, Callable
 
-from Code.file_handler import IFileHandler
+from Code.file_handler import FileHandler, IFileHandler
 from Code.contracts import (
     CategoryData,
     ISuperMarket,
@@ -217,6 +217,28 @@ class DummyWait:
 
     def until(self, condition):
         return True
+
+
+# ---------------------------------------------------------------------------
+# Constants and factory helpers
+# ---------------------------------------------------------------------------
+
+FILE_HANDLER_HEADER = ["name", "price", "unit_price", "promotion"]
+
+
+def make_file_handler(tmp_path, header=None, file_name="out.csv"):
+    """Construct a FileHandler backed by a real temp directory.
+
+    Returns (handler, logger) so callers can inspect log records.
+    """
+    logger = DummyLogger()
+    handler = FileHandler(
+        file_name=file_name,
+        file_path=str(tmp_path),
+        header=header or FILE_HANDLER_HEADER,
+        logger=logger,
+    )
+    return handler, logger
 
 
 class DummyNextButton:
