@@ -1,28 +1,8 @@
 import os
-from abc import ABC, abstractmethod
 from datetime import date
 from time import gmtime, strftime
 
-from Code.contracts import LoggingLevel
-
-
-class ILogger(ABC):
-
-    @abstractmethod
-    def __init__(self, logging_level: LoggingLevel):
-        pass
-
-    @abstractmethod
-    def debug(self, message: str) -> None:
-        pass
-
-    @abstractmethod
-    def log(self, message: str) -> None:
-        pass
-
-    @abstractmethod
-    def error(self, e: str) -> None:
-        pass
+from Code.contracts import ILogger, LoggingLevel
 
 
 class Logger(ILogger):

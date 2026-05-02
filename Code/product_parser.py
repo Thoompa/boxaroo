@@ -1,16 +1,7 @@
 import re
-from abc import ABC, abstractmethod
 from typing import List, Optional, Sequence
 
-from Code.contracts import ProductParseResult
-from Code.logger import ILogger
-
-
-class IProductParser(ABC):
-
-    @abstractmethod
-    def parse(self, text: object | None) -> ProductParseResult:
-        pass
+from Code.contracts import ILogger, IProductParser, ProductParseResult
 
 
 class ProductParser(IProductParser):

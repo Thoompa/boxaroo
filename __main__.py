@@ -4,6 +4,14 @@ from Code.contracts import ListSize, LoggingLevel, Supermarket
 from Code.main import main, build_list_size_help
 
 
+def _build_supermarket_help() -> str:
+    supported_supermarkets = ", ".join(market.value for market in Supermarket)
+    return (
+        "Supermarket adapter key to run "
+        f"(supported supermarkets: {supported_supermarkets})."
+    )
+
+
 if __name__ == "__main__":
     parser = argparse.ArgumentParser(
         description="Boxaroo Woolworths scraper. Scrape product data for selected category list sizes and write results to CSV."
@@ -37,7 +45,7 @@ if __name__ == "__main__":
         "--supermarket",
         choices=[market.value for market in Supermarket],
         default=Supermarket.WOOLWORTHS.value,
-        help="Supermarket adapter key to run (supported supermarkets: woolworths).",
+        help=_build_supermarket_help(),
     )
 
     args = parser.parse_args()

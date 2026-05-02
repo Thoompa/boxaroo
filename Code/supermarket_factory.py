@@ -1,10 +1,9 @@
 from __future__ import annotations
 
-from abc import ABC, abstractmethod
-
 from Code.contracts import (
     CategoryData,
     IncompleteProductItem,
+    ISuperMarket,
     ListSize,
     PageStats,
     ProductsData,
@@ -31,27 +30,6 @@ __all__ = [
     "resolve_supermarket",
     "supermarket_factory",
 ]
-
-
-class ISuperMarket(ABC):
-    """Contract for supermarket-specific adapter implementations.
-
-    Ownership:
-    - Supermarket adapters own supermarket-specific navigation, payload
-      extraction, and translation into Boxaroo category/product structures.
-    """
-
-    @abstractmethod
-    def get_categories(
-        self, list_size: ListSize = ListSize.FULL, refresh_category_lists: bool = False
-    ) -> list[str]:
-        """Return the category names selected for the current run."""
-        pass
-
-    @abstractmethod
-    def get_category_data(self, category_name: str) -> CategoryData:
-        """Return normalized data for one category scrape attempt."""
-        pass
 
 
 def resolve_supermarket(supermarket: str | Supermarket | None) -> Supermarket:
