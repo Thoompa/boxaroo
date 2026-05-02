@@ -133,12 +133,7 @@ class WoolworthsCategorySource:
                     continue;
                 }
 
-                var fullHref = href;
-                if (href.startsWith('/')) {
-                    fullHref = 'https://www.woolworths.com.au' + href;
-                }
-
-                var path = fullHref.split('?')[0].split('#')[0];
+                var path = href.split('?')[0].split('#')[0];
                 if (path.endsWith('/')) {
                     path = path.slice(0, -1);
                 }
@@ -149,7 +144,7 @@ class WoolworthsCategorySource:
                 }
 
                 seen[name] = true;
-                categories.push({ name: name, href: fullHref });
+                categories.push({ name: name, href: href });
             }
             return categories;
         } catch (e) {
@@ -176,6 +171,8 @@ class WoolworthsCategorySource:
             name = item.get("name")
             href = item.get("href")
             if isinstance(name, str) and name.strip() and isinstance(href, str):
+                if href.startswith("/"):
+                    href = self.base_url.rstrip("/") + href
                 clean.append({"name": name.strip(), "href": href})
         return clean
 

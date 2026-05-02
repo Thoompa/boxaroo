@@ -203,6 +203,42 @@ def test_get_supermarket_categories_filters_out_malformed_dict_items(tmp_path):
     ]
 
 
+def test_get_supermarket_categories_expands_relative_hrefs_using_base_url(tmp_path):
+    # GIVEN: a driver that returns relative href values and a non-production base URL
+    logger = DummyLogger()
+    web_driver = DummyWebDriver()
+    web_driver.script_response = [
+        True,
+        [
+            {"name": "fruit-veg", "href": "/shop/browse/fruit-veg"},
+            {"name": "pantry", "href": "/shop/browse/pantry"},
+        ],
+    ]
+    service = CategoryListService(str(tmp_path / "cache.json"), logger)
+    source = WoolworthsCategorySource(
+        logger=logger,
+        web_driver=web_driver,
+        category_list_service=service,
+        base_url="https://staging.example.com",
+        browse_url="https://staging.example.com/shop/browse/",
+    )
+
+    # WHEN: supermarket categories are retrieved
+    result = source.get_supermarket_categories()
+
+    # THEN: relative hrefs are expanded using the injected base_url, not a hardcoded host
+    assert result == [
+        {
+            "name": "fruit-veg",
+            "href": "https://staging.example.com/shop/browse/fruit-veg",
+        },
+        {
+            "name": "pantry",
+            "href": "https://staging.example.com/shop/browse/pantry",
+        },
+    ]
+
+
 def test_get_categories_forces_refresh_when_refresh_flag_is_true(tmp_path):
     # GIVEN: a valid cache where selected categories match the website
     logger = DummyLogger()
