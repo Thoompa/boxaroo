@@ -235,7 +235,7 @@ def make_file_handler(tmp_path, header=None, file_name="out.csv"):
     handler = FileHandler(
         file_name=file_name,
         file_path=str(tmp_path),
-        header=header or FILE_HANDLER_HEADER,
+        header=FILE_HANDLER_HEADER if header is None else header,
         logger=logger,
     )
     return handler, logger
