@@ -14,12 +14,16 @@ Non-ownership:
 import json
 import os
 
-from Code.isupermarket import ISuperMarket, ListSize
+from Code.contracts import ListSize, LoggingLevel, Supermarket
+from Code.supermarket_factory import (
+    ISuperMarket,
+    resolve_supermarket,
+    supermarket_factory,
+)
 from Code.product_parser import ProductParser
-from Code.woolworths import Woolworths
 from Code.file_handler import FileHandler
 from datetime import date
-from Code.logger import Logger, LoggingLevel
+from Code.logger import Logger
 from Code.scrape_coordinator import ScrapeCoordinator
 from Code.web_driver import WebDriver
 
@@ -79,7 +83,8 @@ def build_list_size_help() -> str:
 def main(
     headless=False,
     logging_level=LoggingLevel.INFO,
-    default_list_size=ListSize.TESTING,
+    default_list_size: ListSize | None = ListSize.TESTING,
+    supermarket: str | Supermarket | None = Supermarket.WOOLWORTHS,
     refresh_category_lists=False,
     proxy_server=None,
     file_handler=None,
@@ -90,19 +95,29 @@ def main(
     """Compose a scrape run and hand control to the scrape coordinator."""
     logger = logger or Logger(logging_level)
     list_size = default_list_size if default_list_size is not None else ListSize.TESTING
+    selected_supermarket = resolve_supermarket(supermarket)
+    supermarket_name = selected_supermarket.value
     file_path = "Data/{0}".format(date.today())
-    file_name = "woolworths-{0}-{1}.csv".format(date.today(), list_size.name)
+    file_name = "{0}-{1}-{2}.csv".format(supermarket_name, date.today(), list_size.name)
     header = ["Product Name", "Price", "Unit Price", "Promotion"]
 
     file_handler = file_handler or FileHandler(file_name, file_path, header, logger)
     web_driver = web_driver or WebDriver(headless, proxy_server)
     product_parser = product_parser or ProductParser(logger=logger)
 
-    supermarket: ISuperMarket = Woolworths(
-        file_handler, logger, web_driver, product_parser
+    supermarket_adapter: ISuperMarket = supermarket_factory(
+        selected_supermarket,
+        file_handler,
+        logger,
+        web_driver,
+        product_parser,
     )
-    coordinator = ScrapeCoordinator(supermarket, logger, file_handler)
-    logger.log("Running Boxaroo with list size - {0}".format(list_size))
+    coordinator = ScrapeCoordinator(supermarket_adapter, logger, file_handler)
+    logger.log(
+        "Running Boxaroo with supermarket - {0} and list size - {1}".format(
+            supermarket_name, list_size.name
+        )
+    )
     logger.log("WebDriver lifecycle start")
     scrape_succeeded = False
 

@@ -1,22 +1,8 @@
 import csv
-from abc import ABC, abstractmethod
 import os
-from typing import Iterable, Sequence
+from typing import Sequence
 
-from Code.logger import ILogger
-
-
-class IFileHandler(ABC):
-
-    @abstractmethod
-    def __init__(
-        self, file_name: str, file_path: str, header: Sequence[str], logger: ILogger
-    ):
-        pass
-
-    @abstractmethod
-    def store_data(self, data: Iterable[Iterable[any]]) -> None:
-        pass
+from Code.contracts import IFileHandler, ILogger
 
 
 class FileHandler(IFileHandler):

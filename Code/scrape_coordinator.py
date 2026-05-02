@@ -14,8 +14,7 @@ Non-ownership:
 """
 
 from Code.file_handler import IFileHandler
-from Code.isupermarket import ISuperMarket
-from Code.isupermarket import ListSize
+from Code.contracts import ISuperMarket, ListSize
 from Code.logger import ILogger
 
 

@@ -1,22 +1,7 @@
 import re
-from abc import ABC, abstractmethod
-from typing import List, Optional, Sequence, TypedDict
-from Code.logger import ILogger
+from typing import List, Optional, Sequence
 
-
-class ProductParseResult(TypedDict):
-    name: str
-    price: str
-    unit_price: str
-    promotion: str
-    missing_fields: List[str]
-
-
-class IProductParser(ABC):
-
-    @abstractmethod
-    def parse(self, text: object | None) -> ProductParseResult:
-        pass
+from Code.contracts import ILogger, IProductParser, ProductParseResult
 
 
 class ProductParser(IProductParser):

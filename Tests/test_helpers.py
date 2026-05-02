@@ -5,16 +5,16 @@ Shared dummy/mock classes for Boxaroo unit tests.
 from typing import Any, Callable
 
 from Code.file_handler import IFileHandler
-from Code.logger import ILogger, LoggingLevel
-from Code.product_parser import IProductParser, ProductParseResult
-from Code.web_driver import IWebDriver, WebDriver
-from Code.isupermarket import (
+from Code.contracts import (
     CategoryData,
     ISuperMarket,
     ListSize,
     ProductsData,
     ProductsPageResult,
 )
+from Code.logger import ILogger, LoggingLevel
+from Code.product_parser import IProductParser, ProductParseResult
+from Code.web_driver import IWebDriver, WebDriver
 
 
 class DummyLogger(ILogger):
@@ -319,3 +319,22 @@ class DummySeleniumDriver:
         self.current_url = url
         if url == "page-2":
             self.page_index = 1
+
+
+class DummySupermarketFactory:
+    """Test double for supermarket_factory function."""
+
+    def __init__(self, resolved_supermarket=None):
+        self.resolved_supermarket = resolved_supermarket or DummySupermarket()
+        self.factory_calls = []
+
+    def __call__(
+        self,
+        supermarket_key,
+        file_handler_dep,
+        logger_dep,
+        web_driver_dep,
+        product_parser_dep,
+    ):
+        self.factory_calls.append(supermarket_key)
+        return self.resolved_supermarket

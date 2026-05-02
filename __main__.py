@@ -1,8 +1,15 @@
 import argparse
 
-from Code.isupermarket import ListSize
-from Code.logger import LoggingLevel
+from Code.contracts import ListSize, LoggingLevel, Supermarket
 from Code.main import main, build_list_size_help
+
+
+def _build_supermarket_help() -> str:
+    supported_supermarkets = ", ".join(market.value for market in Supermarket)
+    return (
+        "Supermarket adapter key to run "
+        f"(supported supermarkets: {supported_supermarkets})."
+    )
 
 
 if __name__ == "__main__":
@@ -34,6 +41,12 @@ if __name__ == "__main__":
     parser.add_argument(
         "--proxy_server", help="Proxy server URL (for example http://host:port)."
     )
+    parser.add_argument(
+        "--supermarket",
+        choices=[market.value for market in Supermarket],
+        default=Supermarket.WOOLWORTHS.value,
+        help=_build_supermarket_help(),
+    )
 
     args = parser.parse_args()
 
@@ -57,6 +70,7 @@ if __name__ == "__main__":
         headless=args.headless,
         logging_level=logging_level_map[args.logging_level],
         default_list_size=list_size_map[args.list_size],
+        supermarket=args.supermarket,
         refresh_category_lists=args.refresh_category_lists,
         proxy_server=args.proxy_server,
     )

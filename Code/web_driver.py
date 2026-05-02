@@ -5,49 +5,10 @@ from selenium_stealth import stealth
 from selenium.webdriver.common.by import By
 from selenium.webdriver.support.ui import WebDriverWait
 from selenium.webdriver.support import expected_conditions as EC
-from abc import ABC, abstractmethod
 from typing import Any, Callable
 import time
 import random
-from Code.isupermarket import ProductsData, ProductsPageResult
-
-
-class IWebDriver(ABC):
-
-    @abstractmethod
-    def get_page(self, url: str) -> None:
-        pass
-
-    @abstractmethod
-    def get_products(
-        self,
-        _callback: Callable[[list[str]], ProductsData | list[list[str]]] | None = None,
-    ) -> ProductsPageResult:
-        """Fetch products across pages and return a plain-data payload.
-
-        The callback receives a list of product text strings extracted from
-        `wc-product-tile` elements. It can return either a list of products
-        or a dict with 'products' and 'incomplete_items' keys. The production
-        method will aggregate these across pages and return a final dict with
-        'products', 'incomplete_items', and 'page_stats'.
-        """
-        pass
-
-    @abstractmethod
-    def quit(self) -> None:
-        pass
-
-    @abstractmethod
-    def execute_script(self, script: str, *args) -> Any:
-        pass
-
-    @abstractmethod
-    def reload_page(self) -> None:
-        pass
-
-    @abstractmethod
-    def get_category_total_items(self) -> int | None:
-        pass
+from Code.contracts import IWebDriver, ProductsData, ProductsPageResult
 
 
 class WebDriver(IWebDriver):

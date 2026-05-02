@@ -1,33 +1,9 @@
 import json
 import os
-from typing import TypedDict, cast
+from typing import cast
 
-from Code.isupermarket import ListSize
+from Code.contracts import CategoryCount, CategoryListCache, ListProductTotals, ListSize
 from Code.logger import ILogger
-
-
-class CategoryCount(TypedDict):
-    name: str
-    count: int
-
-
-class ListProductTotals(TypedDict):
-    testing: int
-    short: int
-    medium: int
-    long: int
-    full: int
-
-
-class CategoryListCache(TypedDict, total=False):
-    testing: list[str]
-    short: list[str]
-    medium: list[str]
-    long: list[str]
-    full: list[str]
-    supermarket_categories: list[str]
-    list_product_totals: ListProductTotals
-    category_product_totals: dict[str, int]
 
 
 class CategoryListService:

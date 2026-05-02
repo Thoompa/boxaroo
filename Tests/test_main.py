@@ -1,13 +1,15 @@
 import pytest
+from Code.contracts import Supermarket
 from Code.main import _format_eta, build_list_size_help, main
 import Code.main as main_module
-from Code.isupermarket import ListSize
+from Code.contracts import ListSize
 from Code.logger import LoggingLevel
 from Tests.test_helpers import (
     DummyLogger,
     DummyFileHandler,
     DummyWebDriver,
     DummySupermarket,
+    DummySupermarketFactory,
 )
 
 
@@ -33,7 +35,9 @@ def test_main_list_size_parameter(monkeypatch, list_size_enum):
         called["list_size"] = ls
 
     supermarket = DummySupermarket(logger=logger, logic=logic)
-    monkeypatch.setattr("Code.main.Woolworths", lambda *args, **kwargs: supermarket)
+    monkeypatch.setattr(
+        "Code.main.supermarket_factory", lambda *args, **kwargs: supermarket
+    )
 
     # WHEN: main() is invoked
     main(
@@ -67,7 +71,9 @@ def test_main_default_list_size_none(monkeypatch):
         called["list_size"] = ls
 
     supermarket = DummySupermarket(logger=logger, logic=logic)
-    monkeypatch.setattr("Code.main.Woolworths", lambda *args, **kwargs: supermarket)
+    monkeypatch.setattr(
+        "Code.main.supermarket_factory", lambda *args, **kwargs: supermarket
+    )
 
     # WHEN: main() is invoked
     main(
@@ -95,7 +101,9 @@ def test_main_refresh_category_lists_parameter(monkeypatch):
     file_handler = DummyFileHandler()
     web_driver = DummyWebDriver()
     supermarket = DummySupermarket(logger=logger)
-    monkeypatch.setattr("Code.main.Woolworths", lambda *args, **kwargs: supermarket)
+    monkeypatch.setattr(
+        "Code.main.supermarket_factory", lambda *args, **kwargs: supermarket
+    )
 
     # WHEN: main() is invoked
     main(
@@ -120,7 +128,9 @@ def test_main_refresh_category_lists_default_false(monkeypatch):
     file_handler = DummyFileHandler()
     web_driver = DummyWebDriver()
     supermarket = DummySupermarket(logger=logger)
-    monkeypatch.setattr("Code.main.Woolworths", lambda *args, **kwargs: supermarket)
+    monkeypatch.setattr(
+        "Code.main.supermarket_factory", lambda *args, **kwargs: supermarket
+    )
 
     # WHEN: main() is invoked
     main(
@@ -137,6 +147,39 @@ def test_main_refresh_category_lists_default_false(monkeypatch):
     # THEN: refresh_category_lists=False is forwarded to the supermarket
     assert supermarket.get_categories_called
     assert supermarket.last_refresh_category_lists is False
+
+
+def test_main_resolves_selected_supermarket_via_supermarket_factory(monkeypatch):
+    # GIVEN: A selected supermarket key and a composition factory
+    logger = DummyLogger()
+    file_handler = DummyFileHandler()
+    web_driver = DummyWebDriver()
+    selected_supermarket = Supermarket.WOOLWORTHS.value
+    resolved_supermarket = DummySupermarket(logger=logger)
+    factory = DummySupermarketFactory(resolved_supermarket=resolved_supermarket)
+
+    monkeypatch.setattr(
+        "Code.main.supermarket_factory",
+        factory,
+        raising=False,
+    )
+
+    # WHEN: main() is invoked with a selected supermarket key
+    main(
+        headless=True,
+        logging_level=LoggingLevel.INFO,
+        default_list_size=ListSize.TESTING,
+        refresh_category_lists=False,
+        supermarket=selected_supermarket,
+        proxy_server=None,
+        file_handler=file_handler,
+        logger=logger,
+        web_driver=web_driver,
+    )
+
+    # THEN: The supermarket is resolved via supermarket_factory
+    assert factory.factory_calls == [Supermarket.WOOLWORTHS]
+    assert resolved_supermarket.get_categories_called
 
 
 @pytest.mark.parametrize(
@@ -216,7 +259,9 @@ def test_main_quits_webdriver_on_success_and_preserves_output(monkeypatch):
         web_driver=web_driver,
         products_to_store=expected_products,
     )
-    monkeypatch.setattr("Code.main.Woolworths", lambda *args, **kwargs: supermarket)
+    monkeypatch.setattr(
+        "Code.main.supermarket_factory", lambda *args, **kwargs: supermarket
+    )
 
     # WHEN: main() is invoked
     main(
@@ -250,7 +295,9 @@ def test_main_logs_category_failure_and_quits_webdriver(monkeypatch):
         categories=["fruit-veg"],
         get_category_data_error=RuntimeError("scrape failed"),
     )
-    monkeypatch.setattr("Code.main.Woolworths", lambda *args, **kwargs: supermarket)
+    monkeypatch.setattr(
+        "Code.main.supermarket_factory", lambda *args, **kwargs: supermarket
+    )
 
     # WHEN: main() is invoked
     main(
@@ -287,7 +334,9 @@ def test_main_quits_webdriver_when_get_categories_raises(monkeypatch):
         web_driver=web_driver,
         get_categories_error=RuntimeError("category selection failed"),
     )
-    monkeypatch.setattr("Code.main.Woolworths", lambda *args, **kwargs: supermarket)
+    monkeypatch.setattr(
+        "Code.main.supermarket_factory", lambda *args, **kwargs: supermarket
+    )
 
     # WHEN: main() is invoked
     with pytest.raises(RuntimeError, match="category selection failed"):
@@ -325,7 +374,9 @@ def test_main_raises_quit_error_when_scrape_succeeds_and_quit_fails(monkeypatch)
         file_handler=file_handler,
         web_driver=web_driver,
     )
-    monkeypatch.setattr("Code.main.Woolworths", lambda *args, **kwargs: supermarket)
+    monkeypatch.setattr(
+        "Code.main.supermarket_factory", lambda *args, **kwargs: supermarket
+    )
 
     # WHEN: main() is invoked
     with pytest.raises(RuntimeError, match="quit failed"):
@@ -368,7 +419,9 @@ def test_main_preserves_scrape_error_when_quit_also_raises(monkeypatch):
         web_driver=web_driver,
         get_categories_error=RuntimeError("scrape failed"),
     )
-    monkeypatch.setattr("Code.main.Woolworths", lambda *args, **kwargs: supermarket)
+    monkeypatch.setattr(
+        "Code.main.supermarket_factory", lambda *args, **kwargs: supermarket
+    )
 
     # WHEN: main() is invoked
     with pytest.raises(RuntimeError, match="scrape failed"):
@@ -405,7 +458,9 @@ def test_main_logging_level_passed_to_logger(monkeypatch, logging_level):
     supermarket = DummySupermarket(logger=DummyLogger())
     monkeypatch.setattr(DummyLogger, "instances", [])
     monkeypatch.setattr("Code.main.Logger", DummyLogger)
-    monkeypatch.setattr("Code.main.Woolworths", lambda *args, **kwargs: supermarket)
+    monkeypatch.setattr(
+        "Code.main.supermarket_factory", lambda *args, **kwargs: supermarket
+    )
 
     # WHEN: main() is called without a logger
     main(
@@ -430,7 +485,9 @@ def test_main_logging_level_default_is_info(monkeypatch):
     supermarket = DummySupermarket(logger=DummyLogger())
     monkeypatch.setattr(DummyLogger, "instances", [])
     monkeypatch.setattr("Code.main.Logger", DummyLogger)
-    monkeypatch.setattr("Code.main.Woolworths", lambda *args, **kwargs: supermarket)
+    monkeypatch.setattr(
+        "Code.main.supermarket_factory", lambda *args, **kwargs: supermarket
+    )
 
     # WHEN: main() is called
     main(
@@ -455,7 +512,9 @@ def test_main_injected_logger_not_replaced(monkeypatch):
     supermarket = DummySupermarket(logger=logger)
     monkeypatch.setattr(DummyLogger, "instances", [])
     monkeypatch.setattr("Code.main.Logger", DummyLogger)
-    monkeypatch.setattr("Code.main.Woolworths", lambda *args, **kwargs: supermarket)
+    monkeypatch.setattr(
+        "Code.main.supermarket_factory", lambda *args, **kwargs: supermarket
+    )
 
     # WHEN: main() is called with an injected logger
     main(
