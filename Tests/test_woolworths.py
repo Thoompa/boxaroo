@@ -60,7 +60,7 @@ def test_cache_path_source_of_truth_is_category_list_service(woolworths, tmp_pat
 # ============================================================
 
 
-def test_get_categories_delegates_to_category_source(
+def test_get_categories_returns_selected_list_via_public_api(
     file_handler, logger, web_driver, parser, tmp_path
 ):
     # GIVEN: a cache with known categories and a site that returns matching names
@@ -91,16 +91,16 @@ def test_get_categories_delegates_to_category_source(
         web_driver=web_driver,
         product_parser=parser,
     )
-    woolworths.category_source.category_list_service.cache_path = str(cache_file)
+    woolworths.category_list_service.cache_path = str(cache_file)
 
     # WHEN: categories are retrieved via the public adapter method
     result = woolworths.get_categories(list_size=ListSize.SHORT)
 
-    # THEN: the correct list is returned, proving the adapter routes to the source collaborator
+    # THEN: the public API returns the expected selected list
     assert result == ["fruit-veg", "pantry"]
 
 
-def test_get_category_data_delegates_to_category_data_normaliser(
+def test_get_category_data_returns_expected_shape_via_public_api(
     file_handler, logger, web_driver, parser
 ):
     # GIVEN: a driver configured with a known total and a single product
@@ -120,8 +120,7 @@ def test_get_category_data_delegates_to_category_data_normaliser(
     # WHEN: category data is retrieved via the public adapter method
     result = woolworths.get_category_data("fruit-veg")
 
-    # THEN: a correctly shaped CategoryData dict is returned, proving the adapter routes
-    # to the normaliser collaborator
+    # THEN: a correctly shaped CategoryData dict is returned from the public API
     assert result["category"] == "fruit-veg"
     assert result["total"] == 3
     assert len(result["products"]) == 1

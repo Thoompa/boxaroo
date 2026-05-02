@@ -1,10 +1,12 @@
 import json
 from unittest.mock import patch
 
-from Code.category_list_service import CategoryListService
 from Code.contracts import ListSize
-from Code.woolworths_category_source import WoolworthsCategorySource
-from Tests.test_helpers import DummyLogger, DummyWebDriver
+from Tests.test_helpers import (
+    DummyLogger,
+    DummyWebDriver,
+    make_woolworths_category_source,
+)
 
 
 def test_get_categories_uses_cache_when_selected_categories_match_site(tmp_path):
@@ -20,13 +22,8 @@ def test_get_categories_uses_cache_when_selected_categories_match_site(tmp_path)
     }
     cache_file.write_text(json.dumps(cache_data), encoding="utf-8")
 
-    service = CategoryListService(str(cache_file), logger)
-    source = WoolworthsCategorySource(
-        logger=logger,
-        web_driver=web_driver,
-        category_list_service=service,
-        base_url="https://www.woolworths.com.au",
-        browse_url="https://www.woolworths.com.au/shop/browse/",
+    source = make_woolworths_category_source(
+        cache_path=str(cache_file), logger=logger, web_driver=web_driver
     )
     web_driver.script_response = [
         True,
@@ -69,13 +66,8 @@ def test_get_categories_refreshes_when_selected_category_missing(tmp_path):
     }
     cache_file.write_text(json.dumps(cache_data), encoding="utf-8")
 
-    service = CategoryListService(str(cache_file), logger)
-    source = WoolworthsCategorySource(
-        logger=logger,
-        web_driver=web_driver,
-        category_list_service=service,
-        base_url="https://www.woolworths.com.au",
-        browse_url="https://www.woolworths.com.au/shop/browse/",
+    source = make_woolworths_category_source(
+        cache_path=str(cache_file), logger=logger, web_driver=web_driver
     )
     web_driver.script_response = [
         True,
@@ -115,13 +107,8 @@ def test_get_categories_falls_back_to_cache_on_discovery_exception(tmp_path):
     }
     cache_file.write_text(json.dumps(cache_data), encoding="utf-8")
 
-    service = CategoryListService(str(cache_file), logger)
-    source = WoolworthsCategorySource(
-        logger=logger,
-        web_driver=web_driver,
-        category_list_service=service,
-        base_url="https://www.woolworths.com.au",
-        browse_url="https://www.woolworths.com.au/shop/browse/",
+    source = make_woolworths_category_source(
+        cache_path=str(cache_file), logger=logger, web_driver=web_driver
     )
 
     def boom() -> list[dict[str, str]]:
@@ -143,13 +130,8 @@ def test_get_supermarket_categories_returns_empty_when_script_returns_non_list_a
     logger = DummyLogger()
     web_driver = DummyWebDriver()
     web_driver.script_response = ""  # non-list; every execute_script call returns this
-    service = CategoryListService(str(tmp_path / "cache.json"), logger)
-    source = WoolworthsCategorySource(
-        logger=logger,
-        web_driver=web_driver,
-        category_list_service=service,
-        base_url="https://www.woolworths.com.au",
-        browse_url="https://www.woolworths.com.au/shop/browse/",
+    source = make_woolworths_category_source(
+        cache_path=str(tmp_path / "cache.json"), logger=logger, web_driver=web_driver
     )
 
     # WHEN: supermarket categories are retrieved while all retries yield a non-list
@@ -182,13 +164,8 @@ def test_get_supermarket_categories_filters_out_malformed_dict_items(tmp_path):
             "not-a-dict",  # non-dict item
         ],
     ]
-    service = CategoryListService(str(tmp_path / "cache.json"), logger)
-    source = WoolworthsCategorySource(
-        logger=logger,
-        web_driver=web_driver,
-        category_list_service=service,
-        base_url="https://www.woolworths.com.au",
-        browse_url="https://www.woolworths.com.au/shop/browse/",
+    source = make_woolworths_category_source(
+        cache_path=str(tmp_path / "cache.json"), logger=logger, web_driver=web_driver
     )
 
     # WHEN: supermarket categories are retrieved
@@ -214,11 +191,10 @@ def test_get_supermarket_categories_expands_relative_hrefs_using_base_url(tmp_pa
             {"name": "pantry", "href": "/shop/browse/pantry"},
         ],
     ]
-    service = CategoryListService(str(tmp_path / "cache.json"), logger)
-    source = WoolworthsCategorySource(
+    source = make_woolworths_category_source(
+        cache_path=str(tmp_path / "cache.json"),
         logger=logger,
         web_driver=web_driver,
-        category_list_service=service,
         base_url="https://staging.example.com",
         browse_url="https://staging.example.com/shop/browse/",
     )
@@ -251,13 +227,8 @@ def test_get_categories_forces_refresh_when_refresh_flag_is_true(tmp_path):
         "full": ["fruit-veg", "pantry"],
     }
     cache_file.write_text(json.dumps(cache_data), encoding="utf-8")
-    service = CategoryListService(str(cache_file), logger)
-    source = WoolworthsCategorySource(
-        logger=logger,
-        web_driver=web_driver,
-        category_list_service=service,
-        base_url="https://www.woolworths.com.au",
-        browse_url="https://www.woolworths.com.au/shop/browse/",
+    source = make_woolworths_category_source(
+        cache_path=str(cache_file), logger=logger, web_driver=web_driver
     )
     web_driver.script_response = [
         True,
@@ -300,13 +271,8 @@ def test_get_categories_refreshes_when_testing_size_category_has_zero_products(
         "full": ["front-of-store", "fruit-veg"],
     }
     cache_file.write_text(json.dumps(cache_data), encoding="utf-8")
-    service = CategoryListService(str(cache_file), logger)
-    source = WoolworthsCategorySource(
-        logger=logger,
-        web_driver=web_driver,
-        category_list_service=service,
-        base_url="https://www.woolworths.com.au",
-        browse_url="https://www.woolworths.com.au/shop/browse/",
+    source = make_woolworths_category_source(
+        cache_path=str(cache_file), logger=logger, web_driver=web_driver
     )
     web_driver.script_response = [
         True,
@@ -345,13 +311,8 @@ def test_refresh_category_lists_from_site_classifies_by_count(tmp_path):
     # GIVEN: categories with different product counts
     logger = DummyLogger()
     web_driver = DummyWebDriver()
-    service = CategoryListService(str(tmp_path / "cache.json"), logger)
-    source = WoolworthsCategorySource(
-        logger=logger,
-        web_driver=web_driver,
-        category_list_service=service,
-        base_url="https://www.woolworths.com.au",
-        browse_url="https://www.woolworths.com.au/shop/browse/",
+    source = make_woolworths_category_source(
+        cache_path=str(tmp_path / "cache.json"), logger=logger, web_driver=web_driver
     )
     categories = [
         {
@@ -413,13 +374,8 @@ def test_refresh_category_lists_from_site_skips_zero_count_categories(tmp_path):
     # GIVEN: categories where one has zero items
     logger = DummyLogger()
     web_driver = DummyWebDriver()
-    service = CategoryListService(str(tmp_path / "cache.json"), logger)
-    source = WoolworthsCategorySource(
-        logger=logger,
-        web_driver=web_driver,
-        category_list_service=service,
-        base_url="https://www.woolworths.com.au",
-        browse_url="https://www.woolworths.com.au/shop/browse/",
+    source = make_woolworths_category_source(
+        cache_path=str(tmp_path / "cache.json"), logger=logger, web_driver=web_driver
     )
     categories = [
         {
@@ -457,13 +413,8 @@ def test_refresh_category_lists_returns_empty_structure_when_all_categories_are_
     # GIVEN: categories where all have zero items
     logger = DummyLogger()
     web_driver = DummyWebDriver()
-    service = CategoryListService(str(tmp_path / "cache.json"), logger)
-    source = WoolworthsCategorySource(
-        logger=logger,
-        web_driver=web_driver,
-        category_list_service=service,
-        base_url="https://www.woolworths.com.au",
-        browse_url="https://www.woolworths.com.au/shop/browse/",
+    source = make_woolworths_category_source(
+        cache_path=str(tmp_path / "cache.json"), logger=logger, web_driver=web_driver
     )
     categories = [
         {
@@ -513,13 +464,8 @@ def test_get_supermarket_categories_returns_drawer_categories(tmp_path):
             },
         ],
     ]
-    service = CategoryListService(str(tmp_path / "cache.json"), logger)
-    source = WoolworthsCategorySource(
-        logger=logger,
-        web_driver=web_driver,
-        category_list_service=service,
-        base_url="https://www.woolworths.com.au",
-        browse_url="https://www.woolworths.com.au/shop/browse/",
+    source = make_woolworths_category_source(
+        cache_path=str(tmp_path / "cache.json"), logger=logger, web_driver=web_driver
     )
 
     # WHEN: supermarket categories are retrieved
@@ -534,13 +480,8 @@ def test_get_categories_falls_back_to_empty_when_no_cache_and_exception(tmp_path
     # GIVEN: no cache file and a source where website category discovery fails
     logger = DummyLogger()
     web_driver = DummyWebDriver()
-    service = CategoryListService(str(tmp_path / "nope.json"), logger)
-    source = WoolworthsCategorySource(
-        logger=logger,
-        web_driver=web_driver,
-        category_list_service=service,
-        base_url="https://www.woolworths.com.au",
-        browse_url="https://www.woolworths.com.au/shop/browse/",
+    source = make_woolworths_category_source(
+        cache_path=str(tmp_path / "nope.json"), logger=logger, web_driver=web_driver
     )
 
     def raise_network_error():

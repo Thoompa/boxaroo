@@ -1,5 +1,10 @@
-from Code.woolworths_category_data_normaliser import WoolworthsCategoryDataNormaliser
-from Tests.test_helpers import DummyLogger, DummyProductParser, DummyWebDriver
+from Tests.test_helpers import (
+    DummyLogger,
+    DummyProductParser,
+    DummyWebDriver,
+    make_woolworths_category_data_normaliser,
+)
+from Code.contracts import ProductParseResult
 
 
 def test_get_category_data_returns_expected_shape_on_success():
@@ -20,11 +25,8 @@ def test_get_category_data_returns_expected_shape_on_success():
         ],
         "page_stats": [{"page": 1, "product_tiles": 3, "scraped": 3, "incomplete": 2}],
     }
-    normaliser = WoolworthsCategoryDataNormaliser(
-        logger=logger,
-        web_driver=web_driver,
-        product_parser=parser,
-        browse_url="https://www.woolworths.com.au/shop/browse/",
+    normaliser = make_woolworths_category_data_normaliser(
+        logger=logger, web_driver=web_driver, product_parser=parser
     )
 
     # WHEN: category data is retrieved from the normaliser
@@ -58,11 +60,8 @@ def test_get_category_data_uses_scraped_count_when_total_is_none():
         "incomplete_items": [],
         "page_stats": [],
     }
-    normaliser = WoolworthsCategoryDataNormaliser(
-        logger=logger,
-        web_driver=web_driver,
-        product_parser=parser,
-        browse_url="https://www.woolworths.com.au/shop/browse/",
+    normaliser = make_woolworths_category_data_normaliser(
+        logger=logger, web_driver=web_driver, product_parser=parser
     )
 
     # WHEN: category data is retrieved from the normaliser
@@ -83,11 +82,8 @@ def test_get_category_data_returns_empty_shape_on_exception():
         raise RuntimeError("driver exploded")
 
     web_driver.get_page = boom
-    normaliser = WoolworthsCategoryDataNormaliser(
-        logger=logger,
-        web_driver=web_driver,
-        product_parser=parser,
-        browse_url="https://www.woolworths.com.au/shop/browse/",
+    normaliser = make_woolworths_category_data_normaliser(
+        logger=logger, web_driver=web_driver, product_parser=parser
     )
 
     # WHEN: category data is retrieved while page loading fails
@@ -116,11 +112,8 @@ def test_get_products_data_uses_injected_parser_and_unit_price_fallback():
         }
     )
     web_driver = DummyWebDriver()
-    normaliser = WoolworthsCategoryDataNormaliser(
-        logger=logger,
-        web_driver=web_driver,
-        product_parser=parser,
-        browse_url="https://www.woolworths.com.au/shop/browse/",
+    normaliser = make_woolworths_category_data_normaliser(
+        logger=logger, web_driver=web_driver, product_parser=parser
     )
 
     # WHEN: products payload is normalised from raw text items
@@ -143,7 +136,7 @@ def test_get_products_data_continues_when_parser_raises_on_one_item():
     parser = DummyProductParser()
     call_count = [0]
 
-    def parse_with_error(text):
+    def parse_with_error(text) -> ProductParseResult:
         call_count[0] += 1
         if call_count[0] == 1:
             raise ValueError("parse failed")
@@ -156,11 +149,8 @@ def test_get_products_data_continues_when_parser_raises_on_one_item():
         }
 
     parser.parse = parse_with_error
-    normaliser = WoolworthsCategoryDataNormaliser(
-        logger=logger,
-        web_driver=web_driver,
-        product_parser=parser,
-        browse_url="https://www.woolworths.com.au/shop/browse/",
+    normaliser = make_woolworths_category_data_normaliser(
+        logger=logger, web_driver=web_driver, product_parser=parser
     )
 
     # WHEN: products data is normalised from a list where one item causes a parse error
@@ -178,11 +168,8 @@ def test_dedupe_incomplete_items_handles_non_list_missing_field():
     logger = DummyLogger()
     web_driver = DummyWebDriver()
     parser = DummyProductParser()
-    normaliser = WoolworthsCategoryDataNormaliser(
-        logger=logger,
-        web_driver=web_driver,
-        product_parser=parser,
-        browse_url="https://www.woolworths.com.au/shop/browse/",
+    normaliser = make_woolworths_category_data_normaliser(
+        logger=logger, web_driver=web_driver, product_parser=parser
     )
     incomplete_items = [
         {"name": "Apple each", "missing": None},
@@ -221,11 +208,8 @@ def test_get_products_data_incomplete_tracking():
             "missing_fields": ["price"],
         }
     )
-    normaliser = WoolworthsCategoryDataNormaliser(
-        logger=logger,
-        web_driver=web_driver,
-        product_parser=parser,
-        browse_url="https://www.woolworths.com.au/shop/browse/",
+    normaliser = make_woolworths_category_data_normaliser(
+        logger=logger, web_driver=web_driver, product_parser=parser
     )
 
     # WHEN: products data is retrieved from the inputs
@@ -264,11 +248,8 @@ def test_get_products_data_skips_empty_payload_and_continues():
             "missing_fields": [],
         }
     )
-    normaliser = WoolworthsCategoryDataNormaliser(
-        logger=logger,
-        web_driver=web_driver,
-        product_parser=parser,
-        browse_url="https://www.woolworths.com.au/shop/browse/",
+    normaliser = make_woolworths_category_data_normaliser(
+        logger=logger, web_driver=web_driver, product_parser=parser
     )
 
     # WHEN: products data is retrieved
@@ -302,11 +283,8 @@ def test_get_products_data_handles_multiple_valid_plain_text_payloads():
             "missing_fields": [],
         }
     )
-    normaliser = WoolworthsCategoryDataNormaliser(
-        logger=logger,
-        web_driver=web_driver,
-        product_parser=parser,
-        browse_url="https://www.woolworths.com.au/shop/browse/",
+    normaliser = make_woolworths_category_data_normaliser(
+        logger=logger, web_driver=web_driver, product_parser=parser
     )
 
     # WHEN: products data is retrieved from multiple payloads
@@ -343,11 +321,8 @@ def test_get_products_data_skips_product_when_all_fields_are_empty():
             "missing_fields": [],
         }
     )
-    normaliser = WoolworthsCategoryDataNormaliser(
-        logger=logger,
-        web_driver=web_driver,
-        product_parser=parser,
-        browse_url="https://www.woolworths.com.au/shop/browse/",
+    normaliser = make_woolworths_category_data_normaliser(
+        logger=logger, web_driver=web_driver, product_parser=parser
     )
 
     # WHEN: products data is retrieved
