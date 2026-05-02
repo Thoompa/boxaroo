@@ -17,4 +17,4 @@ For all files under `Tests/`:
 - If needed, create a small subclass of an existing helper class instead of introducing unrelated ad-hoc classes.
 - If a new helper is broadly useful, add it to `Tests/test_helpers.py` rather than defining it repeatedly in individual test files.
 - Avoid local `Dummy*`, `Fake*`, and `Mock*` definitions unless no helper extension can reasonably cover the scenario.
-- Place **all** auxiliary test functions, classes, and factory helpers in `Tests/test_helpers.py` instead of defining them locally inside a test module. Prefer extending or reusing an existing helper over writing a bespoke standalone function.
+- Prefer placing broadly reusable auxiliary test functions, classes, and factory helpers in `Tests/test_helpers.py`. Module-specific helpers may remain local to a test module when that is the clearest and most appropriate scope; prefer extending or reusing an existing helper over writing a bespoke standalone function.
