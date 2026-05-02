@@ -44,10 +44,15 @@ def test_file_handler_creates_nested_directory_if_missing(tmp_path):
 
 def test_file_handler_logs_created_message(tmp_path):
     # GIVEN: a DummyLogger and a valid output directory
-    _, logger = make_file_handler(tmp_path, file_name="products.csv")
+    logger = DummyLogger()
 
-    # WHEN: the handler is constructed (construction implicitly calls _create_file)
-    # (construction already happened above)
+    # WHEN: the handler is constructed
+    FileHandler(
+        file_name="products.csv",
+        file_path=str(tmp_path),
+        header=FILE_HANDLER_HEADER,
+        logger=logger,
+    )
 
     # THEN: an INFO record confirming the file name is present in the log
     info_messages = [msg for level, msg in logger.records if level == "INFO"]
