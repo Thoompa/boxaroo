@@ -1,16 +1,9 @@
 from __future__ import annotations
 
 from Code.contracts import (
-    CategoryData,
-    IncompleteProductItem,
     ISuperMarket,
     IWebDriver,
-    ListSize,
-    PageStats,
-    ProductsData,
-    ProductsPageResult,
     Supermarket,
-    WebsiteCategory,
 )
 from Code.file_handler import IFileHandler
 from Code.logger import ILogger
@@ -18,15 +11,8 @@ from Code.product_parser import IProductParser
 from Code.woolworths import Woolworths
 
 __all__ = [
-    "CategoryData",
-    "IncompleteProductItem",
     "ISuperMarket",
-    "ListSize",
-    "PageStats",
-    "ProductsData",
-    "ProductsPageResult",
     "Supermarket",
-    "WebsiteCategory",
     "resolve_supermarket",
     "supermarket_factory",
 ]
