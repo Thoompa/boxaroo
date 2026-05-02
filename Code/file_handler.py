@@ -29,7 +29,6 @@ class FileHandler(IFileHandler):
                 self.logger.log("Created file " + self.file_name)
         except Exception as e:
             self.logger.error(f"Error creating file {self.file_name}: {e}")
-            raise
 
     def store_data(self, data):
         self.logger.log("Storing data of size " + str(len(data)) + "...")
