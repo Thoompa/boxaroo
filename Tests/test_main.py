@@ -59,6 +59,36 @@ def test_main_list_size_parameter(monkeypatch, list_size_enum):
     ), f"Expected list_size {list_size_enum}, got {called['list_size']}"
 
 
+def test_main_does_not_create_webdriver_when_file_handler_init_raises(monkeypatch):
+    # GIVEN: output initialization fails before main can start its own browser
+    logger = DummyLogger()
+    monkeypatch.setattr(
+        "Code.main.FileHandler",
+        lambda *args, **kwargs: DummyFileHandler(error_on_init=True),
+    )
+    monkeypatch.setattr(
+        "Code.main.WebDriver",
+        lambda *args, **kwargs: DummyWebDriver(error_on_init=True),
+    )
+
+    # WHEN: main() is invoked without an injected web driver
+    with pytest.raises(OSError, match="permission denied"):
+        main(
+            headless=True,
+            logging_level=LoggingLevel.INFO,
+            default_list_size=ListSize.TESTING,
+            refresh_category_lists=False,
+            proxy_server=None,
+            file_handler=None,
+            logger=logger,
+            web_driver=None,
+        )
+
+    # THEN: browser lifecycle is never started on the fail-fast path
+    assert ("INFO", "WebDriver lifecycle start") not in logger.records
+    assert ("INFO", "WebDriver lifecycle stop") not in logger.records
+
+
 # 4: Test None defaults to TESTING
 def test_main_default_list_size_none(monkeypatch):
     # GIVEN: default_list_size=None
@@ -355,6 +385,34 @@ def test_main_quits_webdriver_when_get_categories_raises(monkeypatch):
     assert web_driver.called.count(("quit",)) == 1
     assert ("INFO", "WebDriver lifecycle start") in logger.records
     assert ("INFO", "WebDriver lifecycle stop") in logger.records
+
+
+def test_main_quits_injected_webdriver_when_file_handler_init_raises(monkeypatch):
+    # GIVEN: file-handler initialization fails before coordinator setup
+    logger = DummyLogger()
+    web_driver = DummyWebDriver()
+    monkeypatch.setattr(
+        "Code.main.FileHandler",
+        lambda *args, **kwargs: DummyFileHandler(error_on_init=True),
+    )
+
+    # WHEN: main() is invoked with an injected web driver
+    with pytest.raises(OSError, match="permission denied"):
+        main(
+            headless=True,
+            logging_level=LoggingLevel.INFO,
+            default_list_size=ListSize.TESTING,
+            refresh_category_lists=False,
+            proxy_server=None,
+            file_handler=None,
+            logger=logger,
+            web_driver=web_driver,
+        )
+
+    # THEN: the injected web driver is still quit and no unmatched lifecycle log is emitted
+    assert web_driver.called.count(("quit",)) == 1
+    assert ("INFO", "WebDriver lifecycle start") not in logger.records
+    assert ("INFO", "WebDriver lifecycle stop") not in logger.records
 
 
 def test_main_raises_quit_error_when_scrape_succeeds_and_quit_fails(monkeypatch):

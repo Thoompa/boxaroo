@@ -4,7 +4,7 @@ Shared dummy/mock classes for Boxaroo unit tests.
 """
 from typing import Any, Callable
 
-from Code.file_handler import IFileHandler
+from Code.file_handler import FileHandler, IFileHandler
 from Code.contracts import (
     CategoryData,
     ISuperMarket,
@@ -36,7 +36,9 @@ class DummyLogger(ILogger):
 
 
 class DummyFileHandler(IFileHandler):
-    def __init__(self):
+    def __init__(self, error_on_init=False):
+        if error_on_init:
+            raise OSError("permission denied")
         self.saved = []
 
     def store_data(self, data):
@@ -44,7 +46,9 @@ class DummyFileHandler(IFileHandler):
 
 
 class DummyWebDriver(IWebDriver):
-    def __init__(self):
+    def __init__(self, error_on_init=False):
+        if error_on_init:
+            raise AssertionError("WebDriver should not be created")
         self.called = []
         self.script_response = ""
         self.category_total_items = None
@@ -217,6 +221,28 @@ class DummyWait:
 
     def until(self, condition):
         return True
+
+
+# ---------------------------------------------------------------------------
+# Constants and factory helpers
+# ---------------------------------------------------------------------------
+
+FILE_HANDLER_HEADER = ["name", "price", "unit_price", "promotion"]
+
+
+def make_file_handler(tmp_path, header=None, file_name="out.csv"):
+    """Construct a FileHandler backed by a real temp directory.
+
+    Returns (handler, logger) so callers can inspect log records.
+    """
+    logger = DummyLogger()
+    handler = FileHandler(
+        file_name=file_name,
+        file_path=str(tmp_path),
+        header=FILE_HANDLER_HEADER if header is None else header,
+        logger=logger,
+    )
+    return handler, logger
 
 
 class DummyNextButton:
