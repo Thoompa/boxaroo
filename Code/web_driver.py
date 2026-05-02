@@ -9,7 +9,7 @@ from abc import ABC, abstractmethod
 from typing import Any, Callable
 import time
 import random
-from Code.isupermarket import ProductsData, ProductsPageResult
+from Code.contracts import ProductsData, ProductsPageResult
 
 
 class IWebDriver(ABC):

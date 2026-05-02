@@ -1,4 +1,4 @@
-from Code.isupermarket import ListSize
+from Code.contracts import ListSize
 from Code.scrape_coordinator import ScrapeCoordinator
 from Tests.test_helpers import (
     DummyFileHandler,

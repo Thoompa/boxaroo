@@ -3,7 +3,7 @@ import json
 import pytest
 
 from Code.category_list_service import CategoryListCache, CategoryListService
-from Code.isupermarket import ListSize
+from Code.contracts import ListSize
 from Tests.test_helpers import DummyLogger
 
 

@@ -1,14 +1,9 @@
 import os
 from abc import ABC, abstractmethod
 from datetime import date
-from enum import Enum
 from time import gmtime, strftime
 
-
-class LoggingLevel(Enum):
-    DEBUG = 1
-    INFO = 2
-    ERROR = 3
+from Code.contracts import LoggingLevel
 
 
 class ILogger(ABC):

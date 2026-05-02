@@ -1,7 +1,7 @@
 import json
 import pytest
 
-from Code.isupermarket import ListSize
+from Code.contracts import ListSize
 from Code.woolworths import Woolworths
 from Tests.test_helpers import (
     DummyFileHandler,

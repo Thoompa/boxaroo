@@ -4,7 +4,7 @@ import tomllib
 
 import pytest
 
-from Code.isupermarket import ListSize
+from Code.contracts import ListSize
 from Code.product_parser import ProductParser
 from Tests.test_helpers import DummyFileHandler, DummyLogger
 from Code.web_driver import WebDriver

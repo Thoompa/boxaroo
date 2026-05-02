@@ -17,21 +17,20 @@ import os
 import time
 from typing import List
 
-from Code.category_list_service import (
+from Code.category_list_service import CategoryListService
+from Code.contracts import (
     CategoryCount,
+    CategoryData,
     CategoryListCache,
-    CategoryListService,
+    IncompleteProductItem,
+    ListSize,
+    ProductsData,
+    WebsiteCategory,
 )
 from Code.product_parser import IProductParser
 from Code.file_handler import IFileHandler
 from Code.logger import ILogger
-from Code.isupermarket import (
-    ISuperMarket,
-    ListSize,
-    WebsiteCategory,
-    CategoryData,
-    ProductsData,
-)
+from Code.supermarket_factory import ISuperMarket
 from Code.web_driver import IWebDriver
 
 
@@ -268,14 +267,16 @@ class Woolworths(ISuperMarket):
         return deduped
 
     def _dedupe_incomplete_items(
-        self, incomplete_items: list[dict[str, object]]
-    ) -> list[dict[str, object]]:
+        self, incomplete_items: list[IncompleteProductItem]
+    ) -> list[IncompleteProductItem]:
         seen: set[tuple[str, tuple[str, ...]]] = set()
-        deduped: list[dict[str, object]] = []
+        deduped: list[IncompleteProductItem] = []
 
         for item in incomplete_items:
             name = str(item.get("name", ""))
             missing = item.get("missing", [])
+            if not isinstance(missing, list):
+                missing = []
             missing_key = tuple(str(field) for field in missing)
             key = (name, missing_key)
             if key in seen:
