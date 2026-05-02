@@ -357,6 +357,32 @@ def test_main_quits_webdriver_when_get_categories_raises(monkeypatch):
     assert ("INFO", "WebDriver lifecycle stop") in logger.records
 
 
+def test_main_quits_injected_webdriver_when_file_handler_init_raises(monkeypatch):
+    # GIVEN: file-handler initialization fails before coordinator setup
+    logger = DummyLogger()
+    web_driver = DummyWebDriver()
+    monkeypatch.setattr(
+        "Code.main.FileHandler",
+        lambda *args, **kwargs: DummyFileHandler(error_on_init=True),
+    )
+
+    # WHEN: main() is invoked with an injected web driver
+    with pytest.raises(OSError, match="permission denied"):
+        main(
+            headless=True,
+            logging_level=LoggingLevel.INFO,
+            default_list_size=ListSize.TESTING,
+            refresh_category_lists=False,
+            proxy_server=None,
+            file_handler=None,
+            logger=logger,
+            web_driver=web_driver,
+        )
+
+    # THEN: the injected web driver is still quit during cleanup
+    assert web_driver.called.count(("quit",)) == 1
+
+
 def test_main_raises_quit_error_when_scrape_succeeds_and_quit_fails(monkeypatch):
     # GIVEN: Scraping succeeds but WebDriver.quit() fails
     logger = DummyLogger()

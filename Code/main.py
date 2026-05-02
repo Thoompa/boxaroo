@@ -100,28 +100,27 @@ def main(
     file_path = "Data/{0}".format(date.today())
     file_name = "{0}-{1}-{2}.csv".format(supermarket_name, date.today(), list_size.name)
     header = ["Product Name", "Price", "Unit Price", "Promotion"]
-
-    file_handler = file_handler or FileHandler(file_name, file_path, header, logger)
     web_driver = web_driver or WebDriver(headless, proxy_server)
-    product_parser = product_parser or ProductParser(logger=logger)
-
-    supermarket_adapter: ISuperMarket = supermarket_factory(
-        selected_supermarket,
-        file_handler,
-        logger,
-        web_driver,
-        product_parser,
-    )
-    coordinator = ScrapeCoordinator(supermarket_adapter, logger, file_handler)
-    logger.log(
-        "Running Boxaroo with supermarket - {0} and list size - {1}".format(
-            supermarket_name, list_size.name
-        )
-    )
-    logger.log("WebDriver lifecycle start")
     scrape_succeeded = False
 
     try:
+        file_handler = file_handler or FileHandler(file_name, file_path, header, logger)
+        product_parser = product_parser or ProductParser(logger)
+
+        supermarket_adapter: ISuperMarket = supermarket_factory(
+            selected_supermarket,
+            file_handler,
+            logger,
+            web_driver,
+            product_parser,
+        )
+        coordinator = ScrapeCoordinator(supermarket_adapter, logger, file_handler)
+        logger.log(
+            "Running Boxaroo with supermarket - {0} and list size - {1}".format(
+                supermarket_name, list_size.name
+            )
+        )
+        logger.log("WebDriver lifecycle start")
         coordinator.run(
             list_size=list_size, refresh_category_lists=refresh_category_lists
         )

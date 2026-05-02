@@ -36,7 +36,9 @@ class DummyLogger(ILogger):
 
 
 class DummyFileHandler(IFileHandler):
-    def __init__(self):
+    def __init__(self, error_on_init=False):
+        if error_on_init:
+            raise OSError("permission denied")
         self.saved = []
 
     def store_data(self, data):
