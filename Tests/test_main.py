@@ -409,8 +409,10 @@ def test_main_quits_injected_webdriver_when_file_handler_init_raises(monkeypatch
             web_driver=web_driver,
         )
 
-    # THEN: the injected web driver is still quit during cleanup
+    # THEN: the injected web driver is still quit and no unmatched lifecycle log is emitted
     assert web_driver.called.count(("quit",)) == 1
+    assert ("INFO", "WebDriver lifecycle start") not in logger.records
+    assert ("INFO", "WebDriver lifecycle stop") not in logger.records
 
 
 def test_main_raises_quit_error_when_scrape_succeeds_and_quit_fails(monkeypatch):

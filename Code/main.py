@@ -133,6 +133,7 @@ def _run_scrape(
     file_name: str,
     file_path: str,
     header: list[str],
+    mark_lifecycle_started,
 ) -> None:
     if injected_web_driver:
         file_handler = file_handler or FileHandler(file_name, file_path, header, logger)
@@ -152,13 +153,17 @@ def _run_scrape(
         )
     )
     logger.log("WebDriver lifecycle start")
+    mark_lifecycle_started()
     coordinator.run(list_size=list_size, refresh_category_lists=refresh_category_lists)
 
 
-def _teardown_web_driver(web_driver, logger, scrape_succeeded: bool) -> None:
+def _teardown_web_driver(
+    web_driver, logger, scrape_succeeded: bool, lifecycle_started: bool
+) -> None:
     try:
         web_driver.quit()
-        logger.log("WebDriver lifecycle stop")
+        if lifecycle_started:
+            logger.log("WebDriver lifecycle stop")
     except Exception as exc:
         logger.error(f"WebDriver quit failed: {exc}")
         if scrape_succeeded:
@@ -198,6 +203,11 @@ def main(
         header=header,
     )
     scrape_succeeded = False
+    lifecycle_started = False
+
+    def mark_lifecycle_started() -> None:
+        nonlocal lifecycle_started
+        lifecycle_started = True
 
     try:
         _run_scrape(
@@ -213,7 +223,13 @@ def main(
             file_name=file_name,
             file_path=file_path,
             header=header,
+            mark_lifecycle_started=mark_lifecycle_started,
         )
         scrape_succeeded = True
     finally:
-        _teardown_web_driver(web_driver, logger, scrape_succeeded)
+        _teardown_web_driver(
+            web_driver,
+            logger,
+            scrape_succeeded,
+            lifecycle_started,
+        )
