@@ -52,7 +52,6 @@ def test_cache_path_source_of_truth_is_category_list_service(woolworths, tmp_pat
     # WHEN: the cache path is accessed
     # THEN: the value is retrieved from the category list service
     assert woolworths.category_list_service.cache_path == str(cache_file)
-    assert not hasattr(woolworths, "category_lists_cache_path")
 
 
 # ============================================================

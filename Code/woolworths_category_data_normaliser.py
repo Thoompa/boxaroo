@@ -52,16 +52,18 @@ class WoolworthsCategoryDataNormaliser:
 
         return deduped
 
-    def get_category_data(self, category_url: str) -> CategoryData:
-        url = self.browse_url + category_url
+    def get_category_data(self, category_name: str) -> CategoryData:
+        url = self.browse_url + category_name
 
         try:
-            self.logger.log("Getting page data for {0} - {1}".format(category_url, url))
+            self.logger.log(
+                "Getting page data for {0} - {1}".format(category_name, url)
+            )
             self.web_driver.get_page(url)
 
             category_total = self.web_driver.get_category_total_items()
             self.logger.log(
-                f"{category_url} total count (page data): {category_total if category_total is not None else 'unknown'}"
+                f"{category_name} total count (page data): {category_total if category_total is not None else 'unknown'}"
             )
 
             data_result = self.web_driver.get_products(self.get_products_data)
@@ -86,7 +88,7 @@ class WoolworthsCategoryDataNormaliser:
 
             for page_info in page_stats:
                 self.logger.log(
-                    f"Category {category_url} - page {page_info.get('page')} : "
+                    f"Category {category_name} - page {page_info.get('page')} : "
                     f"tiles={page_info.get('product_tiles')} scraped={page_info.get('scraped')} "
                     f"incomplete={page_info.get('incomplete')}"
                 )
@@ -97,7 +99,7 @@ class WoolworthsCategoryDataNormaliser:
                 category_total = scraped_count
 
             self.logger.log(
-                f"Category {category_url}: expected {category_total}, scraped {scraped_count}, incomplete {incomplete_count}"
+                f"Category {category_name}: expected {category_total}, scraped {scraped_count}, incomplete {incomplete_count}"
             )
 
             for item in incomplete_items:
@@ -106,7 +108,7 @@ class WoolworthsCategoryDataNormaliser:
                 )
 
             return {
-                "category": category_url,
+                "category": category_name,
                 "total": category_total,
                 "products": products,
                 "incomplete_items": incomplete_items,
@@ -117,7 +119,7 @@ class WoolworthsCategoryDataNormaliser:
             msg = getattr(e, "msg", None) or str(e) or repr(e)
             self.logger.error(f"{type(e).__name__}: {msg}")
             return {
-                "category": category_url,
+                "category": category_name,
                 "total": 0,
                 "products": [],
                 "incomplete_items": [],
