@@ -46,7 +46,9 @@ class DummyFileHandler(IFileHandler):
 
 
 class DummyWebDriver(IWebDriver):
-    def __init__(self):
+    def __init__(self, error_on_init=False):
+        if error_on_init:
+            raise AssertionError("WebDriver should not be created")
         self.called = []
         self.script_response = ""
         self.category_total_items = None
