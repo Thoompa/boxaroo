@@ -116,7 +116,7 @@ def test_get_categories_falls_back_to_cache_on_discovery_exception(tmp_path):
 
     source.get_supermarket_categories = boom
 
-    # WHEN: category names are retrieved while discovery is failed
+    # WHEN: category names are retrieved after website category discovery has failed
     result = source.get_categories(list_size=ListSize.TESTING)
 
     # THEN: cached list selection is returned as fallback
