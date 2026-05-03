@@ -87,6 +87,12 @@ class DummyWebDriver(IWebDriver):
                     "incomplete_items": callback_result.get("incomplete_items", []),
                     "page_stats": self.products_response.get("page_stats", []),
                 }
+            if isinstance(callback_result, list):
+                return {
+                    "products": callback_result,
+                    "incomplete_items": [],
+                    "page_stats": self.products_response.get("page_stats", []),
+                }
         return self.products_response
 
     def quit(self) -> None:

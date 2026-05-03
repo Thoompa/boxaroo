@@ -205,6 +205,54 @@ def test_get_categories_saves_retry_discovery_names_when_initial_discovery_is_em
     assert persisted_cache["supermarket_categories"] == ["fruit-veg", "pantry"]
 
 
+def test_get_categories_falls_back_to_cache_when_retry_discovery_succeeds_but_counting_fails(
+    tmp_path,
+):
+    # GIVEN: cached categories exist, initial discovery is empty, retry discovery succeeds, and count loading then fails
+    logger = DummyLogger()
+    web_driver = DummyWebDriver()
+    cache_file = tmp_path / "woolworths-category-lists.json"
+    cache_data = {
+        "supermarket_categories": ["fruit-veg", "pantry"],
+        "testing": ["fruit-veg"],
+        "short": ["fruit-veg", "pantry"],
+        "full": ["fruit-veg", "pantry"],
+    }
+    cache_file.write_text(json.dumps(cache_data), encoding="utf-8")
+    source = make_woolworths_category_source(
+        cache_path=str(cache_file), logger=logger, web_driver=web_driver
+    )
+    web_driver.script_response = [
+        True,
+        [
+            {
+                "name": "fruit-veg",
+                "href": "https://www.woolworths.com.au/shop/browse/fruit-veg",
+            },
+            {
+                "name": "pantry",
+                "href": "https://www.woolworths.com.au/shop/browse/pantry",
+            },
+        ],
+    ]
+
+    def boom() -> int:
+        raise RuntimeError("count exploded")
+
+    web_driver.get_category_total_items = boom
+
+    # WHEN: categories are retrieved while retry recovery succeeds but count loading fails
+    result = source.get_categories(
+        list_size=ListSize.SHORT,
+        category_discovery=lambda: [],
+    )
+
+    # THEN: cached categories are returned and the cache metadata remains unchanged
+    assert result == ["fruit-veg", "pantry"]
+    persisted_cache = json.loads(cache_file.read_text(encoding="utf-8"))
+    assert persisted_cache["supermarket_categories"] == ["fruit-veg", "pantry"]
+
+
 def test_get_supermarket_categories_returns_empty_when_script_returns_non_list_after_all_retries(
     tmp_path,
 ):

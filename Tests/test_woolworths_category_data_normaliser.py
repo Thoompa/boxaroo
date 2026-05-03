@@ -81,6 +81,84 @@ def test_get_category_data_uses_callback_parser_handoff_for_raw_product_texts():
     assert result["incomplete_items"] == []
 
 
+def test_get_category_data_uses_callback_list_output_when_callback_returns_list():
+    # GIVEN: a driver configured to invoke callback and a callback override that returns a plain product list
+    logger = DummyLogger()
+    parser = DummyProductParser()
+    web_driver = DummyWebDriver()
+    web_driver.invoke_products_callback = True
+    web_driver.category_total_items = 1
+    web_driver.products_response = {
+        "products": ["raw text from UI"],
+        "incomplete_items": [{"name": "stale", "missing": ["price"]}],
+        "page_stats": [{"page": 1, "product_tiles": 1, "scraped": 1, "incomplete": 0}],
+    }
+    normaliser = make_woolworths_category_data_normaliser(
+        logger=logger, web_driver=web_driver, product_parser=parser
+    )
+    normaliser.get_products_data = lambda _products: [
+        [
+            "Callback List Product",
+            "$3.00",
+            "$3.00 / 1EA",
+            "",
+        ]
+    ]
+
+    # WHEN: category data is retrieved from the normaliser
+    result = normaliser.get_category_data("fruit-veg")
+
+    # THEN: callback list output is used rather than raw products_response payload
+    assert result["products"] == [["Callback List Product", "$3.00", "$3.00 / 1EA", ""]]
+    assert result["scraped"] == 1
+    assert result["incomplete_items"] == []
+
+
+def test_get_category_data_logs_page_stats_when_callback_returns_dict():
+    # GIVEN: a driver configured to invoke callback and return dict-shaped product data with page stats
+    logger = DummyLogger()
+    parser = DummyProductParser()
+    parser.set_default_response(
+        {
+            "name": "Injected Name each",
+            "price": "$2.50",
+            "unit_price": "$2.50 / 1EA",
+            "promotion": "",
+            "missing_fields": ["promotion"],
+        }
+    )
+    web_driver = DummyWebDriver()
+    web_driver.invoke_products_callback = True
+    web_driver.category_total_items = 1
+    web_driver.products_response = {
+        "products": ["raw text from UI"],
+        "incomplete_items": [],
+        "page_stats": [
+            {
+                "page": 1,
+                "product_tiles": 1,
+                "scraped": 1,
+                "incomplete": 1,
+            }
+        ],
+    }
+    normaliser = make_woolworths_category_data_normaliser(
+        logger=logger, web_driver=web_driver, product_parser=parser
+    )
+
+    # WHEN: category data is retrieved from the normaliser
+    result = normaliser.get_category_data("fruit-veg")
+
+    # THEN: callback dict output is used and page stats are logged through the category summary path
+    assert result["products"] == [["Injected Name each", "$2.50", "$2.50 / 1EA", ""]]
+    assert result["incomplete_items"] == [
+        {"name": "Injected Name each", "missing": ["promotion"]}
+    ]
+    assert "Category fruit-veg - page 1 : tiles=1 scraped=1 incomplete=1" in [
+        message for level, message in logger.records if level == "INFO"
+    ]
+
+
 def test_get_category_data_uses_scraped_count_when_total_is_none():
     # GIVEN: no total on page and two scraped products
     logger = DummyLogger()
