@@ -43,12 +43,17 @@ class WoolworthsCategoryDataNormaliser:
             missing = item.get("missing", [])
             if not isinstance(missing, list):
                 missing = []
-            missing_key = tuple(str(field) for field in missing)
+            normalised_missing = [str(field) for field in missing]
+            normalised_item: IncompleteProductItem = {
+                "name": name,
+                "missing": normalised_missing,
+            }
+            missing_key = tuple(normalised_missing)
             key = (name, missing_key)
             if key in seen:
                 continue
             seen.add(key)
-            deduped.append(item)
+            deduped.append(normalised_item)
 
         return deduped
 

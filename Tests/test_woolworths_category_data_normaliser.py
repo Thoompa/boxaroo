@@ -174,15 +174,18 @@ def test_dedupe_incomplete_items_handles_non_list_missing_field():
     incomplete_items = [
         {"name": "Apple each", "missing": None},
         {"name": "Bread each", "missing": "price"},
+        {"name": "Milk each", "missing": ["price", 1]},
     ]
 
     # WHEN: incomplete items are deduplicated
     result = normaliser.dedupe_incomplete_items(incomplete_items)
 
-    # THEN: all items are processed without raising; non-list missing fields are treated as empty
-    assert len(result) == 2
-    assert result[0]["name"] == "Apple each"
-    assert result[1]["name"] == "Bread each"
+    # THEN: non-list missing fields are normalised to empty lists and list fields are stringified
+    assert result == [
+        {"name": "Apple each", "missing": []},
+        {"name": "Bread each", "missing": []},
+        {"name": "Milk each", "missing": ["price", "1"]},
+    ]
 
 
 def test_get_products_data_incomplete_tracking():
