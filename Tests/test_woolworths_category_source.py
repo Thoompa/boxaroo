@@ -126,7 +126,7 @@ def test_get_categories_falls_back_to_cache_on_discovery_exception(tmp_path):
 def test_get_categories_preserves_existing_cache_when_discovery_returns_empty(
     tmp_path,
 ):
-    # GIVEN: a valid cache and discovery that exhausts retries with no categories found
+    # GIVEN: a valid cache and discovery that exhausts retries (including retry loop) with no categories found
     logger = DummyLogger()
     web_driver = DummyWebDriver()
     cache_file = tmp_path / "woolworths-category-lists.json"
@@ -140,9 +140,25 @@ def test_get_categories_preserves_existing_cache_when_discovery_returns_empty(
     source = make_woolworths_category_source(
         cache_path=str(cache_file), logger=logger, web_driver=web_driver
     )
-    web_driver.script_response = [True, [], [], [], [], [], []]
+    # Provide responses for 2 discovery attempts: (open_menu + 6 × extract_menu) × 2
+    web_driver.script_response = [
+        True,
+        [],
+        [],
+        [],
+        [],
+        [],
+        [],
+        True,
+        [],
+        [],
+        [],
+        [],
+        [],
+        [],
+    ]
 
-    # WHEN: categories are retrieved while discovery yields no categories after retries
+    # WHEN: categories are retrieved while both discovery attempts yield no categories after all retries
     result = source.get_categories(list_size=ListSize.SHORT)
 
     # THEN: the cached list is returned and the existing cache contents are preserved

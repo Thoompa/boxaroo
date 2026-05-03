@@ -35,9 +35,11 @@ class WoolworthsCategorySource:
 
         try:
             website_categories = discover_categories()
-            if not website_categories:
-                raise RuntimeError("No categories discovered from site")
-            website_names = [item["name"] for item in website_categories]
+            website_names = (
+                [item["name"] for item in website_categories]
+                if website_categories
+                else []
+            )
             selected_cached_categories = (
                 self.category_list_service.select(cached_lists, list_size)
                 if cached_lists
@@ -181,7 +183,25 @@ class WoolworthsCategorySource:
     def refresh_category_lists_from_site(
         self, categories: list[WebsiteCategory] | None = None
     ) -> CategoryListCache:
-        categories = categories or self.get_supermarket_categories()
+        # Retry discovery up to 2 times to allow for transient page load failures
+        max_discovery_attempts = 2
+        for attempt in range(max_discovery_attempts):
+            if not categories or len(categories) == 0:
+                if attempt > 0:
+                    self.logger.log(
+                        f"Retrying category discovery (attempt {attempt + 1}/{max_discovery_attempts})"
+                    )
+                categories = self.get_supermarket_categories()
+
+            if categories and len(categories) > 0:
+                break
+
+            if attempt < max_discovery_attempts - 1:
+                time.sleep(0.5)
+
+        # If discovery failed after all retries, raise to trigger cache fallback
+        if not categories or len(categories) == 0:
+            raise RuntimeError("No categories discovered from site after retries")
 
         category_counts: list[CategoryCount] = []
         for item in categories:
