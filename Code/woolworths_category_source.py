@@ -35,6 +35,8 @@ class WoolworthsCategorySource:
 
         try:
             website_categories = discover_categories()
+            if not website_categories:
+                raise RuntimeError("No categories discovered from site")
             website_names = [item["name"] for item in website_categories]
             selected_cached_categories = (
                 self.category_list_service.select(cached_lists, list_size)

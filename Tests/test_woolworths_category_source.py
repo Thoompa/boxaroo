@@ -123,6 +123,35 @@ def test_get_categories_falls_back_to_cache_on_discovery_exception(tmp_path):
     assert result == ["fruit-veg"]
 
 
+def test_get_categories_preserves_existing_cache_when_discovery_returns_empty(
+    tmp_path,
+):
+    # GIVEN: a valid cache and discovery that exhausts retries with no categories found
+    logger = DummyLogger()
+    web_driver = DummyWebDriver()
+    cache_file = tmp_path / "woolworths-category-lists.json"
+    cache_data = {
+        "supermarket_categories": ["fruit-veg", "pantry"],
+        "testing": ["fruit-veg"],
+        "short": ["fruit-veg", "pantry"],
+        "full": ["fruit-veg", "pantry"],
+    }
+    cache_file.write_text(json.dumps(cache_data), encoding="utf-8")
+    source = make_woolworths_category_source(
+        cache_path=str(cache_file), logger=logger, web_driver=web_driver
+    )
+    web_driver.script_response = [True, [], [], [], [], [], []]
+
+    # WHEN: categories are retrieved while discovery yields no categories after retries
+    result = source.get_categories(list_size=ListSize.SHORT)
+
+    # THEN: the cached list is returned and the existing cache contents are preserved
+    assert result == ["fruit-veg", "pantry"]
+    persisted_cache = json.loads(cache_file.read_text(encoding="utf-8"))
+    assert persisted_cache["short"] == ["fruit-veg", "pantry"]
+    assert persisted_cache["supermarket_categories"] == ["fruit-veg", "pantry"]
+
+
 def test_get_supermarket_categories_returns_empty_when_script_returns_non_list_after_all_retries(
     tmp_path,
 ):

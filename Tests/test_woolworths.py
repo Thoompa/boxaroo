@@ -99,6 +99,53 @@ def test_get_categories_returns_selected_list_via_public_api(
     assert result == ["fruit-veg", "pantry"]
 
 
+def test_get_categories_uses_adapter_cache_path_for_cached_results(
+    file_handler, logger, web_driver, parser, tmp_path
+):
+    # GIVEN: a custom cache path on the adapter and matching site categories
+    cache_file = tmp_path / "custom-category-lists.json"
+    cache_data = {
+        "supermarket_categories": ["fruit-veg", "pantry", "pet"],
+        "testing": ["pet"],
+        "short": ["pet", "fruit-veg"],
+        "full": ["pet", "fruit-veg", "pantry"],
+    }
+    cache_file.write_text(json.dumps(cache_data), encoding="utf-8")
+    web_driver.script_response = [
+        True,
+        [
+            {
+                "name": "fruit-veg",
+                "href": "https://www.woolworths.com.au/shop/browse/fruit-veg",
+            },
+            {
+                "name": "pantry",
+                "href": "https://www.woolworths.com.au/shop/browse/pantry",
+            },
+            {
+                "name": "pet",
+                "href": "https://www.woolworths.com.au/shop/browse/pet",
+            },
+        ],
+    ]
+    woolworths = Woolworths(
+        file_handler=file_handler,
+        logger=logger,
+        web_driver=web_driver,
+        product_parser=parser,
+    )
+    woolworths.category_list_service.cache_path = str(cache_file)
+
+    # WHEN: categories are retrieved via the public adapter method
+    result = woolworths.get_categories(list_size=ListSize.SHORT)
+
+    # THEN: the cached list from the adapter-owned cache path is used
+    assert result == ["pet", "fruit-veg"]
+    assert (
+        len([c for c in web_driver.called if c[0] == "get_category_total_items"]) == 0
+    )
+
+
 def test_get_categories_refreshes_lists_when_refresh_is_requested_via_public_api(
     file_handler, logger, web_driver, parser, tmp_path
 ):
