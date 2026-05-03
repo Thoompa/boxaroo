@@ -65,6 +65,8 @@ class WoolworthsCategorySource:
                 return selected_cached_categories
 
             refreshed_lists = self.refresh_category_lists_from_site(website_categories)
+            if not website_names:
+                website_names = refreshed_lists.get("full", [])
             self.category_list_service.save(refreshed_lists, website_names)
             return self.category_list_service.select(refreshed_lists, list_size)
 

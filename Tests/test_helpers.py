@@ -60,6 +60,7 @@ class DummyWebDriver(IWebDriver):
         self.script_response = ""
         self.category_total_items = None
         self.category_total_items_sequence = []
+        self.invoke_products_callback = False
         self.products_response: ProductsPageResult = {
             "products": [],
             "incomplete_items": [],
@@ -74,6 +75,18 @@ class DummyWebDriver(IWebDriver):
         _callback: Callable[[list[str]], ProductsData | list[list[str]]] | None = None,
     ) -> ProductsPageResult:
         self.called.append(("get_products",))
+        if (
+            self.invoke_products_callback
+            and _callback is not None
+            and isinstance(self.products_response, dict)
+        ):
+            callback_result = _callback(self.products_response.get("products", []))
+            if isinstance(callback_result, dict):
+                return {
+                    "products": callback_result.get("products", []),
+                    "incomplete_items": callback_result.get("incomplete_items", []),
+                    "page_stats": self.products_response.get("page_stats", []),
+                }
         return self.products_response
 
     def quit(self) -> None:

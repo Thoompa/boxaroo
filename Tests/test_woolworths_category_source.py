@@ -168,6 +168,43 @@ def test_get_categories_preserves_existing_cache_when_discovery_returns_empty(
     assert persisted_cache["supermarket_categories"] == ["fruit-veg", "pantry"]
 
 
+def test_get_categories_saves_retry_discovery_names_when_initial_discovery_is_empty(
+    tmp_path,
+):
+    # GIVEN: initial discovery is empty and retry discovery returns valid categories
+    logger = DummyLogger()
+    web_driver = DummyWebDriver()
+    cache_file = tmp_path / "woolworths-category-lists.json"
+    source = make_woolworths_category_source(
+        cache_path=str(cache_file), logger=logger, web_driver=web_driver
+    )
+    web_driver.script_response = [
+        True,
+        [
+            {
+                "name": "fruit-veg",
+                "href": "https://www.woolworths.com.au/shop/browse/fruit-veg",
+            },
+            {
+                "name": "pantry",
+                "href": "https://www.woolworths.com.au/shop/browse/pantry",
+            },
+        ],
+    ]
+    web_driver.category_total_items_sequence = [120, 250]
+
+    # WHEN: categories are retrieved while the first discovery is empty and retry discovery succeeds
+    result = source.get_categories(
+        list_size=ListSize.SHORT,
+        category_discovery=lambda: [],
+    )
+
+    # THEN: refreshed categories are selected and supermarket metadata is saved from retry discovery names
+    assert result == ["fruit-veg", "pantry"]
+    persisted_cache = json.loads(cache_file.read_text(encoding="utf-8"))
+    assert persisted_cache["supermarket_categories"] == ["fruit-veg", "pantry"]
+
+
 def test_get_supermarket_categories_returns_empty_when_script_returns_non_list_after_all_retries(
     tmp_path,
 ):

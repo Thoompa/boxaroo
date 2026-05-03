@@ -46,6 +46,41 @@ def test_get_category_data_returns_expected_shape_on_success():
     assert result["incomplete"] == 1
 
 
+def test_get_category_data_uses_callback_parser_handoff_for_raw_product_texts():
+    # GIVEN: a driver configured to invoke callback with raw product text payloads
+    logger = DummyLogger()
+    parser = DummyProductParser()
+    parser.set_default_response(
+        {
+            "name": "Injected Name each",
+            "price": "$2.50",
+            "unit_price": "$2.50 / 1EA",
+            "promotion": "",
+            "missing_fields": [],
+        }
+    )
+    web_driver = DummyWebDriver()
+    web_driver.invoke_products_callback = True
+    web_driver.category_total_items = 1
+    web_driver.products_response = {
+        "products": ["raw text from UI"],
+        "incomplete_items": [],
+        "page_stats": [],
+    }
+    normaliser = make_woolworths_category_data_normaliser(
+        logger=logger, web_driver=web_driver, product_parser=parser
+    )
+
+    # WHEN: category data is retrieved from the normaliser
+    result = normaliser.get_category_data("fruit-veg")
+
+    # THEN: parser-driven product parsing is exercised through the callback handoff path
+    assert parser.calls == ["raw text from UI"]
+    assert result["products"] == [["Injected Name each", "$2.50", "$2.50 / 1EA", ""]]
+    assert result["scraped"] == 1
+    assert result["incomplete_items"] == []
+
+
 def test_get_category_data_uses_scraped_count_when_total_is_none():
     # GIVEN: no total on page and two scraped products
     logger = DummyLogger()
