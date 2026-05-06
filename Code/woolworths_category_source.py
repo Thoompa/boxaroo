@@ -1,0 +1,220 @@
+import time
+from collections.abc import Callable
+
+from Code.category_list_service import CategoryListService
+from Code.contracts import CategoryCount, CategoryListCache, ListSize, WebsiteCategory
+from Code.logger import ILogger
+from Code.web_driver import IWebDriver
+
+
+class WoolworthsCategorySource:
+    """Handles Woolworths category discovery and cache refresh policy."""
+
+    def __init__(
+        self,
+        logger: ILogger,
+        web_driver: IWebDriver,
+        category_list_service: CategoryListService,
+        base_url: str,
+        browse_url: str,
+    ):
+        self.logger = logger
+        self.web_driver = web_driver
+        self.category_list_service = category_list_service
+        self.base_url = base_url
+        self.browse_url = browse_url
+
+    def get_categories(
+        self,
+        list_size: ListSize,
+        refresh_category_lists: bool = False,
+        category_discovery: Callable[[], list[WebsiteCategory]] | None = None,
+    ) -> list[str]:
+        cached_lists = self.category_list_service.load()
+        discover_categories = category_discovery or self.get_supermarket_categories
+
+        try:
+            website_categories = discover_categories()
+            website_names = (
+                [item["name"] for item in website_categories]
+                if website_categories
+                else []
+            )
+            selected_cached_categories = (
+                self.category_list_service.select(cached_lists, list_size)
+                if cached_lists
+                else []
+            )
+
+            if (
+                not refresh_category_lists
+                and selected_cached_categories
+                and self.selected_categories_match_site(
+                    selected_cached_categories, website_names
+                )
+                and (
+                    list_size != ListSize.TESTING
+                    or self.selected_categories_have_products(
+                        selected_cached_categories
+                    )
+                )
+            ):
+                self.logger.log(
+                    "Using cached category lists (selected categories match website)"
+                )
+                return selected_cached_categories
+
+            refreshed_lists = self.refresh_category_lists_from_site(website_categories)
+            if not website_names:
+                website_names = refreshed_lists.get("full", [])
+            self.category_list_service.save(refreshed_lists, website_names)
+            return self.category_list_service.select(refreshed_lists, list_size)
+
+        except Exception as e:
+            msg = getattr(e, "msg", None) or str(e) or repr(e)
+            self.logger.error(f"{type(e).__name__}: {msg}")
+            self.logger.log(
+                "Falling back to cached category lists (or empty if cache is missing)"
+            )
+
+            fallback_lists = (
+                cached_lists or self.category_list_service.load_cached_lists()
+            )
+            return self.category_list_service.select(fallback_lists, list_size)
+
+    def selected_categories_match_site(
+        self, selected_categories: list[str], website_names: list[str]
+    ) -> bool:
+        return set(selected_categories).issubset(set(website_names))
+
+    def selected_categories_have_products(self, selected_categories: list[str]) -> bool:
+        for name in selected_categories:
+            self.web_driver.get_page(self.browse_url + name)
+            count = self.web_driver.get_category_total_items()
+            if not isinstance(count, int) or count <= 0:
+                self.logger.log(
+                    f"Refreshing category lists because '{name}' has no products"
+                )
+                return False
+        return True
+
+    def get_supermarket_categories(self) -> list[WebsiteCategory]:
+        self.web_driver.get_page(self.base_url)
+
+        open_menu_script = """
+        try {
+            function normText(el) {
+                return ((el && (el.innerText || el.textContent || el.getAttribute('aria-label'))) || '')
+                    .toLowerCase()
+                    .trim();
+            }
+
+            var controls = Array.from(document.querySelectorAll('button, a, [role="button"], [aria-label]'));
+            var browseControl = controls.find(function (el) {
+                var t = normText(el);
+                return t === 'browse products' || t.indexOf('browse products') !== -1;
+            });
+
+            if (browseControl && typeof browseControl.click === 'function') {
+                browseControl.click();
+                return true;
+            }
+
+            return false;
+        } catch (e) {
+            return false;
+        }
+        """
+
+        extract_menu_categories_script = """
+        try {
+            var links = document.querySelectorAll(
+                'a.item.ng-star-inserted[href^="/shop/browse/"], a.item[href^="/shop/browse/"]'
+            );
+            var seen = {};
+            var categories = [];
+            for (var i = 0; i < links.length; i++) {
+                var href = links[i].getAttribute('href') || '';
+                if (!href) {
+                    continue;
+                }
+
+                var path = href.split('?')[0].split('#')[0];
+                if (path.endsWith('/')) {
+                    path = path.slice(0, -1);
+                }
+
+                var name = path.split('/').pop();
+                if (!name || seen[name]) {
+                    continue;
+                }
+
+                seen[name] = true;
+                categories.push({ name: name, href: href });
+            }
+            return categories;
+        } catch (e) {
+            return [];
+        }
+        """
+
+        self.web_driver.execute_script(open_menu_script)
+
+        categories = []
+        for _ in range(6):
+            categories = self.web_driver.execute_script(extract_menu_categories_script)
+            if isinstance(categories, list) and len(categories) > 0:
+                break
+            time.sleep(0.5)
+
+        if not isinstance(categories, list):
+            return []
+
+        clean: list[WebsiteCategory] = []
+        for item in categories:
+            if not isinstance(item, dict):
+                continue
+            name = item.get("name")
+            href = item.get("href")
+            if isinstance(name, str) and name.strip() and isinstance(href, str):
+                if href.startswith("/"):
+                    href = self.base_url.rstrip("/") + href
+                clean.append({"name": name.strip(), "href": href})
+        return clean
+
+    def refresh_category_lists_from_site(
+        self, categories: list[WebsiteCategory] | None = None
+    ) -> CategoryListCache:
+        # Retry discovery up to 2 times to allow for transient page load failures
+        max_discovery_attempts = 2
+        for attempt in range(max_discovery_attempts):
+            if not categories or len(categories) == 0:
+                if attempt > 0:
+                    self.logger.log(
+                        f"Retrying category discovery (attempt {attempt + 1}/{max_discovery_attempts})"
+                    )
+                categories = self.get_supermarket_categories()
+
+            if categories and len(categories) > 0:
+                break
+
+            if attempt < max_discovery_attempts - 1:
+                time.sleep(0.5)
+
+        # If discovery failed after all retries, raise to trigger cache fallback
+        if not categories or len(categories) == 0:
+            raise RuntimeError("No categories discovered from site after retries")
+
+        category_counts: list[CategoryCount] = []
+        for item in categories:
+            name = item.get("name")
+            if not name:
+                continue
+
+            category_url = self.browse_url + name
+            self.web_driver.get_page(category_url)
+            count = self.web_driver.get_category_total_items()
+            count = count if isinstance(count, int) and count >= 0 else 0
+            if count > 0:
+                category_counts.append({"name": name, "count": count})
+        return self.category_list_service.refresh(category_counts)

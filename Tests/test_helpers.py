@@ -4,17 +4,24 @@ Shared dummy/mock classes for Boxaroo unit tests.
 """
 from typing import Any, Callable
 
-from Code.file_handler import FileHandler, IFileHandler
+from Code.file_handler import FileHandler
+from Code.category_list_service import CategoryListService
 from Code.contracts import (
     CategoryData,
     ISuperMarket,
     ListSize,
     ProductsData,
     ProductsPageResult,
+    ProductParseResult,
+    IProductParser,
+    IWebDriver,
+    ILogger,
+    LoggingLevel,
+    IFileHandler,
 )
-from Code.logger import ILogger, LoggingLevel
-from Code.product_parser import IProductParser, ProductParseResult
-from Code.web_driver import IWebDriver, WebDriver
+from Code.web_driver import WebDriver
+from Code.woolworths_category_data_normaliser import WoolworthsCategoryDataNormaliser
+from Code.woolworths_category_source import WoolworthsCategorySource
 
 
 class DummyLogger(ILogger):
@@ -53,6 +60,7 @@ class DummyWebDriver(IWebDriver):
         self.script_response = ""
         self.category_total_items = None
         self.category_total_items_sequence = []
+        self.invoke_products_callback = False
         self.products_response: ProductsPageResult = {
             "products": [],
             "incomplete_items": [],
@@ -67,6 +75,24 @@ class DummyWebDriver(IWebDriver):
         _callback: Callable[[list[str]], ProductsData | list[list[str]]] | None = None,
     ) -> ProductsPageResult:
         self.called.append(("get_products",))
+        if (
+            self.invoke_products_callback
+            and _callback is not None
+            and isinstance(self.products_response, dict)
+        ):
+            callback_result = _callback(self.products_response.get("products", []))
+            if isinstance(callback_result, dict):
+                return {
+                    "products": callback_result.get("products", []),
+                    "incomplete_items": callback_result.get("incomplete_items", []),
+                    "page_stats": self.products_response.get("page_stats", []),
+                }
+            if isinstance(callback_result, list):
+                return {
+                    "products": callback_result,
+                    "incomplete_items": [],
+                    "page_stats": self.products_response.get("page_stats", []),
+                }
         return self.products_response
 
     def quit(self) -> None:
@@ -221,6 +247,42 @@ class DummyWait:
 
     def until(self, condition):
         return True
+
+
+def make_woolworths_category_source(
+    cache_path: str,
+    logger: DummyLogger | None = None,
+    web_driver: DummyWebDriver | None = None,
+    base_url: str = "https://www.woolworths.com.au",
+    browse_url: str = "https://www.woolworths.com.au/shop/browse/",
+) -> WoolworthsCategorySource:
+    logger = logger or DummyLogger()
+    web_driver = web_driver or DummyWebDriver()
+    service = CategoryListService(cache_path, logger)
+    return WoolworthsCategorySource(
+        logger=logger,
+        web_driver=web_driver,
+        category_list_service=service,
+        base_url=base_url,
+        browse_url=browse_url,
+    )
+
+
+def make_woolworths_category_data_normaliser(
+    logger: DummyLogger | None = None,
+    web_driver: DummyWebDriver | None = None,
+    product_parser: DummyProductParser | None = None,
+    browse_url: str = "https://www.woolworths.com.au/shop/browse/",
+) -> WoolworthsCategoryDataNormaliser:
+    logger = logger or DummyLogger()
+    web_driver = web_driver or DummyWebDriver()
+    product_parser = product_parser or DummyProductParser()
+    return WoolworthsCategoryDataNormaliser(
+        logger=logger,
+        web_driver=web_driver,
+        product_parser=product_parser,
+        browse_url=browse_url,
+    )
 
 
 # ---------------------------------------------------------------------------

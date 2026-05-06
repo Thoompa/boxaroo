@@ -50,13 +50,13 @@ def test_live_woolworths_category_discovery_count_classification_and_cache(tmp_p
         woolworths.category_list_service.cache_path = str(cache_file)
 
         # Force a real refresh path: discover categories, count each category page, classify, and persist cache.
-        full_list = woolworths._get_all_categories(
+        full_list = woolworths.get_categories(
             list_size=ListSize.FULL, refresh_category_lists=True
         )
-        short_list = woolworths._get_all_categories(
+        short_list = woolworths.get_categories(
             list_size=ListSize.SHORT, refresh_category_lists=False
         )
-        testing_list = woolworths._get_all_categories(
+        testing_list = woolworths.get_categories(
             list_size=ListSize.TESTING, refresh_category_lists=False
         )
 
