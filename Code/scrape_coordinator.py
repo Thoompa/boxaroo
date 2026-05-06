@@ -52,7 +52,7 @@ class ScrapeCoordinator:
             if not isinstance(category_data, dict):
                 self.logger.error(
                     f"Invalid category data for '{category}': expected dict, got "
-                    f"{type(category_data).__name__}"
+                    f"{type(category_data).__name__}; value={category_data!r}"
                 )
                 continue
 
@@ -60,7 +60,8 @@ class ScrapeCoordinator:
             if not isinstance(products, list):
                 self.logger.error(
                     f"Invalid category data for '{category}': expected 'products' "
-                    f"to be a list, got {type(products).__name__}"
+                    f"to be a list, got {type(products).__name__}; value={products!r}; "
+                    f"category_data={category_data!r}"
                 )
                 continue
 

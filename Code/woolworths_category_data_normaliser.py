@@ -19,44 +19,6 @@ class WoolworthsCategoryDataNormaliser:
         self.product_parser = product_parser
         self.browse_url = browse_url
 
-    def dedupe_products(self, products: list[list[str]]) -> list[list[str]]:
-        seen: set[tuple[str, ...]] = set()
-        deduped: list[list[str]] = []
-
-        for product in products:
-            key = tuple(product)
-            if key in seen:
-                continue
-            seen.add(key)
-            deduped.append(product)
-
-        return deduped
-
-    def dedupe_incomplete_items(
-        self, incomplete_items: list[IncompleteProductItem]
-    ) -> list[IncompleteProductItem]:
-        seen: set[tuple[str, tuple[str, ...]]] = set()
-        deduped: list[IncompleteProductItem] = []
-
-        for item in incomplete_items:
-            name = str(item.get("name", ""))
-            missing = item.get("missing", [])
-            if not isinstance(missing, list):
-                missing = []
-            normalised_missing = [str(field) for field in missing]
-            normalised_item: IncompleteProductItem = {
-                "name": name,
-                "missing": normalised_missing,
-            }
-            missing_key = tuple(normalised_missing)
-            key = (name, missing_key)
-            if key in seen:
-                continue
-            seen.add(key)
-            deduped.append(normalised_item)
-
-        return deduped
-
     def get_category_data(self, category_name: str) -> CategoryData:
         url = self.browse_url + category_name
 
@@ -71,7 +33,7 @@ class WoolworthsCategoryDataNormaliser:
                 f"{category_name} total count (page data): {category_total if category_total is not None else 'unknown'}"
             )
 
-            data_result = self.web_driver.get_products(self.get_products_data)
+            data_result = self.web_driver.get_products(self._get_products_data)
             products = (
                 data_result.get("products", [])
                 if isinstance(data_result, dict)
@@ -88,8 +50,8 @@ class WoolworthsCategoryDataNormaliser:
                 else []
             )
 
-            products = self.dedupe_products(products)
-            incomplete_items = self.dedupe_incomplete_items(incomplete_items)
+            products = self._dedupe_products(products)
+            incomplete_items = self._dedupe_incomplete_items(incomplete_items)
 
             for page_info in page_stats:
                 self.logger.log(
@@ -132,7 +94,7 @@ class WoolworthsCategoryDataNormaliser:
                 "incomplete": 0,
             }
 
-    def get_products_data(self, products: list[str]) -> ProductsData:
+    def _get_products_data(self, products: list[str]) -> ProductsData:
         products_data = []
         incomplete_items = []
         self.logger.log("Reading product data for {0} products".format(len(products)))
@@ -175,3 +137,41 @@ class WoolworthsCategoryDataNormaliser:
                 self.logger.log("Item skipped")
 
         return {"products": products_data, "incomplete_items": incomplete_items}
+
+    def _dedupe_products(self, products: list[list[str]]) -> list[list[str]]:
+        seen: set[tuple[str, ...]] = set()
+        deduped: list[list[str]] = []
+
+        for product in products:
+            key = tuple(product)
+            if key in seen:
+                continue
+            seen.add(key)
+            deduped.append(product)
+
+        return deduped
+
+    def _dedupe_incomplete_items(
+        self, incomplete_items: list[IncompleteProductItem]
+    ) -> list[IncompleteProductItem]:
+        seen: set[tuple[str, tuple[str, ...]]] = set()
+        deduped: list[IncompleteProductItem] = []
+
+        for item in incomplete_items:
+            name = str(item.get("name", ""))
+            missing = item.get("missing", [])
+            if not isinstance(missing, list):
+                missing = []
+            normalised_missing = [str(field) for field in missing]
+            normalised_item: IncompleteProductItem = {
+                "name": name,
+                "missing": normalised_missing,
+            }
+            missing_key = tuple(normalised_missing)
+            key = (name, missing_key)
+            if key in seen:
+                continue
+            seen.add(key)
+            deduped.append(normalised_item)
+
+        return deduped

@@ -7,10 +7,6 @@ Ownership:
     cache persistence and list-size selection rules.
 - Delegate product field extraction to the injected product parser, which owns
     parsing rules for raw product text.
-
-Non-ownership:
-- Does not own application composition or WebDriver lifecycle.
-- Does not own cross-category runtime orchestration.
 """
 
 import os

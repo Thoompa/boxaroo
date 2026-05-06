@@ -96,7 +96,7 @@ def test_get_category_data_uses_callback_list_output_when_callback_returns_list(
     normaliser = make_woolworths_category_data_normaliser(
         logger=logger, web_driver=web_driver, product_parser=parser
     )
-    normaliser.get_products_data = lambda _products: [
+    normaliser._get_products_data = lambda _products: [
         [
             "Callback List Product",
             "$3.00",
@@ -230,7 +230,7 @@ def test_get_products_data_uses_injected_parser_and_unit_price_fallback():
     )
 
     # WHEN: products payload is normalised from raw text items
-    result = normaliser.get_products_data(["raw text from UI"])
+    result = normaliser._get_products_data(["raw text from UI"])
 
     # THEN: injected parser values are used and price fallback is applied
     assert parser.calls == ["raw text from UI"]
@@ -267,7 +267,7 @@ def test_get_products_data_continues_when_parser_raises_on_one_item():
     )
 
     # WHEN: products data is normalised from a list where one item causes a parse error
-    result = normaliser.get_products_data(["bad item", "good item"])
+    result = normaliser._get_products_data(["bad item", "good item"])
 
     # THEN: the errored item is skipped and the remaining product is returned
     assert len(result["products"]) == 1
@@ -291,7 +291,7 @@ def test_dedupe_incomplete_items_handles_non_list_missing_field():
     ]
 
     # WHEN: incomplete items are deduplicated
-    result = normaliser.dedupe_incomplete_items(incomplete_items)
+    result = normaliser._dedupe_incomplete_items(incomplete_items)
 
     # THEN: non-list missing fields are normalised to empty lists and list fields are stringified
     assert result == [
@@ -329,7 +329,7 @@ def test_get_products_data_incomplete_tracking():
     )
 
     # WHEN: products data is retrieved from the inputs
-    result = normaliser.get_products_data(["input1", "input2"])
+    result = normaliser._get_products_data(["input1", "input2"])
 
     # THEN: incomplete items are tracked alongside valid products
     assert isinstance(result, dict)
@@ -369,7 +369,7 @@ def test_get_products_data_skips_empty_payload_and_continues():
     )
 
     # WHEN: products data is retrieved
-    result = normaliser.get_products_data(["empty", "normal"])
+    result = normaliser._get_products_data(["empty", "normal"])
 
     # THEN: empty products are skipped and processing continues
     assert len(result["products"]) == 1
@@ -404,7 +404,7 @@ def test_get_products_data_handles_multiple_valid_plain_text_payloads():
     )
 
     # WHEN: products data is retrieved from multiple payloads
-    result = normaliser.get_products_data(["payload1", "payload2"])
+    result = normaliser._get_products_data(["payload1", "payload2"])
 
     # THEN: all products are extracted with correct data
     assert len(result["products"]) == 2
@@ -442,7 +442,7 @@ def test_get_products_data_skips_product_when_all_fields_are_empty():
     )
 
     # WHEN: products data is retrieved
-    result = normaliser.get_products_data(["empty", "normal"])
+    result = normaliser._get_products_data(["empty", "normal"])
 
     # THEN: empty product is skipped and a debug log is created
     assert len(result["products"]) == 1

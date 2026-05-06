@@ -114,7 +114,7 @@ def test_get_categories_falls_back_to_cache_on_discovery_exception(tmp_path):
     def boom() -> list[dict[str, str]]:
         raise RuntimeError("network down")
 
-    source.get_supermarket_categories = boom
+    source._get_supermarket_categories = boom
 
     # WHEN: category names are retrieved after website category discovery has failed
     result = source.get_categories(list_size=ListSize.TESTING)
@@ -266,7 +266,7 @@ def test_get_supermarket_categories_returns_empty_when_script_returns_non_list_a
 
     # WHEN: supermarket categories are retrieved while all retries yield a non-list
     with patch("Code.woolworths_category_source.time.sleep"):
-        result = source.get_supermarket_categories()
+        result = source._get_supermarket_categories()
 
     # THEN: empty list is returned
     assert result == []
@@ -299,7 +299,7 @@ def test_get_supermarket_categories_filters_out_malformed_dict_items(tmp_path):
     )
 
     # WHEN: supermarket categories are retrieved
-    result = source.get_supermarket_categories()
+    result = source._get_supermarket_categories()
 
     # THEN: only the valid item is returned; malformed items are filtered out
     assert result == [
@@ -330,7 +330,7 @@ def test_get_supermarket_categories_expands_relative_hrefs_using_base_url(tmp_pa
     )
 
     # WHEN: supermarket categories are retrieved
-    result = source.get_supermarket_categories()
+    result = source._get_supermarket_categories()
 
     # THEN: relative hrefs are expanded using the injected base_url, not a hardcoded host
     assert result == [
@@ -473,7 +473,7 @@ def test_refresh_category_lists_from_site_classifies_by_count(tmp_path):
     web_driver.category_total_items_sequence = [220, 1200, 1700, 5000, 12000, 80]
 
     # WHEN: category lists are refreshed from the site
-    out = source.refresh_category_lists_from_site(categories)
+    out = source._refresh_category_lists_from_site(categories)
 
     # THEN: categories are classified by size based on product count
     assert out["testing"] == ["liquor"]
@@ -524,7 +524,7 @@ def test_refresh_category_lists_from_site_skips_zero_count_categories(tmp_path):
     web_driver.category_total_items_sequence = [0, 220, 80]
 
     # WHEN: category lists are refreshed from the site
-    out = source.refresh_category_lists_from_site(categories)
+    out = source._refresh_category_lists_from_site(categories)
 
     # THEN: categories with zero items are excluded from all lists
     assert out["testing"] == ["liquor"]
@@ -555,7 +555,7 @@ def test_refresh_category_lists_returns_empty_structure_when_all_categories_are_
     web_driver.category_total_items_sequence = [0]
 
     # WHEN: category lists are refreshed from the site
-    out = source.refresh_category_lists_from_site(categories)
+    out = source._refresh_category_lists_from_site(categories)
 
     # THEN: empty structure is returned with zero counts
     assert out["testing"] == []
@@ -599,7 +599,7 @@ def test_get_supermarket_categories_returns_drawer_categories(tmp_path):
     )
 
     # WHEN: supermarket categories are retrieved
-    categories = source.get_supermarket_categories()
+    categories = source._get_supermarket_categories()
     names = [c["name"] for c in categories]
 
     # THEN: drawer categories are returned from the web driver
@@ -617,7 +617,7 @@ def test_get_categories_falls_back_to_empty_when_no_cache_and_exception(tmp_path
     def raise_network_error():
         raise Exception("network down")
 
-    source.get_supermarket_categories = raise_network_error
+    source._get_supermarket_categories = raise_network_error
 
     # WHEN: categories are retrieved with no cache and site access fails
     out = source.get_categories(ListSize.SHORT)

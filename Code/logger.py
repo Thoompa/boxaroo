@@ -1,6 +1,6 @@
 import os
 from datetime import date
-from time import gmtime, strftime
+from time import localtime, strftime
 
 from Code.contracts import ILogger, LoggingLevel
 
@@ -19,7 +19,7 @@ class Logger(ILogger):
             pass  # File already exists
 
     def _write(self, m: str) -> None:
-        now = strftime("%d/%m/%Y %I:%M:%S %p", gmtime())
+        now = strftime("%d/%m/%Y %I:%M:%S %p", localtime())
         line = "{0} - {1}".format(now, m)
 
         with open(self.file_name, "a") as file:

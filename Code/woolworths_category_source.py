@@ -31,11 +31,11 @@ class WoolworthsCategorySource:
         category_discovery: Callable[[], list[WebsiteCategory]] | None = None,
     ) -> list[str]:
         cached_lists = self.category_list_service.load()
-        discover_categories = category_discovery or self.get_supermarket_categories
+        discover_categories = category_discovery or self._get_supermarket_categories
 
         try:
             website_categories = discover_categories()
-            website_names = (
+            website_category_names = (
                 [item["name"] for item in website_categories]
                 if website_categories
                 else []
@@ -49,12 +49,12 @@ class WoolworthsCategorySource:
             if (
                 not refresh_category_lists
                 and selected_cached_categories
-                and self.selected_categories_match_site(
-                    selected_cached_categories, website_names
+                and self._selected_categories_match_site(
+                    selected_cached_categories, website_category_names
                 )
                 and (
                     list_size != ListSize.TESTING
-                    or self.selected_categories_have_products(
+                    or self._selected_categories_have_products(
                         selected_cached_categories
                     )
                 )
@@ -62,12 +62,15 @@ class WoolworthsCategorySource:
                 self.logger.log(
                     "Using cached category lists (selected categories match website)"
                 )
+                self.logger.log(
+                    f"Selected {len(selected_cached_categories)} categories: {selected_cached_categories}"
+                )
                 return selected_cached_categories
 
-            refreshed_lists = self.refresh_category_lists_from_site(website_categories)
-            if not website_names:
-                website_names = refreshed_lists.get("full", [])
-            self.category_list_service.save(refreshed_lists, website_names)
+            refreshed_lists = self._refresh_category_lists_from_site(website_categories)
+            if not website_category_names:
+                website_category_names = refreshed_lists.get("full", [])
+            self.category_list_service.save(refreshed_lists, website_category_names)
             return self.category_list_service.select(refreshed_lists, list_size)
 
         except Exception as e:
@@ -82,12 +85,14 @@ class WoolworthsCategorySource:
             )
             return self.category_list_service.select(fallback_lists, list_size)
 
-    def selected_categories_match_site(
+    def _selected_categories_match_site(
         self, selected_categories: list[str], website_names: list[str]
     ) -> bool:
         return set(selected_categories).issubset(set(website_names))
 
-    def selected_categories_have_products(self, selected_categories: list[str]) -> bool:
+    def _selected_categories_have_products(
+        self, selected_categories: list[str]
+    ) -> bool:
         for name in selected_categories:
             self.web_driver.get_page(self.browse_url + name)
             count = self.web_driver.get_category_total_items()
@@ -98,7 +103,7 @@ class WoolworthsCategorySource:
                 return False
         return True
 
-    def get_supermarket_categories(self) -> list[WebsiteCategory]:
+    def _get_supermarket_categories(self) -> list[WebsiteCategory]:
         self.web_driver.get_page(self.base_url)
 
         open_menu_script = """
@@ -182,7 +187,7 @@ class WoolworthsCategorySource:
                 clean.append({"name": name.strip(), "href": href})
         return clean
 
-    def refresh_category_lists_from_site(
+    def _refresh_category_lists_from_site(
         self, categories: list[WebsiteCategory] | None = None
     ) -> CategoryListCache:
         # Retry discovery up to 2 times to allow for transient page load failures
@@ -193,7 +198,7 @@ class WoolworthsCategorySource:
                     self.logger.log(
                         f"Retrying category discovery (attempt {attempt + 1}/{max_discovery_attempts})"
                     )
-                categories = self.get_supermarket_categories()
+                categories = self._get_supermarket_categories()
 
             if categories and len(categories) > 0:
                 break

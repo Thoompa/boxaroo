@@ -166,6 +166,8 @@ def _teardown_web_driver(
             logger.log("WebDriver lifecycle stop")
     except Exception as exc:
         logger.error(f"WebDriver quit failed: {exc}")
+        # Only surface quit failures when scrape work succeeded;
+        # otherwise preserve the original scrape exception.
         if scrape_succeeded:
             raise
 
@@ -192,6 +194,7 @@ def main(
         file_name,
         header,
     ) = _build_run_context(default_list_size, supermarket)
+
     file_handler, web_driver, injected_web_driver = _prepare_runtime_dependencies(
         file_handler=file_handler,
         logger=logger,
@@ -226,6 +229,9 @@ def main(
             mark_lifecycle_started=mark_lifecycle_started,
         )
         scrape_succeeded = True
+    except KeyboardInterrupt:
+        logger.log("Scrape interrupted by user (Ctrl+C)")
+        raise
     finally:
         _teardown_web_driver(
             web_driver,
