@@ -91,6 +91,32 @@ class CategoryListCache(TypedDict, total=False):
     category_product_totals: dict[str, int]
 
 
+class ICategoryListService(ABC):
+    @abstractmethod
+    def load(self) -> CategoryListCache | None:
+        pass
+
+    @abstractmethod
+    def save(
+        self, category_lists: CategoryListCache, category_names: list[str]
+    ) -> None:
+        pass
+
+    @abstractmethod
+    def refresh(self, category_counts: list[CategoryCount]) -> CategoryListCache:
+        pass
+
+    @abstractmethod
+    def select(
+        self, category_lists: CategoryListCache, list_size: ListSize
+    ) -> list[str]:
+        pass
+
+    @abstractmethod
+    def load_cached_lists(self) -> CategoryListCache:
+        pass
+
+
 class ILogger(ABC):
     @abstractmethod
     def __init__(self, logging_level: LoggingLevel):

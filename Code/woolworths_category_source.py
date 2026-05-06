@@ -1,8 +1,13 @@
 import time
 from collections.abc import Callable
 
-from Code.category_list_service import CategoryListService
-from Code.contracts import CategoryCount, CategoryListCache, ListSize, WebsiteCategory
+from Code.contracts import (
+    CategoryCount,
+    CategoryListCache,
+    ICategoryListService,
+    ListSize,
+    WebsiteCategory,
+)
 from Code.logger import ILogger
 from Code.web_driver import IWebDriver
 
@@ -14,7 +19,7 @@ class WoolworthsCategorySource:
         self,
         logger: ILogger,
         web_driver: IWebDriver,
-        category_list_service: CategoryListService,
+        category_list_service: ICategoryListService,
         base_url: str,
         browse_url: str,
     ):
