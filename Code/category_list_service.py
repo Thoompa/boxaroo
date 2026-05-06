@@ -2,11 +2,17 @@ import json
 import os
 from typing import cast
 
-from Code.contracts import CategoryCount, CategoryListCache, ListProductTotals, ListSize
+from Code.contracts import (
+    CategoryCount,
+    CategoryListCache,
+    ICategoryListService,
+    ListProductTotals,
+    ListSize,
+)
 from Code.logger import ILogger
 
 
-class CategoryListService:
+class CategoryListService(ICategoryListService):
     def __init__(self, cache_path: str, logger: ILogger):
         self.cache_path = cache_path
         self.logger = logger
