@@ -96,7 +96,7 @@ def test_get_category_data_uses_callback_list_output_when_callback_returns_list(
     normaliser = make_woolworths_category_data_normaliser(
         logger=logger, web_driver=web_driver, product_parser=parser
     )
-    normaliser._get_products_data = lambda _products: [
+    normaliser._get_products_data = lambda _products, *, page_number: [
         [
             "Callback List Product",
             "$3.00",
@@ -450,3 +450,118 @@ def test_get_products_data_skips_product_when_all_fields_are_empty():
     debug_records = [msg for level, msg in logger.records if level == "DEBUG"]
     skip_logs = [msg for msg in debug_records if "Skipped empty product" in msg]
     assert len(skip_logs) > 0
+
+
+def test_get_products_data_logs_page_number_context():
+    # GIVEN: a normaliser and one product payload on page 2
+    logger = DummyLogger()
+    web_driver = DummyWebDriver()
+    parser = DummyProductParser()
+    parser.set_default_response(
+        {
+            "name": "Injected Name each",
+            "price": "$2.50",
+            "unit_price": "$2.50 / 1EA",
+            "promotion": "",
+            "missing_fields": [],
+        }
+    )
+    normaliser = make_woolworths_category_data_normaliser(
+        logger=logger, web_driver=web_driver, product_parser=parser
+    )
+
+    # WHEN: product data is read with explicit page number context
+    normaliser._get_products_data(["raw text from UI"], page_number=2)
+
+    # THEN: the INFO log includes the page number and product count
+    info_messages = [msg for level, msg in logger.records if level == "INFO"]
+    assert any(
+        "Reading product data for page 2 with 1 products" in msg
+        for msg in info_messages
+    )
+
+
+def test_get_category_data_logs_extraction_failures_in_page_stats():
+    # GIVEN: page stats include one extraction failure
+    logger = DummyLogger()
+    parser = DummyProductParser()
+    web_driver = DummyWebDriver()
+    web_driver.category_total_items = 1
+    web_driver.products_response = {
+        "products": [["Apple each", "$1.00", "$1.00 / 1EA", ""]],
+        "incomplete_items": [],
+        "page_stats": [
+            {
+                "page": 1,
+                "product_tiles": 2,
+                "extraction_failures": 1,
+                "scraped": 1,
+                "incomplete": 0,
+            }
+        ],
+    }
+    normaliser = make_woolworths_category_data_normaliser(
+        logger=logger, web_driver=web_driver, product_parser=parser
+    )
+
+    # WHEN: category data is retrieved from the normaliser
+    normaliser.get_category_data("fruit-veg")
+
+    # THEN: the per-page INFO log surfaces extraction failure count
+    info_messages = [msg for level, msg in logger.records if level == "INFO"]
+    assert any("extraction_failures=1" in msg for msg in info_messages)
+
+
+def test_get_category_data_logs_category_summary_with_duration():
+    # GIVEN: a successful category scrape with known totals
+    logger = DummyLogger()
+    parser = DummyProductParser()
+    web_driver = DummyWebDriver()
+    web_driver.category_total_items = 3
+    web_driver.products_response = {
+        "products": [["A", "$1", "$1", ""], ["B", "$2", "$2", ""]],
+        "incomplete_items": [{"name": "A", "missing": ["unit_price"]}],
+        "page_stats": [],
+    }
+    normaliser = make_woolworths_category_data_normaliser(
+        logger=logger, web_driver=web_driver, product_parser=parser
+    )
+
+    # WHEN: category data is retrieved
+    normaliser.get_category_data("fruit-veg")
+
+    # THEN: category summary includes found, scraped, incomplete, and elapsed time
+    info_messages = [msg for level, msg in logger.records if level == "INFO"]
+    assert any(
+        "Category fruit-veg summary" in msg
+        and "found=3" in msg
+        and "scraped=2" in msg
+        and "incomplete=1" in msg
+        and "took=" in msg
+        for msg in info_messages
+    )
+
+
+def test_get_category_data_warns_when_found_scraped_gap_is_high():
+    # GIVEN: page total is much higher than scraped products
+    logger = DummyLogger()
+    parser = DummyProductParser()
+    web_driver = DummyWebDriver()
+    web_driver.category_total_items = 100
+    web_driver.products_response = {
+        "products": [["A", "$1", "$1", ""]],
+        "incomplete_items": [],
+        "page_stats": [],
+    }
+    normaliser = make_woolworths_category_data_normaliser(
+        logger=logger, web_driver=web_driver, product_parser=parser
+    )
+
+    # WHEN: category data is retrieved
+    normaliser.get_category_data("fruit-veg")
+
+    # THEN: a WARNING log is emitted for high found-vs-scraped gap
+    warning_messages = [msg for level, msg in logger.records if level == "WARNING"]
+    assert any(
+        "Category fruit-veg scrape gap warning" in msg for msg in warning_messages
+    )

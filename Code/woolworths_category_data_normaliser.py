@@ -2,10 +2,13 @@ from Code.contracts import CategoryData, IncompleteProductItem, ProductsData
 from Code.logger import ILogger
 from Code.product_parser import IProductParser
 from Code.web_driver import IWebDriver
+from time import perf_counter
 
 
 class WoolworthsCategoryDataNormaliser:
     """Normalises Woolworths category page payloads into Boxaroo contracts."""
+
+    GAP_WARNING_THRESHOLD = 0.5
 
     def __init__(
         self,
@@ -21,6 +24,7 @@ class WoolworthsCategoryDataNormaliser:
 
     def get_category_data(self, category_name: str) -> CategoryData:
         url = self.browse_url + category_name
+        start_time = perf_counter()
 
         try:
             self.logger.log(
@@ -59,6 +63,10 @@ class WoolworthsCategoryDataNormaliser:
                     f"tiles={page_info.get('product_tiles')} scraped={page_info.get('scraped')} "
                     f"incomplete={page_info.get('incomplete')}"
                 )
+                self.logger.log(
+                    f"Category {category_name} - page {page_info.get('page')} extraction_failures="
+                    f"{page_info.get('extraction_failures', 0)}"
+                )
 
             scraped_count = len(products)
             incomplete_count = len(incomplete_items)
@@ -68,6 +76,20 @@ class WoolworthsCategoryDataNormaliser:
             self.logger.log(
                 f"Category {category_name}: expected {category_total}, scraped {scraped_count}, incomplete {incomplete_count}"
             )
+
+            elapsed_seconds = perf_counter() - start_time
+            self.logger.log(
+                f"Category {category_name} summary: found={category_total} scraped={scraped_count} "
+                f"incomplete={incomplete_count} took={elapsed_seconds:.2f}s"
+            )
+
+            if category_total > 0:
+                gap_ratio = (category_total - scraped_count) / category_total
+                if gap_ratio >= self.GAP_WARNING_THRESHOLD:
+                    self.logger.warning(
+                        f"Category {category_name} scrape gap warning: found={category_total} scraped={scraped_count} "
+                        f"gap={gap_ratio:.2%}"
+                    )
 
             for item in incomplete_items:
                 self.logger.log(
@@ -94,10 +116,19 @@ class WoolworthsCategoryDataNormaliser:
                 "incomplete": 0,
             }
 
-    def _get_products_data(self, products: list[str]) -> ProductsData:
+    def _get_products_data(
+        self, products: list[str], page_number: int | None = None
+    ) -> ProductsData:
         products_data = []
         incomplete_items = []
-        self.logger.log("Reading product data for {0} products".format(len(products)))
+        if page_number is not None:
+            self.logger.log(
+                f"Reading product data for page {page_number} with {len(products)} products"
+            )
+        else:
+            self.logger.log(
+                "Reading product data for {0} products".format(len(products))
+            )
         self.logger.debug("Reading product data for - {0}".format(products))
 
         for i, product_text in enumerate(products):
