@@ -148,7 +148,11 @@ def test_get_products_advances_using_next_href(monkeypatch):
 
     # WHEN: the products are retrieved across both pages
     result = WebDriver.get_products(
-        driver, lambda elements: {"products": list(elements), "incomplete_items": []}
+        driver,
+        lambda elements, *, page_number: {
+            "products": list(elements),
+            "incomplete_items": [],
+        },
     )
 
     # THEN: products from both pages are combined and page_stats has two entries
@@ -218,7 +222,7 @@ def test_get_products_payload_always_contains_required_keys(monkeypatch):
     # WHEN: the products are retrieved
     result = WebDriver.get_products(
         driver,
-        lambda elements: {
+        lambda elements, *, page_number: {
             "products": list(elements),
             "incomplete_items": [{"name": "A", "missing": ["unit_price"]}],
         },
@@ -241,7 +245,7 @@ def test_get_products_page_stats_track_incomplete_count(monkeypatch):
     # WHEN: products are retrieved across two pages
     result = WebDriver.get_products(
         driver,
-        lambda elements: {
+        lambda elements, *, page_number: {
             "products": list(elements),
             "incomplete_items": [{"name": elements[0], "missing": ["price"]}],
         },
@@ -262,7 +266,7 @@ def test_get_products_callback_receives_plain_string_payloads(monkeypatch):
     driver.driver = DummySeleniumDriver()
     seen_payloads = []
 
-    def callback(product_texts):
+    def callback(product_texts, *, page_number):
         seen_payloads.extend(product_texts)
         return {"products": list(product_texts), "incomplete_items": []}
 
@@ -283,7 +287,9 @@ def test_get_products_supports_list_return_from_callback(monkeypatch):
     driver.driver = DummySeleniumDriver()
 
     # WHEN: the products are retrieved
-    result = WebDriver.get_products(driver, lambda elements: list(elements))
+    result = WebDriver.get_products(
+        driver, lambda elements, *, page_number: list(elements)
+    )
 
     # THEN: all products are still aggregated correctly
     assert result["products"] == ["A", "B", "C", "D"]
@@ -336,7 +342,11 @@ def test_get_products_reloads_page_on_per_element_timeout(monkeypatch):
 
     # WHEN: the products are retrieved
     result = WebDriver.get_products(
-        driver, lambda texts: {"products": list(texts), "incomplete_items": []}
+        driver,
+        lambda texts, *, page_number: {
+            "products": list(texts),
+            "incomplete_items": [],
+        },
     )
 
     # THEN: the page is reloaded once; the failed element is skipped and tracked in stats
@@ -372,7 +382,11 @@ def test_get_products_records_failure_without_reload_on_generic_error(monkeypatc
 
     # WHEN: the products are retrieved
     result = WebDriver.get_products(
-        driver, lambda texts: {"products": list(texts), "incomplete_items": []}
+        driver,
+        lambda texts, *, page_number: {
+            "products": list(texts),
+            "incomplete_items": [],
+        },
     )
 
     # THEN: the page is not reloaded; the failure is counted and remaining elements are scraped
@@ -380,6 +394,23 @@ def test_get_products_records_failure_without_reload_on_generic_error(monkeypatc
     assert result["page_stats"][0]["extraction_failures"] == 1
     assert result["page_stats"][0]["scraped"] == 1
     assert result["products"] == ["B", "C", "D"]
+
+
+def test_get_products_does_not_mask_callback_typeerror(monkeypatch):
+    # GIVEN: a callback that accepts page_number and raises an internal TypeError
+    monkeypatch.setattr(web_driver_module, "WebDriverWait", DummyWait)
+    monkeypatch.setattr(web_driver_module.time, "sleep", lambda _: None)
+    monkeypatch.setattr(web_driver_module.random, "uniform", lambda a, b: 0)
+    driver = DummyWebDriverShell()
+    driver.driver = DummySeleniumDriver()
+
+    def callback_with_page_context(elements, *, page_number):
+        raise TypeError("internal callback type error")
+
+    # WHEN: products are retrieved with the callback
+    # THEN: the internal callback TypeError is propagated as-is
+    with pytest.raises(TypeError, match="internal callback type error"):
+        WebDriver.get_products(driver, callback_with_page_context)
 
 
 # ============================================================

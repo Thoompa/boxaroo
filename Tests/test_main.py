@@ -347,7 +347,8 @@ def test_main_logs_category_failure_and_quits_webdriver(monkeypatch):
     assert ("INFO", "WebDriver lifecycle stop") in logger.records
     assert any(
         level == "ERROR"
-        and "Failed to scrape category 'fruit-veg': scrape failed" in message
+        and "Failed to scrape category 'fruit-veg': RuntimeError: scrape failed"
+        in message
         for level, message in logger.records
     )
 

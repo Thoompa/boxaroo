@@ -35,6 +35,11 @@ class Logger(ILogger):
             print("INFO: " + message)
             self._write("INFO: " + message)
 
+    def warning(self, message: str) -> None:
+        if self.logging_level.value <= LoggingLevel.WARNING.value:
+            print("WARNING: " + message)
+            self._write("WARNING: " + message)
+
     def error(self, e: str) -> None:
         if self.logging_level.value <= LoggingLevel.ERROR.value:
             print("ERROR: " + e)

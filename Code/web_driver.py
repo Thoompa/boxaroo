@@ -5,10 +5,10 @@ from selenium_stealth import stealth
 from selenium.webdriver.common.by import By
 from selenium.webdriver.support.ui import WebDriverWait
 from selenium.webdriver.support import expected_conditions as EC
-from typing import Any, Callable
+from typing import Any
 import time
 import random
-from Code.contracts import IWebDriver, ProductsData, ProductsPageResult
+from Code.contracts import IWebDriver, ProductsCallback, ProductsPageResult
 
 
 class WebDriver(IWebDriver):
@@ -203,7 +203,7 @@ class WebDriver(IWebDriver):
 
     def get_products(
         self,
-        _callback: Callable[[list[str]], ProductsData | list[list[str]]] | None = None,
+        _callback: ProductsCallback | None = None,
     ) -> ProductsPageResult:
         """Paginate product tiles and expose only plain text payloads to callback."""
         all_data = []
@@ -248,7 +248,7 @@ class WebDriver(IWebDriver):
             page_products_count = 0
             page_incomplete_count = 0
             if _callback:
-                callback_result = _callback(product_payloads)
+                callback_result = _callback(product_payloads, page_number=page_number)
                 if isinstance(callback_result, dict):
                     products = callback_result.get("products", [])
                     incomplete_items = callback_result.get("incomplete_items", [])

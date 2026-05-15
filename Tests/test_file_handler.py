@@ -65,6 +65,31 @@ def test_file_handler_logs_created_message(tmp_path):
     assert any("products.csv" in msg for msg in info_messages)
 
 
+def test_file_handler_logs_append_message_when_file_already_exists(tmp_path):
+    # GIVEN: a CSV file path that has already been initialised
+    logger = DummyLogger()
+    FileHandler(
+        file_name="products.csv",
+        file_path=str(tmp_path),
+        header=FILE_HANDLER_HEADER,
+        logger=logger,
+    )
+
+    # WHEN: the same file is initialised again
+    FileHandler(
+        file_name="products.csv",
+        file_path=str(tmp_path),
+        header=FILE_HANDLER_HEADER,
+        logger=logger,
+    )
+
+    # THEN: an INFO message indicates appending to an existing file
+    info_messages = [msg for level, msg in logger.records if level == "INFO"]
+    assert any(
+        "Appending to existing file products.csv" in msg for msg in info_messages
+    )
+
+
 def test_file_handler_logs_error_when_directory_creation_fails(tmp_path, monkeypatch):
     # GIVEN: the output directory cannot be created due to insufficient permissions
     monkeypatch.setattr(
@@ -107,6 +132,10 @@ def test_file_handler_store_data_appends_rows_after_header(tmp_path):
         all_rows = list(csv.reader(f))
     assert all_rows[0] == FILE_HANDLER_HEADER
     assert all_rows[1:] == rows
+
+    # AND: an INFO message confirms successful persistence count
+    info_messages = [msg for level, msg in handler.logger.records if level == "INFO"]
+    assert any("Successfully stored 2 rows" in msg for msg in info_messages)
 
 
 def test_file_handler_store_data_logs_data_size(tmp_path):

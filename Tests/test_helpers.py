@@ -2,7 +2,7 @@
 """
 Shared dummy/mock classes for Boxaroo unit tests.
 """
-from typing import Any, Callable
+from typing import Any
 
 from Code.file_handler import FileHandler
 from Code.category_list_service import CategoryListService
@@ -10,7 +10,7 @@ from Code.contracts import (
     CategoryData,
     ISuperMarket,
     ListSize,
-    ProductsData,
+    ProductsCallback,
     ProductsPageResult,
     ProductParseResult,
     IProductParser,
@@ -37,6 +37,9 @@ class DummyLogger(ILogger):
 
     def log(self, message):
         self.records.append(("INFO", message))
+
+    def warning(self, message):
+        self.records.append(("WARNING", message))
 
     def error(self, message):
         self.records.append(("ERROR", message))
@@ -72,7 +75,7 @@ class DummyWebDriver(IWebDriver):
 
     def get_products(
         self,
-        _callback: Callable[[list[str]], ProductsData | list[list[str]]] | None = None,
+        _callback: ProductsCallback | None = None,
     ) -> ProductsPageResult:
         self.called.append(("get_products",))
         if (
@@ -80,7 +83,9 @@ class DummyWebDriver(IWebDriver):
             and _callback is not None
             and isinstance(self.products_response, dict)
         ):
-            callback_result = _callback(self.products_response.get("products", []))
+            callback_result = _callback(
+                self.products_response.get("products", []), page_number=1
+            )
             if isinstance(callback_result, dict):
                 return {
                     "products": callback_result.get("products", []),
@@ -230,7 +235,7 @@ class DummyWebDriverShell(WebDriver):
     def get_products(self, _callback=None):
         self.page_saved += 1
         if _callback and "products" in self._products_response:
-            _callback(self._products_response["products"])
+            _callback(self._products_response["products"], page_number=1)
         return self._products_response
 
     def quit(self):
@@ -371,7 +376,7 @@ class DummySeleniumDriver:
         self._click_advances_url_to = click_advances_url_to
         self._mark_incomplete_a = mark_incomplete_a
 
-    def get_products_callback(self, elements):
+    def get_products_callback(self, elements, *, page_number):
         products = list(elements)
         incomplete_items = []
         if self._mark_incomplete_a and "A" in products:

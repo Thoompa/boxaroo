@@ -1,6 +1,6 @@
 from abc import ABC, abstractmethod
 from enum import Enum
-from typing import Any, Callable, Iterable, Sequence, TypedDict
+from typing import Any, Iterable, Protocol, Sequence, TypedDict
 
 
 class Supermarket(Enum):
@@ -18,7 +18,8 @@ class ListSize(Enum):
 class LoggingLevel(Enum):
     DEBUG = 1
     INFO = 2
-    ERROR = 3
+    WARNING = 3
+    ERROR = 4
 
 
 class WebsiteCategory(TypedDict):
@@ -34,6 +35,15 @@ class IncompleteProductItem(TypedDict):
 class ProductsData(TypedDict):
     products: list[list[str]]
     incomplete_items: list[IncompleteProductItem]
+
+
+ProductsCallbackResult = ProductsData | list[list[str]]
+
+
+class ProductsCallback(Protocol):
+    def __call__(
+        self, products: list[str], *, page_number: int
+    ) -> ProductsCallbackResult: ...
 
 
 class PageStats(TypedDict):
@@ -131,6 +141,10 @@ class ILogger(ABC):
         pass
 
     @abstractmethod
+    def warning(self, message: str) -> None:
+        pass
+
+    @abstractmethod
     def error(self, e: str) -> None:
         pass
 
@@ -161,7 +175,7 @@ class IWebDriver(ABC):
     @abstractmethod
     def get_products(
         self,
-        _callback: Callable[[list[str]], ProductsData | list[list[str]]] | None = None,
+        _callback: ProductsCallback | None = None,
     ) -> ProductsPageResult:
         pass
 

@@ -9,14 +9,64 @@ from unittest.mock import mock_open
         # Logger at DEBUG: all methods should output
         (LoggingLevel.DEBUG, "debug", "debug message", "DEBUG: debug message", True),
         (LoggingLevel.DEBUG, "log", "info message", "INFO: info message", True),
+        (
+            LoggingLevel.DEBUG,
+            "warning",
+            "warning message",
+            "WARNING: warning message",
+            True,
+        ),
         (LoggingLevel.DEBUG, "error", "error message", "ERROR: error message", True),
-        # Logger at INFO: debug should be suppressed, info + error should output
+        # Logger at INFO: debug suppressed, info + warning + error should output
         (LoggingLevel.INFO, "debug", "debug message", "DEBUG: debug message", False),
         (LoggingLevel.INFO, "log", "info message", "INFO: info message", True),
+        (
+            LoggingLevel.INFO,
+            "warning",
+            "warning message",
+            "WARNING: warning message",
+            True,
+        ),
         (LoggingLevel.INFO, "error", "error message", "ERROR: error message", True),
+        # Logger at WARNING: debug + info suppressed, warning + error should output
+        (
+            LoggingLevel.WARNING,
+            "debug",
+            "debug message",
+            "DEBUG: debug message",
+            False,
+        ),
+        (
+            LoggingLevel.WARNING,
+            "log",
+            "info message",
+            "INFO: info message",
+            False,
+        ),
+        (
+            LoggingLevel.WARNING,
+            "warning",
+            "warning message",
+            "WARNING: warning message",
+            True,
+        ),
+        (
+            LoggingLevel.WARNING,
+            "error",
+            "error message",
+            "ERROR: error message",
+            True,
+        ),
         # Logger at ERROR: only error should output
         (LoggingLevel.ERROR, "debug", "debug message", "DEBUG: debug message", False),
         (LoggingLevel.ERROR, "log", "info message", "INFO: info message", False),
+        (
+            LoggingLevel.ERROR,
+            "warning",
+            "warning message",
+            "WARNING: warning message",
+            False,
+        ),
         (LoggingLevel.ERROR, "error", "error message", "ERROR: error message", True),
     ],
 )
