@@ -29,7 +29,7 @@ if __name__ == "__main__":
     )
     parser.add_argument(
         "--logging_level",
-        choices=["DEBUG", "INFO", "ERROR"],
+        choices=["DEBUG", "INFO", "WARNING", "ERROR"],
         default="INFO",
         help="Logging verbosity. DEBUG includes detailed scraper internals.",
     )
@@ -63,6 +63,7 @@ if __name__ == "__main__":
     logging_level_map = {
         "DEBUG": LoggingLevel.DEBUG,
         "INFO": LoggingLevel.INFO,
+        "WARNING": LoggingLevel.WARNING,
         "ERROR": LoggingLevel.ERROR,
     }
 
