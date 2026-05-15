@@ -10,6 +10,75 @@ from Tests.test_helpers import (
 
 
 # ============================================================
+# WebDriver setup – browser/driver discovery
+# ============================================================
+
+
+def test_resolve_driver_binaries_prefers_env_paths(monkeypatch):
+    # GIVEN: both executable environment variables point to valid binaries
+    env_map = {
+        "CHROME_BINARY": "/opt/browser/chrome",
+        "CHROMEDRIVER": "/opt/driver/chromedriver",
+    }
+    monkeypatch.setattr(web_driver_module.os, "getenv", lambda key: env_map.get(key))
+    monkeypatch.setattr(web_driver_module.os.path, "isfile", lambda path: True)
+    monkeypatch.setattr(web_driver_module.os, "access", lambda path, mode: True)
+    monkeypatch.setattr(web_driver_module.shutil, "which", lambda name: None)
+
+    # WHEN: driver binaries are resolved
+    browser_binary, chromedriver_binary = WebDriver._resolve_driver_binaries()
+
+    # THEN: environment values are used for both binaries
+    assert browser_binary == "/opt/browser/chrome"
+    assert chromedriver_binary == "/opt/driver/chromedriver"
+
+
+def test_resolve_driver_binaries_falls_back_to_path_search(monkeypatch):
+    # GIVEN: environment overrides are absent but PATH contains Chrome and chromedriver
+    monkeypatch.setattr(web_driver_module.os, "getenv", lambda key: None)
+    monkeypatch.setattr(web_driver_module.os.path, "isfile", lambda path: False)
+    monkeypatch.setattr(web_driver_module.os, "access", lambda path, mode: False)
+
+    def resolve_from_path(name):
+        mapping = {
+            "chromium": None,
+            "chromium-browser": None,
+            "google-chrome": "/usr/bin/google-chrome",
+            "google-chrome-stable": None,
+            "chromedriver": "/usr/bin/chromedriver",
+        }
+        return mapping.get(name)
+
+    monkeypatch.setattr(web_driver_module.shutil, "which", resolve_from_path)
+
+    # WHEN: driver binaries are resolved
+    browser_binary, chromedriver_binary = WebDriver._resolve_driver_binaries()
+
+    # THEN: resolved PATH binaries are returned
+    assert browser_binary == "/usr/bin/google-chrome"
+    assert chromedriver_binary == "/usr/bin/chromedriver"
+
+
+def test_resolve_driver_binaries_raises_with_linux_setup_guidance(monkeypatch):
+    # GIVEN: neither browser nor chromedriver can be discovered
+    monkeypatch.setattr(web_driver_module.os, "getenv", lambda key: None)
+    monkeypatch.setattr(web_driver_module.os.path, "isfile", lambda path: False)
+    monkeypatch.setattr(web_driver_module.os, "access", lambda path, mode: False)
+    monkeypatch.setattr(web_driver_module.shutil, "which", lambda name: None)
+
+    # WHEN: driver binary resolution is attempted
+    # THEN: a setup error is raised with install guidance and override hints
+    with pytest.raises(RuntimeError) as exc_info:
+        WebDriver._resolve_driver_binaries()
+
+    message = str(exc_info.value)
+    assert "sudo apt install chromium chromium-driver" in message
+    assert "sudo pacman -S chromium chromedriver" in message
+    assert "CHROME_BINARY" in message
+    assert "CHROMEDRIVER" in message
+
+
+# ============================================================
 # get_category_total_items – parsing product counts from page content
 # ============================================================
 

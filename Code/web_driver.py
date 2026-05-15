@@ -1,5 +1,9 @@
 import re
+import os
+import platform
+import shutil
 from selenium.webdriver.chrome.options import Options
+from selenium.webdriver.chrome.service import Service
 from selenium.webdriver.chrome.webdriver import WebDriver as ChromeWebDriver
 from selenium_stealth import stealth
 from selenium.webdriver.common.by import By
@@ -13,14 +17,101 @@ from Code.contracts import IWebDriver, ProductsCallback, ProductsPageResult
 
 class WebDriver(IWebDriver):
 
+    @staticmethod
+    def _resolve_executable(candidate: str | None) -> str | None:
+        if candidate is None:
+            return None
+
+        resolved_candidate = candidate.strip()
+        if not resolved_candidate:
+            return None
+
+        if os.path.sep in resolved_candidate:
+            if os.path.isfile(resolved_candidate) and os.access(
+                resolved_candidate, os.X_OK
+            ):
+                return resolved_candidate
+            return None
+
+        return shutil.which(resolved_candidate)
+
+    @classmethod
+    def _resolve_browser_binary(cls) -> str | None:
+        env_browser_binary = cls._resolve_executable(os.getenv("CHROME_BINARY"))
+        if env_browser_binary:
+            return env_browser_binary
+
+        browser_candidates = (
+            "chromium",
+            "chromium-browser",
+            "google-chrome",
+            "google-chrome-stable",
+        )
+        for browser_candidate in browser_candidates:
+            resolved_binary = cls._resolve_executable(browser_candidate)
+            if resolved_binary:
+                return resolved_binary
+
+        return None
+
+    @classmethod
+    def _resolve_chromedriver_binary(cls) -> str | None:
+        env_chromedriver = cls._resolve_executable(os.getenv("CHROMEDRIVER"))
+        if env_chromedriver:
+            return env_chromedriver
+
+        return cls._resolve_executable("chromedriver")
+
+    @staticmethod
+    def _build_driver_setup_error(
+        browser_binary: str | None,
+        chromedriver_binary: str | None,
+    ) -> str:
+        diagnostics = (
+            "Boxaroo could not locate a supported browser and/or chromedriver. "
+            f"Detected browser binary: {browser_binary or 'not found'}, "
+            f"detected chromedriver: {chromedriver_binary or 'not found'}."
+        )
+        linux_setup = (
+            "Install Chromium and chromedriver, then verify with 'which' commands.\n"
+            "- Debian/Ubuntu/Raspberry Pi OS: sudo apt install chromium chromium-driver\n"
+            "- Arch/EndeavourOS: sudo pacman -S chromium chromedriver\n"
+            "- Fedora: sudo dnf install chromium chromedriver\n"
+            "- openSUSE: sudo zypper install chromium chromedriver\n"
+            "Verify: which chromium || which google-chrome; which chromedriver\n"
+            "For non-standard locations, set CHROME_BINARY and CHROMEDRIVER."
+        )
+        return f"{diagnostics}\n{linux_setup}"
+
+    @classmethod
+    def _resolve_driver_binaries(cls) -> tuple[str, str]:
+        browser_binary = cls._resolve_browser_binary()
+        chromedriver_binary = cls._resolve_chromedriver_binary()
+        if not browser_binary or not chromedriver_binary:
+            raise RuntimeError(
+                cls._build_driver_setup_error(browser_binary, chromedriver_binary)
+            )
+        return browser_binary, chromedriver_binary
+
     def __init__(self, headless: bool = False, proxy_server: str | None = None):
         self.headless = headless
         self.proxy_server = proxy_server
+        browser_binary = None
+        chromedriver_binary = None
+        resolution_error = None
+        try:
+            browser_binary, chromedriver_binary = self._resolve_driver_binaries()
+        except RuntimeError as exc:
+            # Keep a setup diagnostic for later if Selenium Manager fallback also fails.
+            resolution_error = str(exc)
 
         # Configure Chrome options
         chrome_options = Options()
         if self.headless:
-            chrome_options.add_argument("--headless")
+            chrome_options.add_argument("--headless=new")
+
+        if browser_binary:
+            chrome_options.binary_location = browser_binary
 
         # Anti-bot bypass arguments
         chrome_options.add_argument("--disable-blink-features=AutomationControlled")
@@ -35,14 +126,33 @@ class WebDriver(IWebDriver):
             chrome_options.add_argument(f"--proxy-server={self.proxy_server}")
 
         # Initialize the driver
-        self.driver = ChromeWebDriver(options=chrome_options)
+        try:
+            if browser_binary and chromedriver_binary:
+                self.driver = ChromeWebDriver(
+                    service=Service(executable_path=chromedriver_binary),
+                    options=chrome_options,
+                )
+            else:
+                # Fallback to Selenium Manager for environments where binaries
+                # are available via Selenium-managed resolution.
+                self.driver = ChromeWebDriver(options=chrome_options)
+        except Exception as exc:
+            if resolution_error is not None:
+                raise RuntimeError(
+                    f"{resolution_error}\nSelenium Manager fallback also failed: {exc}"
+                ) from exc
+            raise
+
+        platform_name = os.getenv(
+            "SELENIUM_STEALTH_PLATFORM", f"Linux {platform.machine()}"
+        )
 
         # Apply selenium-stealth
         stealth(
             self.driver,
             languages=["en-US", "en"],
             vendor="Google Inc.",
-            platform="Linux x86_64",
+            platform=platform_name,
             webgl_vendor="Intel Inc.",
             renderer="Intel Iris OpenGL Engine",
             fix_hairline=True,

@@ -12,6 +12,34 @@
 2. Install requirements:
   - `python -m pip install -r requirements.txt`
 
+### Linux Browser Prerequisites
+
+Boxaroo requires a Chromium/Chrome browser binary and a matching `chromedriver` binary.
+Install both before running on Linux:
+
+- Debian / Ubuntu / Raspberry Pi OS:
+  - `sudo apt install chromium chromium-driver`
+- Arch / EndeavourOS:
+  - `sudo pacman -S chromium chromedriver`
+- Fedora:
+  - `sudo dnf install chromium chromedriver`
+- openSUSE:
+  - `sudo zypper install chromium chromedriver`
+
+Verify your binaries are discoverable:
+
+```bash
+which chromium || which google-chrome
+which chromedriver
+```
+
+If binaries are installed in non-standard locations, set explicit paths:
+
+```bash
+export CHROME_BINARY=/path/to/chromium-or-chrome
+export CHROMEDRIVER=/path/to/chromedriver
+```
+
 ## Run
 
 - DEBUG test run (tiny category sample):
