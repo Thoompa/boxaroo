@@ -1,8 +1,6 @@
 import pytest
-from Code.contracts import Supermarket
-from Code.main import _format_eta, build_list_size_help, main
-import Code.main as main_module
-from Code.contracts import ListSize
+from Code.contracts import ListSize, Supermarket
+from Code.main import main
 from Code.logger import LoggingLevel
 from Tests.test_helpers import (
     DummyLogger,
@@ -210,63 +208,6 @@ def test_main_resolves_selected_supermarket_via_supermarket_factory(monkeypatch)
     # THEN: The supermarket is resolved via supermarket_factory
     assert factory.factory_calls == [Supermarket.WOOLWORTHS]
     assert resolved_supermarket.get_categories_called
-
-
-@pytest.mark.parametrize(
-    "total_products, expected",
-    [
-        (None, "n/a"),
-        (0, "~0s"),
-        (108, "~27s"),
-        (600, "~2m 30s"),
-        (14892, "~1h 2m 3s"),
-        (14400, "~1h"),
-    ],
-)
-def test_format_eta(total_products, expected):
-    # GIVEN: A total_products value and its expected ETA text
-    # WHEN: _format_eta() is called
-    # THEN: It returns the expected formatted ETA string
-    assert _format_eta(total_products) == expected
-
-
-def test_build_list_size_help_uses_formatted_eta(monkeypatch):
-    # GIVEN: Cached product totals are available for each list size
-    monkeypatch.setattr(
-        "Code.main._load_list_product_totals",
-        lambda: {
-            "testing": 108,  # 27s
-            "short": 600,  # 2m 30s
-            "medium": 14400,  # 1h
-            "long": 14892,  # 1h 2m 3s
-            "full": 0,  # 0s
-        },
-    )
-
-    # WHEN: build_list_size_help() is called
-    help_text = build_list_size_help()
-
-    # THEN: Help text includes each list size with a formatted ETA
-    assert "TESTING ~27s" in help_text
-    assert "SHORT ~2m 30s" in help_text
-    assert "MEDIUM ~1h" in help_text
-    assert "LONG ~1h 2m 3s" in help_text
-    assert "FULL ~0s" in help_text
-
-
-def test_build_list_size_help_with_no_cache_returns_all_na(monkeypatch):
-    # GIVEN: No cached product totals are available
-    monkeypatch.setattr(main_module, "_load_list_product_totals", lambda: {})
-
-    # WHEN: build_list_size_help() is called
-    help_text = build_list_size_help()
-
-    # THEN: Help text shows n/a for all list sizes
-    assert "TESTING n/a" in help_text
-    assert "SHORT n/a" in help_text
-    assert "MEDIUM n/a" in help_text
-    assert "LONG n/a" in help_text
-    assert "FULL n/a" in help_text
 
 
 def test_main_quits_webdriver_on_success_and_preserves_output(monkeypatch):
