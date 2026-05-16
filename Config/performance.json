@@ -1,0 +1,10 @@
+{
+  "headless": {
+    "products_per_second": 2.58,
+    "fixed_overhead_seconds": 0
+  },
+  "interactive": {
+    "products_per_second": 1.74,
+    "fixed_overhead_seconds": 0
+  }
+}
