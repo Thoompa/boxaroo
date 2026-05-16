@@ -124,9 +124,20 @@ def _eta_is_available(
     )
 
 
+def _format_list_size_mode_pair(
+    size: str, totals: dict[str, int], performance_profile: PerformanceConfig
+) -> str:
+    interactive_eta = format_list_size_eta(
+        totals.get(size), performance_profile["interactive"]
+    )
+    headless_eta = format_list_size_eta(
+        totals.get(size), performance_profile["headless"]
+    )
+    return f"{size.upper()} {interactive_eta} / {headless_eta}"
+
+
 def build_list_size_help(
     *,
-    headless: bool = False,
     config_path: str = PERFORMANCE_CONFIG_PATH,
     cache_path: str = LIST_TOTALS_CACHE_PATH,
 ) -> str:
@@ -134,15 +145,16 @@ def build_list_size_help(
     performance_profile = load_performance_profile(config_path)
 
     if _eta_is_available(performance_profile, totals):
-        mode: str = "headless" if headless else "interactive"
-        mode_profile = performance_profile[mode]  # type: ignore[literal-required]
+        assert performance_profile is not None
         values = [
-            f"{size.upper()} {format_list_size_eta(totals.get(size), mode_profile)}"
+            _format_list_size_mode_pair(size, totals, performance_profile)
             for size in LIST_SIZE_KEYS
         ]
         return (
             "Size of category list to scrape. "
-            f"Estimated runtime by list ({mode} mode): " + ", ".join(values) + "."
+            "Estimated runtime by list (interactive / headless): "
+            + ", ".join(values)
+            + "."
         )
 
     values = [

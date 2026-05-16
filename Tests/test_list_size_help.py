@@ -1,7 +1,14 @@
 import json
 import os
 
-from Code.list_size_help import build_list_size_help, load_performance_profile
+import pytest
+
+from Code.list_size_help import (
+    RuntimeProfile,
+    build_list_size_help,
+    format_list_size_eta,
+    load_performance_profile,
+)
 
 VALID_CONFIG_PATH = os.path.join("Tests", "fixtures", "performance.valid.json")
 
@@ -36,7 +43,31 @@ def test_load_performance_profile_returns_valid_fixture_data():
     assert profile["headless"]["fixed_overhead_seconds"] == 30.0
 
 
-def test_build_list_size_help_uses_eta_text_for_valid_config_and_cache(tmp_path):
+@pytest.mark.parametrize(
+    "total_products, expected_eta",
+    [
+        (600, "~2m 30s"),
+        (14892, "~1h 2m 3s"),
+        (14400, "~1h"),
+    ],
+)
+def test_format_list_size_eta_preserves_large_duration_formatting(
+    total_products, expected_eta
+):
+    # GIVEN: An interactive runtime profile and larger product totals
+    profile: RuntimeProfile = {
+        "products_per_second": 4.0,
+        "fixed_overhead_seconds": 0.0,
+    }
+
+    # WHEN: The ETA text is formatted
+    eta_text = format_list_size_eta(total_products, profile)
+
+    # THEN: Minute and hour formatting remains stable after the helper move
+    assert eta_text == expected_eta
+
+
+def test_build_list_size_help_uses_dual_mode_eta_text(tmp_path):
     # GIVEN: A valid config and complete list totals cache
     cache_path = tmp_path / "woolworths-category-lists.json"
     _write_list_totals_cache(
@@ -50,50 +81,19 @@ def test_build_list_size_help_uses_eta_text_for_valid_config_and_cache(tmp_path)
         },
     )
 
-    # WHEN: Help text is built in interactive mode
+    # WHEN: Help text is built
     help_text = build_list_size_help(
-        headless=False,
         config_path=VALID_CONFIG_PATH,
         cache_path=str(cache_path),
     )
 
-    # THEN: ETA wording is shown using config-driven rates
-    assert "Estimated runtime by list (interactive mode)" in help_text
-    assert "TESTING ~2s" in help_text
-    assert "SHORT ~4s" in help_text
-    assert "MEDIUM ~6s" in help_text
-    assert "LONG ~8s" in help_text
-    assert "FULL ~10s" in help_text
-
-
-def test_build_list_size_help_uses_headless_profile_when_requested(tmp_path):
-    # GIVEN: A valid config and complete list totals cache
-    cache_path = tmp_path / "woolworths-category-lists.json"
-    _write_list_totals_cache(
-        cache_path,
-        {
-            "testing": 8,
-            "short": 16,
-            "medium": 24,
-            "long": 32,
-            "full": 40,
-        },
-    )
-
-    # WHEN: Help text is built in headless mode
-    help_text = build_list_size_help(
-        headless=True,
-        config_path=VALID_CONFIG_PATH,
-        cache_path=str(cache_path),
-    )
-
-    # THEN: ETA wording is shown using the headless profile values
-    assert "Estimated runtime by list (headless mode)" in help_text
-    assert "TESTING ~34s" in help_text
-    assert "SHORT ~38s" in help_text
-    assert "MEDIUM ~42s" in help_text
-    assert "LONG ~46s" in help_text
-    assert "FULL ~50s" in help_text
+    # THEN: ETA wording shows both interactive and headless runtimes
+    assert "Estimated runtime by list (interactive / headless)" in help_text
+    assert "TESTING ~2s / ~34s" in help_text
+    assert "SHORT ~4s / ~38s" in help_text
+    assert "MEDIUM ~6s / ~42s" in help_text
+    assert "LONG ~8s / ~46s" in help_text
+    assert "FULL ~10s / ~50s" in help_text
 
 
 def test_build_list_size_help_falls_back_to_counts_when_config_missing(tmp_path):
