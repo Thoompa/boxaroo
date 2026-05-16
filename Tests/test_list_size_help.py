@@ -1,5 +1,6 @@
 import json
 import os
+from pathlib import Path
 
 import pytest
 
@@ -94,6 +95,32 @@ def test_build_list_size_help_uses_dual_mode_eta_text(tmp_path):
     assert "MEDIUM ~6s / ~42s" in help_text
     assert "LONG ~8s / ~46s" in help_text
     assert "FULL ~10s / ~50s" in help_text
+
+
+def test_build_list_size_help_uses_default_performance_config_path(
+    tmp_path, monkeypatch
+):
+    # GIVEN: A complete list totals cache and repository working directory
+    repo_root = Path(__file__).resolve().parents[1]
+    monkeypatch.chdir(repo_root)
+    cache_path = tmp_path / "woolworths-category-lists.json"
+    _write_list_totals_cache(
+        cache_path,
+        {
+            "testing": 8,
+            "short": 16,
+            "medium": 24,
+            "long": 32,
+            "full": 40,
+        },
+    )
+
+    # WHEN: Help text is built without overriding config_path
+    help_text = build_list_size_help(cache_path=str(cache_path))
+
+    # THEN: The shipped default config is loaded and ETA-mode help is emitted
+    assert "Estimated runtime by list (interactive / headless)" in help_text
+    assert "Product counts by list" not in help_text
 
 
 def test_build_list_size_help_falls_back_to_counts_when_config_missing(tmp_path):
