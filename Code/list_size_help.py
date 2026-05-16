@@ -43,7 +43,7 @@ def _load_list_product_totals(
         return {
             str(key).lower(): int(value)
             for key, value in totals.items()
-            if isinstance(value, int) and value >= 0
+            if isinstance(value, int) and not isinstance(value, bool) and value >= 0
         }
     except Exception:
         return {}
