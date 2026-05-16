@@ -54,6 +54,64 @@ def test_build_parser_uses_current_list_size_help(monkeypatch):
 
 
 @pytest.mark.parametrize(
+    "total_products, expected",
+    [
+        (None, "n/a"),
+        (0, "~0s"),
+        (108, "~27s"),
+        (600, "~2m 30s"),
+        (14892, "~1h 2m 3s"),
+        (14400, "~1h"),
+    ],
+)
+def test_format_eta(total_products, expected):
+    # GIVEN: A total_products value and its expected ETA text
+    # WHEN: The ETA is formatted
+    # THEN: The helper returns the expected formatted ETA string
+    assert cli_module._format_eta(total_products) == expected
+
+
+def test_build_list_size_help_uses_formatted_eta(monkeypatch):
+    # GIVEN: Cached product totals are available for each list size
+    monkeypatch.setattr(
+        cli_module,
+        "_load_list_product_totals",
+        lambda: {
+            "testing": 108,  # 27s
+            "short": 600,  # 2m 30s
+            "medium": 14400,  # 1h
+            "long": 14892,  # 1h 2m 3s
+            "full": 0,  # 0s
+        },
+    )
+
+    # WHEN: build_list_size_help() is called
+    help_text = cli_module.build_list_size_help()
+
+    # THEN: Help text includes each list size with a formatted ETA
+    assert "TESTING ~27s" in help_text
+    assert "SHORT ~2m 30s" in help_text
+    assert "MEDIUM ~1h" in help_text
+    assert "LONG ~1h 2m 3s" in help_text
+    assert "FULL ~0s" in help_text
+
+
+def test_build_list_size_help_with_no_cache_returns_all_na(monkeypatch):
+    # GIVEN: No cached product totals are available
+    monkeypatch.setattr(cli_module, "_load_list_product_totals", lambda: {})
+
+    # WHEN: build_list_size_help() is called
+    help_text = cli_module.build_list_size_help()
+
+    # THEN: Help text shows n/a for all list sizes
+    assert "TESTING n/a" in help_text
+    assert "SHORT n/a" in help_text
+    assert "MEDIUM n/a" in help_text
+    assert "LONG n/a" in help_text
+    assert "FULL n/a" in help_text
+
+
+@pytest.mark.parametrize(
     "list_size_value, logging_level_value, expected_list_size, expected_logging_level",
     [
         ("TESTING", "DEBUG", ListSize.TESTING, LoggingLevel.DEBUG),

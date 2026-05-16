@@ -1,10 +1,63 @@
 """Command-line interface wiring for Boxaroo."""
 
 import argparse
+import json
+import os
 
 from Code.contracts import ListSize, LoggingLevel, Supermarket
-from Code.list_size_help import build_list_size_help
 from Code.main import main as run_main
+
+
+def _load_list_product_totals() -> dict[str, int]:
+    cache_path = os.path.join(
+        "Data", "category_lists", "woolworths-category-lists.json"
+    )
+    try:
+        with open(cache_path, "r", encoding="utf-8") as f:
+            cached = json.load(f)
+        totals = cached.get("list_product_totals", {})
+        if not isinstance(totals, dict):
+            return {}
+        return {
+            str(k).lower(): int(v)
+            for k, v in totals.items()
+            if isinstance(v, int) and v >= 0
+        }
+    except Exception:
+        return {}
+
+
+def _format_eta(total_products: int | None) -> str:
+    if total_products is None:
+        return "n/a"
+
+    seconds = round(total_products / 4)
+    hours, remainder = divmod(seconds, 3600)
+    minutes, remaining_seconds = divmod(remainder, 60)
+
+    parts = []
+    if hours > 0:
+        parts.append(f"{hours}h")
+    if minutes > 0:
+        parts.append(f"{minutes}m")
+    if remaining_seconds > 0 or not parts:
+        parts.append(f"{remaining_seconds}s")
+
+    return "~" + " ".join(parts)
+
+
+def build_list_size_help() -> str:
+    totals = _load_list_product_totals()
+
+    return (
+        "Size of category list to scrape. "
+        "Estimated runtime by list (4 products/sec): "
+        f"TESTING {_format_eta(totals.get('testing'))}, "
+        f"SHORT {_format_eta(totals.get('short'))}, "
+        f"MEDIUM {_format_eta(totals.get('medium'))}, "
+        f"LONG {_format_eta(totals.get('long'))}, "
+        f"FULL {_format_eta(totals.get('full'))}."
+    )
 
 
 def _build_supermarket_help() -> str:
