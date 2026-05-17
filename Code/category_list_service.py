@@ -51,6 +51,7 @@ class CategoryListService(ICategoryListService):
             "medium": category_lists.get("medium", []),
             "long": category_lists.get("long", []),
             "full": category_lists.get("full", []),
+            "probe": category_lists.get("probe", []),
             "list_product_totals": saved_totals,
             "category_product_totals": category_lists.get(
                 "category_product_totals", {}
@@ -138,6 +139,8 @@ class CategoryListService(ICategoryListService):
             return category_lists.get("medium", [])
         if list_size == ListSize.LONG:
             return category_lists.get("long", [])
+        if list_size == ListSize.PROBE:
+            return category_lists.get("probe", [])
         return category_lists.get("full", [])
 
     def load_cached_lists(self) -> CategoryListCache:
@@ -179,5 +182,8 @@ class CategoryListService(ICategoryListService):
                 )
             else:
                 cached["long"] = full
+
+        if not isinstance(cached.get("probe"), list):
+            cached["probe"] = short[:2]
 
         return cached

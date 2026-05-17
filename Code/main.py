@@ -78,6 +78,8 @@ def _run_scrape(
     header: list[str],
     mark_lifecycle_started,
     probe: bool = False,
+    probe_first_page: bool = False,
+    probe_max_categories: int | None = None,
 ) -> None:
     if injected_web_driver:
         file_handler = file_handler or FileHandler(file_name, file_path, header, logger)
@@ -94,7 +96,13 @@ def _run_scrape(
     if probe:
         from Code.scrape_coordinator import ProbeCoordinator
 
-        coordinator = ProbeCoordinator(supermarket_adapter, logger, web_driver)
+        coordinator = ProbeCoordinator(
+            supermarket_adapter,
+            logger,
+            web_driver,
+            first_page_only=probe_first_page,
+            max_categories=probe_max_categories,
+        )
     else:
         coordinator = ScrapeCoordinator(supermarket_adapter, logger, file_handler)
 
@@ -135,6 +143,8 @@ def main(
     web_driver=None,
     product_parser=None,
     probe=False,
+    probe_first_page=False,
+    probe_max_categories=None,
 ) -> None:
     """Compose a scrape run and hand control to the scrape coordinator."""
     logger = logger or Logger(logging_level)
@@ -181,6 +191,8 @@ def main(
             header=header,
             mark_lifecycle_started=mark_lifecycle_started,
             probe=probe,
+            probe_first_page=probe_first_page,
+            probe_max_categories=probe_max_categories,
         )
         scrape_succeeded = True
     except KeyboardInterrupt:

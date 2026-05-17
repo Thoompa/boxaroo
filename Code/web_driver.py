@@ -388,3 +388,33 @@ class WebDriver(IWebDriver):
             "incomplete_items": all_incomplete,
             "page_stats": page_stats,
         }
+
+    def get_first_page_product_snapshot(self) -> dict[str, int]:
+        """Capture first-page tile/extraction metrics without paginating."""
+        time.sleep(random.uniform(1, 2))
+        WebDriverWait(self.driver, 15).until(
+            EC.presence_of_element_located((By.TAG_NAME, "wc-product-tile"))
+        )
+
+        self.driver.execute_script("window.scrollTo(0, document.body.scrollHeight / 2)")
+        time.sleep(random.uniform(1, 2))
+        self.driver.execute_script("window.scrollTo(0, document.body.scrollHeight)")
+        time.sleep(random.uniform(1, 2))
+
+        product_elements = self.driver.find_elements(By.TAG_NAME, "wc-product-tile")
+        payloads = 0
+        extraction_failures = 0
+
+        for element in product_elements:
+            try:
+                text = self._extract_text_from_product_element(element)
+                if text:
+                    payloads += 1
+            except Exception:
+                extraction_failures += 1
+
+        return {
+            "tiles": len(product_elements),
+            "payloads": payloads,
+            "extraction_failures": extraction_failures,
+        }

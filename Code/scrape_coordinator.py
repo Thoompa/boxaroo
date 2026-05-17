@@ -117,11 +117,15 @@ class ProbeCoordinator:
         supermarket: ISuperMarket,
         logger: ILogger,
         web_driver,
+        first_page_only: bool = False,
+        max_categories: int | None = None,
     ) -> None:
         self.supermarket = supermarket
         self.logger = logger
         self.web_driver = web_driver
         self.browse_url = "https://www.woolworths.com.au/shop/browse/"
+        self.first_page_only = first_page_only
+        self.max_categories = max_categories
 
     def run(
         self,
@@ -136,6 +140,12 @@ class ProbeCoordinator:
             list_size, refresh_category_lists=refresh_category_lists
         )
 
+        if isinstance(self.max_categories, int) and self.max_categories > 0:
+            categories = categories[: self.max_categories]
+            self.logger.log(
+                f"Probe category limit applied: max_categories={self.max_categories}"
+            )
+
         categories_succeeded = 0
         categories_failed = 0
 
@@ -146,6 +156,14 @@ class ProbeCoordinator:
                 self.web_driver.get_page(url)
                 total = self.web_driver.get_category_total_items()
                 self.logger.log(f"Probe: {category} -> {total} items")
+                if self.first_page_only:
+                    snapshot = self.web_driver.get_first_page_product_snapshot()
+                    self.logger.log(
+                        f"Probe first-page {category}: "
+                        f"tiles={snapshot.get('tiles', 0)} "
+                        f"payloads={snapshot.get('payloads', 0)} "
+                        f"extraction_failures={snapshot.get('extraction_failures', 0)}"
+                    )
                 categories_succeeded += 1
             except Exception as exc:
                 self.logger.error(

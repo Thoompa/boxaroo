@@ -55,6 +55,17 @@ def build_parser() -> argparse.ArgumentParser:
         action="store_true",
         help="Run diagnostic probe: navigate to each category, check totals, skip product scraping.",
     )
+    parser.add_argument(
+        "--probe_first_page",
+        action="store_true",
+        help="In probe mode, also capture first-page tile/payload metrics without pagination.",
+    )
+    parser.add_argument(
+        "--probe_max_categories",
+        type=int,
+        default=None,
+        help="In probe mode, limit categories processed (for example 2).",
+    )
     return parser
 
 
@@ -82,4 +93,6 @@ def run(argv: list[str] | None = None) -> None:
         refresh_category_lists=args.refresh_category_lists,
         proxy_server=args.proxy_server,
         probe=args.probe,
+        probe_first_page=args.probe_first_page,
+        probe_max_categories=args.probe_max_categories,
     )
