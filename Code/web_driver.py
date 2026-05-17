@@ -16,6 +16,7 @@ from Code.contracts import IWebDriver, ProductsCallback, ProductsPageResult
 
 
 class WebDriver(IWebDriver):
+    _metrics_failure_logged = False  # Track if we've logged metrics failure once
 
     @staticmethod
     def _resolve_executable(candidate: str | None) -> str | None:
@@ -201,7 +202,13 @@ class WebDriver(IWebDriver):
                 "dom_nodes": int(metrics.get("Nodes", 0)),
                 "documents": int(metrics.get("Documents", 0)),
             }
-        except Exception:
+        except Exception as e:
+            if not WebDriver._metrics_failure_logged:
+                WebDriver._metrics_failure_logged = True
+                print(
+                    f"[INFO] Browser metrics (CDP Performance) unavailable: {type(e).__name__}. "
+                    "Proceeding without resource telemetry."
+                )
             return {}
 
     def get_category_total_items(self) -> int | None:
