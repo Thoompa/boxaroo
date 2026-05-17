@@ -107,3 +107,57 @@ class ScrapeCoordinator:
             f"incomplete_products={total_incomplete} "
             f"took={elapsed_seconds:.2f}s"
         )
+
+
+class ProbeCoordinator:
+    """Lightweight diagnostic coordinator for category navigation without product scraping."""
+
+    def __init__(
+        self,
+        supermarket: ISuperMarket,
+        logger: ILogger,
+        web_driver,
+    ) -> None:
+        self.supermarket = supermarket
+        self.logger = logger
+        self.web_driver = web_driver
+        self.browse_url = "https://www.woolworths.com.au/shop/browse/"
+
+    def run(
+        self,
+        list_size: ListSize = ListSize.FULL,
+        refresh_category_lists: bool = False,
+    ) -> None:
+        start_time = perf_counter()
+        self.logger.log(
+            f"Probing {type(self.supermarket).__name__} categories (navigation & totals only, no product scraping)"
+        )
+        categories = self.supermarket.get_categories(
+            list_size, refresh_category_lists=refresh_category_lists
+        )
+
+        categories_succeeded = 0
+        categories_failed = 0
+
+        for category in categories:
+            try:
+                url = self.browse_url + category
+                self.logger.log(f"Probing {category}...")
+                self.web_driver.get_page(url)
+                total = self.web_driver.get_category_total_items()
+                self.logger.log(f"Probe: {category} -> {total} items")
+                categories_succeeded += 1
+            except Exception as exc:
+                self.logger.error(
+                    f"Probe failed for '{category}': {type(exc).__name__}: {exc}"
+                )
+                categories_failed += 1
+
+        elapsed_seconds = perf_counter() - start_time
+        self.logger.log(
+            "Probe summary: "
+            f"categories_attempted={len(categories)} "
+            f"succeeded={categories_succeeded} "
+            f"failed={categories_failed} "
+            f"took={elapsed_seconds:.2f}s"
+        )

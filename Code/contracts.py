@@ -13,6 +13,7 @@ class ListSize(Enum):
     MEDIUM = 3
     LONG = 4
     FULL = 5
+    PROBE = 6
 
 
 class LoggingLevel(Enum):

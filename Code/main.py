@@ -77,6 +77,7 @@ def _run_scrape(
     file_path: str,
     header: list[str],
     mark_lifecycle_started,
+    probe: bool = False,
 ) -> None:
     if injected_web_driver:
         file_handler = file_handler or FileHandler(file_name, file_path, header, logger)
@@ -89,7 +90,14 @@ def _run_scrape(
         web_driver,
         product_parser,
     )
-    coordinator = ScrapeCoordinator(supermarket_adapter, logger, file_handler)
+
+    if probe:
+        from Code.scrape_coordinator import ProbeCoordinator
+
+        coordinator = ProbeCoordinator(supermarket_adapter, logger, web_driver)
+    else:
+        coordinator = ScrapeCoordinator(supermarket_adapter, logger, file_handler)
+
     logger.log(
         "Running{0} Boxaroo with supermarket - {1} and list size - {2}".format(
             " Headless" if headless else "", supermarket_name, list_size.name
@@ -126,6 +134,7 @@ def main(
     logger=None,
     web_driver=None,
     product_parser=None,
+    probe=False,
 ) -> None:
     """Compose a scrape run and hand control to the scrape coordinator."""
     logger = logger or Logger(logging_level)
@@ -171,6 +180,7 @@ def main(
             file_path=file_path,
             header=header,
             mark_lifecycle_started=mark_lifecycle_started,
+            probe=probe,
         )
         scrape_succeeded = True
     except KeyboardInterrupt:

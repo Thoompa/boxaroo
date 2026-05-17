@@ -21,7 +21,7 @@ def build_parser() -> argparse.ArgumentParser:
     )
     parser.add_argument(
         "--list_size",
-        choices=["TESTING", "SHORT", "MEDIUM", "LONG", "FULL"],
+        choices=["TESTING", "SHORT", "MEDIUM", "LONG", "FULL", "PROBE"],
         default="FULL",
         help=build_list_size_help(),
     )
@@ -50,6 +50,11 @@ def build_parser() -> argparse.ArgumentParser:
         default=Supermarket.WOOLWORTHS.value,
         help=_build_supermarket_help(),
     )
+    parser.add_argument(
+        "--probe",
+        action="store_true",
+        help="Run diagnostic probe: navigate to each category, check totals, skip product scraping.",
+    )
     return parser
 
 
@@ -76,4 +81,5 @@ def run(argv: list[str] | None = None) -> None:
         supermarket=_parse_supermarket(args.supermarket),
         refresh_category_lists=args.refresh_category_lists,
         proxy_server=args.proxy_server,
+        probe=args.probe,
     )

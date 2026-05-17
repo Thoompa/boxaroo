@@ -1,0 +1,235 @@
+16/05/2026 11:18:39 AM - INFO: Created file woolworths-2026-05-16-FULL.csv
+16/05/2026 11:18:54 AM - INFO: Running Boxaroo with supermarket - woolworths and list size - FULL
+16/05/2026 11:18:54 AM - INFO: WebDriver lifecycle start
+16/05/2026 11:18:54 AM - INFO: Scraping Woolworths categories
+16/05/2026 11:19:48 AM - INFO: Using cached category lists (selected categories match website)
+16/05/2026 11:19:48 AM - INFO: Selected 22 categories: ['bakery', 'beauty', 'beer-wine-spirits', 'cleaning-maintenance', 'cookware-bonus-credits', 'dairy-eggs-fridge', 'deli', 'dinner', 'drinks', 'electronics', 'everyday-market', 'freezer', 'fruit-veg', 'health-wellness', 'home-lifestyle', 'international-foods', 'lunch-box', 'pantry', 'personal-care', 'pet', 'poultry-meat-seafood', 'snacks-confectionery']
+16/05/2026 11:19:48 AM - INFO: Getting page data for bakery - https://www.woolworths.com.au/shop/browse/bakery
+16/05/2026 11:21:21 AM - INFO: bakery total count (page data): 560
+16/05/2026 11:21:34 AM - INFO: Reading product data for page 1 with 49 products
+16/05/2026 11:22:31 AM - INFO: Scrape interrupted by user (Ctrl+C)
+16/05/2026 11:22:31 AM - INFO: WebDriver lifecycle stop
+16/05/2026 11:22:41 AM - INFO: Created file woolworths-2026-05-16-TESTING.csv
+16/05/2026 11:22:49 AM - INFO: Running Boxaroo with supermarket - woolworths and list size - TESTING
+16/05/2026 11:22:49 AM - INFO: WebDriver lifecycle start
+16/05/2026 11:22:49 AM - INFO: Scraping Woolworths categories
+16/05/2026 11:25:10 AM - INFO: Using cached category lists (selected categories match website)
+16/05/2026 11:25:10 AM - INFO: Selected 1 categories: ['fruit-veg']
+16/05/2026 11:25:10 AM - INFO: Getting page data for fruit-veg - https://www.woolworths.com.au/shop/browse/fruit-veg
+16/05/2026 11:26:43 AM - INFO: fruit-veg total count (page data): 502
+16/05/2026 11:27:04 AM - INFO: Reading product data for page 1 with 69 products
+16/05/2026 11:28:44 AM - INFO: Reading product data for page 2 with 67 products
+16/05/2026 11:30:25 AM - INFO: Reading product data for page 3 with 69 products
+16/05/2026 11:32:25 AM - INFO: Reading product data for page 4 with 69 products
+16/05/2026 11:34:34 AM - INFO: Reading product data for page 5 with 67 products
+16/05/2026 11:36:42 AM - INFO: Reading product data for page 6 with 66 products
+16/05/2026 11:38:27 AM - INFO: Reading product data for page 7 with 69 products
+16/05/2026 11:40:33 AM - INFO: Reading product data for page 8 with 68 products
+16/05/2026 11:43:03 AM - INFO: Reading product data for page 9 with 69 products
+16/05/2026 11:45:44 AM - INFO: Reading product data for page 10 with 67 products
+16/05/2026 11:48:16 AM - INFO: Reading product data for page 11 with 67 products
+16/05/2026 11:50:21 AM - INFO: Reading product data for page 12 with 68 products
+16/05/2026 11:52:09 AM - INFO: Reading product data for page 13 with 69 products
+16/05/2026 11:53:43 AM - INFO: Reading product data for page 14 with 65 products
+16/05/2026 11:53:44 AM - INFO: Category fruit-veg - page 1 : tiles=69 scraped=69 incomplete=0
+16/05/2026 11:53:44 AM - INFO: Category fruit-veg - page 1 extraction_failures=0
+16/05/2026 11:53:44 AM - INFO: Category fruit-veg - page 2 : tiles=67 scraped=67 incomplete=0
+16/05/2026 11:53:44 AM - INFO: Category fruit-veg - page 2 extraction_failures=0
+16/05/2026 11:53:44 AM - INFO: Category fruit-veg - page 3 : tiles=69 scraped=69 incomplete=2
+16/05/2026 11:53:44 AM - INFO: Category fruit-veg - page 3 extraction_failures=0
+16/05/2026 11:53:44 AM - INFO: Category fruit-veg - page 4 : tiles=69 scraped=69 incomplete=1
+16/05/2026 11:53:44 AM - INFO: Category fruit-veg - page 4 extraction_failures=0
+16/05/2026 11:53:44 AM - INFO: Category fruit-veg - page 5 : tiles=67 scraped=67 incomplete=1
+16/05/2026 11:53:44 AM - INFO: Category fruit-veg - page 5 extraction_failures=0
+16/05/2026 11:53:44 AM - INFO: Category fruit-veg - page 6 : tiles=66 scraped=66 incomplete=3
+16/05/2026 11:53:44 AM - INFO: Category fruit-veg - page 6 extraction_failures=0
+16/05/2026 11:53:44 AM - INFO: Category fruit-veg - page 7 : tiles=69 scraped=69 incomplete=0
+16/05/2026 11:53:44 AM - INFO: Category fruit-veg - page 7 extraction_failures=0
+16/05/2026 11:53:44 AM - INFO: Category fruit-veg - page 8 : tiles=68 scraped=68 incomplete=2
+16/05/2026 11:53:44 AM - INFO: Category fruit-veg - page 8 extraction_failures=0
+16/05/2026 11:53:44 AM - INFO: Category fruit-veg - page 9 : tiles=69 scraped=69 incomplete=1
+16/05/2026 11:53:44 AM - INFO: Category fruit-veg - page 9 extraction_failures=0
+16/05/2026 11:53:44 AM - INFO: Category fruit-veg - page 10 : tiles=67 scraped=67 incomplete=3
+16/05/2026 11:53:44 AM - INFO: Category fruit-veg - page 10 extraction_failures=0
+16/05/2026 11:53:44 AM - INFO: Category fruit-veg - page 11 : tiles=67 scraped=67 incomplete=4
+16/05/2026 11:53:44 AM - INFO: Category fruit-veg - page 11 extraction_failures=0
+16/05/2026 11:53:44 AM - INFO: Category fruit-veg - page 12 : tiles=68 scraped=68 incomplete=7
+16/05/2026 11:53:44 AM - INFO: Category fruit-veg - page 12 extraction_failures=0
+16/05/2026 11:53:44 AM - INFO: Category fruit-veg - page 13 : tiles=69 scraped=69 incomplete=11
+16/05/2026 11:53:44 AM - INFO: Category fruit-veg - page 13 extraction_failures=0
+16/05/2026 11:53:44 AM - INFO: Category fruit-veg - page 14 : tiles=65 scraped=65 incomplete=27
+16/05/2026 11:53:44 AM - INFO: Category fruit-veg - page 14 extraction_failures=0
+16/05/2026 11:53:44 AM - INFO: Category fruit-veg: expected 502, scraped 489, incomplete 49
+16/05/2026 11:53:44 AM - INFO: Category fruit-veg summary: found=502 scraped=489 incomplete=49 took=1713.53s
+16/05/2026 11:53:44 AM - INFO: Incomplete product: name='The Odd Bunch Continental Cucumber each', missing=['price', 'unit_price']
+16/05/2026 11:53:44 AM - INFO: Incomplete product: name='Sweetest Batch® Premium Strawberries Punnet 300g', missing=['price', 'unit_price']
+16/05/2026 11:53:44 AM - INFO: Incomplete product: name='IN-STORE ONLY', missing=['price', 'unit_price']
+16/05/2026 11:53:44 AM - INFO: Incomplete product: name='Woolworths Tomato Grape Punnet 200g', missing=['price', 'unit_price']
+16/05/2026 11:53:44 AM - INFO: Incomplete product: name='Ruby Red Kiwifruit 500g', missing=['price', 'unit_price']
+16/05/2026 11:53:44 AM - INFO: Incomplete product: name='Woolworths Baby Buk Choy Asian Greens each', missing=['price', 'unit_price']
+16/05/2026 11:53:44 AM - INFO: Incomplete product: name='The Odd Bunch Mini Cucumber Punnet 450g', missing=['price', 'unit_price']
+16/05/2026 11:53:44 AM - INFO: Incomplete product: name='Macro Organic Fresh Plum Punnet 500g', missing=['price', 'unit_price']
+16/05/2026 11:53:44 AM - INFO: Incomplete product: name='Organic Strawberry Punnet 250g', missing=['price', 'unit_price']
+16/05/2026 11:53:44 AM - INFO: Incomplete product: name='Macro Organic Celery Sticks 250g', missing=['price', 'unit_price']
+16/05/2026 11:53:44 AM - INFO: Incomplete product: name='Fresh Figs Punnet 300g', missing=['price', 'unit_price']
+16/05/2026 11:53:44 AM - INFO: Incomplete product: name='EST. RESTOCK 17/05/26', missing=['price', 'unit_price']
+16/05/2026 11:53:44 AM - INFO: Incomplete product: name='The Odd Bunch Tasty Snacking Tomato 350g', missing=['price', 'unit_price']
+16/05/2026 11:53:44 AM - INFO: Incomplete product: name='Woolworths Freshly Cut Watermelon With Mint Tub 200g', missing=['price', 'unit_price']
+16/05/2026 11:53:44 AM - INFO: Incomplete product: name='Woolworths Asparagus Green Bunch each', missing=['price', 'unit_price']
+16/05/2026 11:53:44 AM - INFO: Incomplete product: name='Macro Purple Carrot Organic 500g', missing=['price', 'unit_price']
+16/05/2026 11:53:44 AM - INFO: Incomplete product: name='Kiwi Fruit Green each', missing=['price', 'unit_price']
+16/05/2026 11:53:44 AM - INFO: Incomplete product: name='Macro Organic Snacking Tomato Punnet 200g', missing=['price', 'unit_price']
+16/05/2026 11:53:44 AM - INFO: Incomplete product: name='Kiwifruit Green each', missing=['price', 'unit_price']
+16/05/2026 11:53:44 AM - INFO: Incomplete product: name='EST. RESTOCK 20/05/26', missing=['price', 'unit_price']
+16/05/2026 11:53:44 AM - INFO: Incomplete product: name='Woolworths Yellow Squash Punnet 250g', missing=['price', 'unit_price']
+16/05/2026 11:53:44 AM - INFO: Incomplete product: name='Organic Medjool Dates 1kg', missing=['price', 'unit_price']
+16/05/2026 11:53:44 AM - INFO: Incomplete product: name='Macro Organic Black Grapes 500g', missing=['price', 'unit_price']
+16/05/2026 11:53:44 AM - INFO: Incomplete product: name='Fresh Medjool Dates Punnet 225g', missing=['price', 'unit_price']
+16/05/2026 11:53:44 AM - INFO: Incomplete product: name='Organic Red Capsicum 400g', missing=['price', 'unit_price']
+16/05/2026 11:53:44 AM - INFO: Incomplete product: name='Macro Organic Snow Peas 125g', missing=['price', 'unit_price']
+16/05/2026 11:53:44 AM - INFO: Incomplete product: name='EST. RESTOCK 18/05/26', missing=['price', 'unit_price']
+16/05/2026 11:53:44 AM - INFO: Incomplete product: name='Macro Organic Tomato Punnet 500g', missing=['price', 'unit_price']
+16/05/2026 11:53:44 AM - INFO: Incomplete product: name='Woolworths Organic Limes 250g', missing=['price', 'unit_price']
+16/05/2026 11:53:44 AM - INFO: Incomplete product: name='Woolworths Buffalo Style Potato Wedges & Ranch Dressing 400g', missing=['price', 'unit_price']
+16/05/2026 11:53:44 AM - INFO: Incomplete product: name='Kiwiberry Punnet 125g', missing=['price', 'unit_price']
+16/05/2026 11:53:44 AM - INFO: Incomplete product: name='Cherries Red Punnet 300g', missing=['price', 'unit_price']
+16/05/2026 11:53:44 AM - INFO: Incomplete product: name='Mango Brooks each', missing=['price', 'unit_price']
+16/05/2026 11:53:44 AM - INFO: Incomplete product: name='Green Kiwifruit 8 pack', missing=['price', 'unit_price']
+16/05/2026 11:53:44 AM - INFO: Incomplete product: name='Macro White Organic Grapes 500g', missing=['price', 'unit_price']
+16/05/2026 11:53:44 AM - INFO: Incomplete product: name='Cumquat each', missing=['price', 'unit_price']
+16/05/2026 11:53:44 AM - INFO: Incomplete product: name='Lychees 400g', missing=['price', 'unit_price']
+16/05/2026 11:53:44 AM - INFO: Incomplete product: name='Macro Organic Roma Tomato 500g', missing=['price', 'unit_price']
+16/05/2026 11:53:44 AM - INFO: Incomplete product: name='Mango Keitt each', missing=['price', 'unit_price']
+16/05/2026 11:53:44 AM - INFO: Incomplete product: name='Woolworths Fruit Duo Tub 200g', missing=['price', 'unit_price']
+16/05/2026 11:53:44 AM - INFO: Incomplete product: name='Lychee Fresh per 250g', missing=['price', 'unit_price']
+16/05/2026 11:53:44 AM - INFO: Incomplete product: name='Macro Organic Carrot Dutch Bunch each', missing=['price', 'unit_price']
+16/05/2026 11:53:44 AM - INFO: Incomplete product: name='Macro Organic Maroon Tomatoes 500g', missing=['price', 'unit_price']
+16/05/2026 11:53:44 AM - INFO: Incomplete product: name='Melon De Sapo each', missing=['price', 'unit_price']
+16/05/2026 11:53:44 AM - INFO: Incomplete product: name='Organic Coloured Cauliflower each', missing=['price', 'unit_price']
+16/05/2026 11:53:44 AM - INFO: Incomplete product: name='Plum Croc Eggs Loose each', missing=['price', 'unit_price']
+16/05/2026 11:53:44 AM - INFO: Incomplete product: name='Woolworths Asparagus Mini each', missing=['price', 'unit_price']
+16/05/2026 11:53:44 AM - INFO: Incomplete product: name='Woolworths Fresh Silvana Pear 750g', missing=['price', 'unit_price']
+16/05/2026 11:53:44 AM - INFO: Incomplete product: name='Woolworths Organic Blueberry 125g', missing=['price', 'unit_price']
+16/05/2026 11:53:44 AM - INFO: Storing data of size 489...
+16/05/2026 11:53:44 AM - INFO: Successfully stored 489 rows
+16/05/2026 11:53:44 AM - INFO: Successfully scraped 489 products
+16/05/2026 11:53:44 AM - INFO: Run summary: categories_attempted=1 categories_succeeded=1 categories_failed=0 products_found=502 products_scraped=489 incomplete_products=49 took=1854.95s
+16/05/2026 11:53:45 AM - INFO: WebDriver lifecycle stop
+16/05/2026 04:23:05 PM - INFO: Created file woolworths-2026-05-16-SHORT.csv
+16/05/2026 04:23:16 PM - INFO: Running Boxaroo with supermarket - woolworths and list size - SHORT
+16/05/2026 04:23:16 PM - INFO: WebDriver lifecycle start
+16/05/2026 04:23:16 PM - INFO: Scraping Woolworths categories
+16/05/2026 04:24:13 PM - INFO: Using cached category lists (selected categories match website)
+16/05/2026 04:24:13 PM - INFO: Selected 5 categories: ['bakery', 'cookware-bonus-credits', 'deli', 'fruit-veg', 'poultry-meat-seafood']
+16/05/2026 04:24:13 PM - INFO: Getting page data for bakery - https://www.woolworths.com.au/shop/browse/bakery
+16/05/2026 04:25:59 PM - INFO: bakery total count (page data): 560
+16/05/2026 04:26:20 PM - INFO: Reading product data for page 1 with 63 products
+16/05/2026 04:29:08 PM - INFO: Reading product data for page 2 with 63 products
+16/05/2026 04:31:05 PM - INFO: Reading product data for page 3 with 63 products
+16/05/2026 04:33:01 PM - INFO: Reading product data for page 4 with 64 products
+16/05/2026 04:35:35 PM - INFO: Reading product data for page 5 with 64 products
+16/05/2026 04:38:12 PM - INFO: Reading product data for page 6 with 64 products
+16/05/2026 04:40:16 PM - INFO: Reading product data for page 7 with 63 products
+16/05/2026 04:42:18 PM - INFO: Category bakery - page 1 : tiles=63 scraped=63 incomplete=1
+16/05/2026 04:42:18 PM - INFO: Category bakery - page 1 extraction_failures=0
+16/05/2026 04:42:18 PM - INFO: Category bakery - page 2 : tiles=63 scraped=63 incomplete=1
+16/05/2026 04:42:18 PM - INFO: Category bakery - page 2 extraction_failures=0
+16/05/2026 04:42:18 PM - INFO: Category bakery - page 3 : tiles=63 scraped=63 incomplete=1
+16/05/2026 04:42:18 PM - INFO: Category bakery - page 3 extraction_failures=0
+16/05/2026 04:42:18 PM - INFO: Category bakery - page 4 : tiles=64 scraped=64 incomplete=1
+16/05/2026 04:42:18 PM - INFO: Category bakery - page 4 extraction_failures=0
+16/05/2026 04:42:18 PM - INFO: Category bakery - page 5 : tiles=64 scraped=64 incomplete=1
+16/05/2026 04:42:18 PM - INFO: Category bakery - page 5 extraction_failures=0
+16/05/2026 04:42:18 PM - INFO: Category bakery - page 6 : tiles=64 scraped=64 incomplete=1
+16/05/2026 04:42:18 PM - INFO: Category bakery - page 6 extraction_failures=0
+16/05/2026 04:42:18 PM - INFO: Category bakery - page 7 : tiles=63 scraped=63 incomplete=2
+16/05/2026 04:42:18 PM - INFO: Category bakery - page 7 extraction_failures=0
+16/05/2026 04:42:18 PM - INFO: Category bakery: expected 560, scraped 262, incomplete 1
+16/05/2026 04:42:18 PM - INFO: Category bakery summary: found=560 scraped=262 incomplete=1 took=1085.35s
+16/05/2026 04:42:18 PM - WARNING: Category bakery scrape gap warning: found=560 scraped=262 gap=53.21%
+16/05/2026 04:42:18 PM - INFO: Incomplete product: name='[unknown]', missing=['name']
+16/05/2026 04:42:18 PM - INFO: Storing data of size 262...
+16/05/2026 04:42:18 PM - INFO: Successfully stored 262 rows
+16/05/2026 04:42:18 PM - INFO: Getting page data for cookware-bonus-credits - https://www.woolworths.com.au/shop/browse/cookware-bonus-credits
+16/05/2026 04:44:21 PM - ERROR: ReadTimeoutError: HTTPConnectionPool(host='localhost', port=41137): Read timed out. (read timeout=120)
+16/05/2026 04:44:21 PM - INFO: Storing data of size 0...
+16/05/2026 04:44:21 PM - INFO: Successfully stored 0 rows
+16/05/2026 04:44:21 PM - INFO: Getting page data for deli - https://www.woolworths.com.au/shop/browse/deli
+16/05/2026 04:46:24 PM - ERROR: ReadTimeoutError: HTTPConnectionPool(host='localhost', port=41137): Read timed out. (read timeout=120)
+16/05/2026 04:46:24 PM - INFO: Storing data of size 0...
+16/05/2026 04:46:24 PM - INFO: Successfully stored 0 rows
+16/05/2026 04:46:24 PM - INFO: Getting page data for fruit-veg - https://www.woolworths.com.au/shop/browse/fruit-veg
+16/05/2026 04:48:27 PM - ERROR: ReadTimeoutError: HTTPConnectionPool(host='localhost', port=41137): Read timed out. (read timeout=120)
+16/05/2026 04:48:27 PM - INFO: Storing data of size 0...
+16/05/2026 04:48:27 PM - INFO: Successfully stored 0 rows
+16/05/2026 04:48:27 PM - INFO: Getting page data for poultry-meat-seafood - https://www.woolworths.com.au/shop/browse/poultry-meat-seafood
+16/05/2026 04:50:30 PM - ERROR: ReadTimeoutError: HTTPConnectionPool(host='localhost', port=41137): Read timed out. (read timeout=120)
+16/05/2026 04:50:30 PM - INFO: Storing data of size 0...
+16/05/2026 04:50:30 PM - INFO: Successfully stored 0 rows
+16/05/2026 04:50:30 PM - INFO: Successfully scraped 262 products
+16/05/2026 04:50:30 PM - INFO: Run summary: categories_attempted=5 categories_succeeded=5 categories_failed=0 products_found=560 products_scraped=262 incomplete_products=1 took=1634.73s
+16/05/2026 04:51:29 PM - INFO: WebDriver lifecycle stop
+16/05/2026 05:05:59 PM - INFO: Appending to existing file woolworths-2026-05-16-SHORT.csv
+16/05/2026 05:06:15 PM - INFO: Running Boxaroo with supermarket - woolworths and list size - SHORT
+16/05/2026 05:06:15 PM - INFO: WebDriver lifecycle start
+16/05/2026 05:06:15 PM - INFO: Scraping Woolworths categories
+16/05/2026 05:07:15 PM - INFO: Using cached category lists (selected categories match website)
+16/05/2026 05:07:15 PM - INFO: Selected 5 categories: ['bakery', 'cookware-bonus-credits', 'deli', 'fruit-veg', 'poultry-meat-seafood']
+16/05/2026 05:07:15 PM - INFO: Getting page data for bakery - https://www.woolworths.com.au/shop/browse/bakery
+16/05/2026 05:08:58 PM - INFO: bakery total count (page data): 560
+16/05/2026 05:09:28 PM - INFO: Reading product data for page 1 with 64 products
+16/05/2026 05:11:28 PM - INFO: Reading product data for page 2 with 64 products
+16/05/2026 05:13:46 PM - INFO: Reading product data for page 3 with 64 products
+16/05/2026 05:16:18 PM - INFO: Reading product data for page 4 with 64 products
+16/05/2026 05:18:41 PM - INFO: Reading product data for page 5 with 63 products
+16/05/2026 05:21:06 PM - INFO: Reading product data for page 6 with 63 products
+16/05/2026 05:23:02 PM - INFO: Reading product data for page 7 with 63 products
+16/05/2026 05:25:09 PM - INFO: Reading product data for page 8 with 64 products
+16/05/2026 05:27:28 PM - INFO: Reading product data for page 9 with 64 products
+16/05/2026 05:30:11 PM - INFO: Reading product data for page 10 with 64 products
+16/05/2026 05:32:14 PM - INFO: Category bakery - page 1 : tiles=64 scraped=64 incomplete=1
+16/05/2026 05:32:14 PM - INFO: Category bakery - page 1 extraction_failures=0
+16/05/2026 05:32:14 PM - INFO: Category bakery - page 2 : tiles=64 scraped=64 incomplete=1
+16/05/2026 05:32:14 PM - INFO: Category bakery - page 2 extraction_failures=0
+16/05/2026 05:32:14 PM - INFO: Category bakery - page 3 : tiles=64 scraped=64 incomplete=1
+16/05/2026 05:32:14 PM - INFO: Category bakery - page 3 extraction_failures=0
+16/05/2026 05:32:14 PM - INFO: Category bakery - page 4 : tiles=64 scraped=64 incomplete=1
+16/05/2026 05:32:14 PM - INFO: Category bakery - page 4 extraction_failures=0
+16/05/2026 05:32:14 PM - INFO: Category bakery - page 5 : tiles=63 scraped=63 incomplete=1
+16/05/2026 05:32:14 PM - INFO: Category bakery - page 5 extraction_failures=0
+16/05/2026 05:32:14 PM - INFO: Category bakery - page 6 : tiles=63 scraped=63 incomplete=1
+16/05/2026 05:32:14 PM - INFO: Category bakery - page 6 extraction_failures=0
+16/05/2026 05:32:14 PM - INFO: Category bakery - page 7 : tiles=63 scraped=63 incomplete=2
+16/05/2026 05:32:14 PM - INFO: Category bakery - page 7 extraction_failures=0
+16/05/2026 05:32:14 PM - INFO: Category bakery - page 8 : tiles=64 scraped=64 incomplete=2
+16/05/2026 05:32:14 PM - INFO: Category bakery - page 8 extraction_failures=0
+16/05/2026 05:32:14 PM - INFO: Category bakery - page 9 : tiles=64 scraped=64 incomplete=1
+16/05/2026 05:32:14 PM - INFO: Category bakery - page 9 extraction_failures=0
+16/05/2026 05:32:14 PM - INFO: Category bakery - page 10 : tiles=64 scraped=64 incomplete=1
+16/05/2026 05:32:14 PM - INFO: Category bakery - page 10 extraction_failures=0
+16/05/2026 05:32:14 PM - INFO: Category bakery: expected 560, scraped 367, incomplete 2
+16/05/2026 05:32:14 PM - INFO: Category bakery summary: found=560 scraped=367 incomplete=2 took=1498.96s
+16/05/2026 05:32:14 PM - INFO: Incomplete product: name='[unknown]', missing=['name']
+16/05/2026 05:32:14 PM - INFO: Incomplete product: name='EST. RESTOCK 18/05/26', missing=['price', 'unit_price']
+16/05/2026 05:32:14 PM - INFO: Storing data of size 367...
+16/05/2026 05:32:14 PM - INFO: Successfully stored 367 rows
+16/05/2026 05:32:14 PM - INFO: Getting page data for cookware-bonus-credits - https://www.woolworths.com.au/shop/browse/cookware-bonus-credits
+16/05/2026 05:34:17 PM - ERROR: ReadTimeoutError: HTTPConnectionPool(host='localhost', port=60039): Read timed out. (read timeout=120)
+16/05/2026 05:34:17 PM - INFO: Storing data of size 0...
+16/05/2026 05:34:17 PM - INFO: Successfully stored 0 rows
+16/05/2026 05:34:17 PM - INFO: Getting page data for deli - https://www.woolworths.com.au/shop/browse/deli
+16/05/2026 05:36:19 PM - ERROR: ReadTimeoutError: HTTPConnectionPool(host='localhost', port=60039): Read timed out. (read timeout=120)
+16/05/2026 05:36:20 PM - INFO: Storing data of size 0...
+16/05/2026 05:36:20 PM - INFO: Successfully stored 0 rows
+16/05/2026 05:36:20 PM - INFO: Getting page data for fruit-veg - https://www.woolworths.com.au/shop/browse/fruit-veg
+16/05/2026 05:38:22 PM - ERROR: ReadTimeoutError: HTTPConnectionPool(host='localhost', port=60039): Read timed out. (read timeout=120)
+16/05/2026 05:38:23 PM - INFO: Storing data of size 0...
+16/05/2026 05:38:23 PM - INFO: Successfully stored 0 rows
+16/05/2026 05:38:23 PM - INFO: Getting page data for poultry-meat-seafood - https://www.woolworths.com.au/shop/browse/poultry-meat-seafood
+16/05/2026 05:40:25 PM - ERROR: ReadTimeoutError: HTTPConnectionPool(host='localhost', port=60039): Read timed out. (read timeout=120)
+16/05/2026 05:40:26 PM - INFO: Storing data of size 0...
+16/05/2026 05:40:26 PM - INFO: Successfully stored 0 rows
+16/05/2026 05:40:26 PM - INFO: Successfully scraped 367 products
+16/05/2026 05:40:26 PM - INFO: Run summary: categories_attempted=5 categories_succeeded=5 categories_failed=0 products_found=560 products_scraped=367 incomplete_products=2 took=2051.01s
+16/05/2026 05:43:40 PM - INFO: WebDriver lifecycle stop
+16/05/2026 10:11:18 PM - INFO: Created file woolworths-2026-05-16-LONG.csv
