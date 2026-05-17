@@ -67,6 +67,15 @@ class WoolworthsCategoryDataNormaliser:
                     f"Category {category_name} - page {page_info.get('page')} extraction_failures="
                     f"{page_info.get('extraction_failures', 0)}"
                 )
+                bm = page_info.get("browser_metrics", {})
+                if bm:
+                    self.logger.debug(
+                        f"Category {category_name} - page {page_info.get('page')} browser: "
+                        f"js_heap_used={bm.get('js_heap_used_mb')}MB "
+                        f"js_heap_total={bm.get('js_heap_total_mb')}MB "
+                        f"dom_nodes={bm.get('dom_nodes')} "
+                        f"documents={bm.get('documents')}"
+                    )
 
             scraped_count = len(products)
             incomplete_count = len(incomplete_items)

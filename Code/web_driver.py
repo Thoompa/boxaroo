@@ -161,6 +161,12 @@ class WebDriver(IWebDriver):
         # Set window size to avoid detection
         self.driver.set_window_size(1920, 1080)
 
+        # Enable CDP Performance domain for browser resource metrics
+        try:
+            self.driver.execute_cdp_cmd("Performance.enable", {})
+        except Exception:
+            pass
+
     def get_page(self, url: str) -> None:
         # Add random delay before navigation (1-3 seconds)
         time.sleep(random.uniform(1, 3))
@@ -180,6 +186,23 @@ class WebDriver(IWebDriver):
 
     def quit(self) -> None:
         self.driver.quit()
+
+    def get_browser_metrics(self) -> dict:
+        try:
+            result = self.driver.execute_cdp_cmd("Performance.getMetrics", {})
+            metrics = {m["name"]: m["value"] for m in result.get("metrics", [])}
+            return {
+                "js_heap_used_mb": round(
+                    metrics.get("JSHeapUsedSize", 0) / 1_048_576, 1
+                ),
+                "js_heap_total_mb": round(
+                    metrics.get("JSHeapTotalSize", 0) / 1_048_576, 1
+                ),
+                "dom_nodes": int(metrics.get("Nodes", 0)),
+                "documents": int(metrics.get("Documents", 0)),
+            }
+        except Exception:
+            return {}
 
     def get_category_total_items(self) -> int | None:
         # Read visible total count from the page. Try a few common selectors, then fallback to counting tiles.
@@ -324,6 +347,8 @@ class WebDriver(IWebDriver):
         while True:
             page_number += 1
 
+            browser_metrics = self.get_browser_metrics()
+
             # Add delay before waiting for products
             time.sleep(random.uniform(1, 2))
 
@@ -377,6 +402,7 @@ class WebDriver(IWebDriver):
                     "extraction_failures": extraction_failures,
                     "scraped": page_products_count,
                     "incomplete": page_incomplete_count,
+                    "browser_metrics": browser_metrics,
                 }
             )
 
