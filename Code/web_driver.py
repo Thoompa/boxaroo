@@ -362,15 +362,24 @@ class WebDriver(IWebDriver):
         max_attempts = 3
         last_error: Exception | None = None
         for attempt in range(1, max_attempts + 1):
+            candidate_driver = None
             try:
                 new_driver = self._create_fresh_driver()
-                self.driver = cast(Any, getattr(new_driver, "driver", new_driver))
-                self.driver.get(next_page_url)
+                candidate_driver = cast(Any, getattr(new_driver, "driver", new_driver))
+                candidate_driver.get(next_page_url)
+                self.driver = candidate_driver
                 self.logger.log(
                     f"WebDriver reset completed: next_page={next_page_url} attempts={attempt}"
                 )
                 return
             except Exception as exc:
+                if candidate_driver is not None:
+                    try:
+                        candidate_driver.quit()
+                    except Exception as quit_exc:
+                        self.logger.warning(
+                            f"Failed to quit unsuccessful WebDriver reset attempt: {type(quit_exc).__name__}: {quit_exc}"
+                        )
                 last_error = exc
                 if attempt >= max_attempts:
                     break

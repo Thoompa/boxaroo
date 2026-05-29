@@ -85,7 +85,7 @@ def load_performance_profile(
     if not isinstance(raw_profile, dict):
         return None
 
-    max_pages_per_session = raw_profile.get("max_pages_per_session")
+    max_pages_per_session = raw_profile.get("max_pages_per_session", 12)
     if (
         not isinstance(max_pages_per_session, int)
         or isinstance(max_pages_per_session, bool)
