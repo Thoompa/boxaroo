@@ -12,6 +12,22 @@
 2. Install requirements:
   - `python -m pip install -r requirements.txt`
 
+### Device-Specific Performance Config
+
+Boxaroo supports per-device runtime tuning for list-size ETA output.
+
+1. Copy the tracked template to your local config file:
+  - macOS / Linux:
+    - `cp Config/performance.example.json Config/performance.json`
+  - Windows PowerShell:
+    - `Copy-Item Config/performance.example.json Config/performance.json`
+2. Edit `Config/performance.json` with values for your device.
+
+Notes:
+- `Config/performance.example.json` is tracked in git as the schema template.
+- `Config/performance.json` is intentionally ignored and stays local to each device.
+- When adding a new config key, update `Config/performance.example.json` and commit it.
+
 ### Linux Browser Prerequisites
 
 Boxaroo requires a Chromium/Chrome browser binary and a matching `chromedriver` binary.
