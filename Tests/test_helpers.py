@@ -263,7 +263,12 @@ class DummyWait:
         self.timeout = timeout
 
     def until(self, condition):
-        return True
+        # Call the condition to evaluate it (e.g. presence_of_element_located)
+        try:
+            return condition(self.driver)
+        except Exception:
+            # If condition fails, treat it as timeout (element not found)
+            raise TimeoutError("Dummy wait timeout")
 
 
 def make_woolworths_category_source(
@@ -413,6 +418,14 @@ class DummySeleniumSession:
         return []
 
     def find_element(self, by, value):
+        if by == "tag name" and value == "wc-product-tile":
+            # Return first product tile for the current page
+            tiles = (
+                self.pages[self.page_index] if self.page_index < len(self.pages) else []
+            )
+            if tiles:
+                return tiles[0]
+            raise Exception("no product tiles")
         if by == "css selector" and value == ".paging-next":
             if self._next_button_missing:
                 raise Exception("no next button")

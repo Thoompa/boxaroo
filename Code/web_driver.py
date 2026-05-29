@@ -263,7 +263,17 @@ class WebDriver(IWebDriver):
 
     def _advance_to_next_page(self) -> bool:
         try:
-            next_button = self.driver.find_element(By.CSS_SELECTOR, ".paging-next")
+            # Wait briefly for next button; if not found, we're at end of pagination.
+            try:
+                next_button = WebDriverWait(self.driver, 2).until(
+                    EC.presence_of_element_located((By.CSS_SELECTOR, ".paging-next"))
+                )
+            except Exception as wait_exc:
+                self.logger.debug(
+                    f"Pagination stop: next button not found after wait ({type(wait_exc).__name__})"
+                )
+                return False
+
             if not next_button.is_displayed() or not next_button.is_enabled():
                 self.logger.debug(
                     "Pagination stop: next button is not visible or not enabled"
@@ -298,7 +308,7 @@ class WebDriver(IWebDriver):
             return advanced
         except Exception as exc:
             self.logger.warning(
-                f"Pagination stop: unable to advance to next page ({type(exc).__name__}: {exc})"
+                f"Pagination stop: unexpected error during advancement ({type(exc).__name__}: {exc})"
             )
             return False
 
