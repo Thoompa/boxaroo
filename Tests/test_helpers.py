@@ -2,7 +2,7 @@
 """
 Shared dummy/mock classes for Boxaroo unit tests.
 """
-from typing import Any
+from typing import Any, cast
 
 from Code.file_handler import FileHandler
 from Code.category_list_service import CategoryListService
@@ -83,9 +83,8 @@ class DummyWebDriver(IWebDriver):
             and _callback is not None
             and isinstance(self.products_response, dict)
         ):
-            callback_result = _callback(
-                self.products_response.get("products", []), page_number=1
-            )
+            products = cast(list[str], self.products_response.get("products", []))
+            callback_result = _callback(products, page_number=1)
             if isinstance(callback_result, dict):
                 return {
                     "products": callback_result.get("products", []),
@@ -213,10 +212,16 @@ class DummySupermarket(ISuperMarket):
         }
 
 
-class DummyWebDriverShell(WebDriver):
+class DummyWebDriverHarness(WebDriver):
     def __init__(self, products_response=None):
         self.scripts = []
         self.driver: Any = None
+        self.logger = DummyLogger()
+        self.hard_driver_reset = False
+        self.max_pages_per_session = 12
+        self._create_fresh_driver: Any = lambda: DummyWebDriverHarness(
+            products_response
+        )
         self._category_total_script_response: str | None = None
         self._products_response = products_response or {
             "products": [],
@@ -232,10 +237,17 @@ class DummyWebDriverShell(WebDriver):
     def get_page(self, url):
         pass
 
-    def get_products(self, _callback=None):
+    def get_products(
+        self,
+        _callback: Any | None = None,
+        *,
+        category_name: str | None = None,
+    ):
         self.page_saved += 1
         if _callback and "products" in self._products_response:
-            _callback(self._products_response["products"], page_number=1)
+            _callback(
+                cast(list[str], self._products_response["products"]), page_number=1
+            )
         return self._products_response
 
     def quit(self):
@@ -289,10 +301,6 @@ def make_woolworths_category_data_normaliser(
         browse_url=browse_url,
     )
 
-
-# ---------------------------------------------------------------------------
-# Constants and factory helpers
-# ---------------------------------------------------------------------------
 
 FILE_HANDLER_HEADER = ["name", "price", "unit_price", "promotion"]
 
@@ -352,7 +360,7 @@ class DummyProductElement:
         return self._text
 
 
-class DummySeleniumDriver:
+class DummySeleniumSession:
     def __init__(
         self,
         script_result=None,
@@ -363,10 +371,19 @@ class DummySeleniumDriver:
         next_button_missing=False,
         click_advances_url_to=None,
         mark_incomplete_a=False,
+        pages: list[list[str]] | None = None,
+        page_urls: list[str] | None = None,
+        start_page_index: int = 0,
     ):
-        self.current_url = "page-1"
-        self.page_index = 0
-        self.pages = [["A", "B"], ["C", "D"]]
+        self.pages = pages or [["A", "B"], ["C", "D"]]
+        self.page_urls = page_urls or [
+            f"page-{index + 1}" for index in range(len(self.pages))
+        ]
+        self.current_url = self.page_urls[
+            min(start_page_index, len(self.page_urls) - 1)
+        ]
+        self.page_index = start_page_index
+        self.called: list[tuple[Any, ...]] = []
         self._script_result = script_result
         self._script_side_effect = script_side_effect
         self._next_button_href = next_button_href
@@ -399,9 +416,12 @@ class DummySeleniumDriver:
         if by == "css selector" and value == ".paging-next":
             if self._next_button_missing:
                 raise Exception("no next button")
-            if self.page_index == 0:
+            if self.page_index < len(self.pages) - 1:
+                next_href = self._next_button_href
+                if next_href == "page-2" and self.page_index + 1 < len(self.page_urls):
+                    next_href = self.page_urls[self.page_index + 1]
                 return DummyNextButton(
-                    self._next_button_href,
+                    next_href,
                     displayed=self._next_button_displayed,
                     enabled=self._next_button_enabled,
                 )
@@ -409,9 +429,48 @@ class DummySeleniumDriver:
         raise Exception("unsupported selector")
 
     def get(self, url):
+        self.called.append(("get", url))
         self.current_url = url
-        if url == "page-2":
-            self.page_index = 1
+        if url in self.page_urls:
+            self.page_index = self.page_urls.index(url)
+            return
+
+        if url.startswith("page-"):
+            try:
+                self.page_index = max(0, int(url.split("-", 1)[1]) - 1)
+            except ValueError:
+                pass
+
+    def quit(self):
+        self.called.append(("quit",))
+
+
+class DummyDriverFactory:
+    def __init__(
+        self,
+        *,
+        pages: list[list[str]] | None = None,
+        page_urls: list[str] | None = None,
+        failures_before_success: int = 0,
+    ):
+        self.pages = pages or [["A", "B"], ["C", "D"]]
+        self.page_urls = page_urls or [
+            f"page-{index + 1}" for index in range(len(self.pages))
+        ]
+        self.failures_before_success = failures_before_success
+        self.calls = 0
+        self.created_drivers: list[DummySeleniumSession] = []
+
+    def __call__(self):
+        self.calls += 1
+        if self.failures_before_success > 0:
+            self.failures_before_success -= 1
+            raise RuntimeError("driver creation failed")
+
+        driver = DummySeleniumSession(pages=self.pages, page_urls=self.page_urls)
+        driver.quit = lambda: None
+        self.created_drivers.append(driver)
+        return driver
 
 
 class DummySupermarketFactory:

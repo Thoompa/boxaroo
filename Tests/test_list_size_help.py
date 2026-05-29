@@ -38,6 +38,7 @@ def test_load_performance_profile_returns_valid_fixture_data():
 
     # THEN: Interactive and headless values are returned as runtime profiles
     assert profile is not None
+    assert profile["max_pages_per_session"] == 12
     assert profile["interactive"]["products_per_second"] == 4.0
     assert profile["interactive"]["fixed_overhead_seconds"] == 0.0
     assert profile["headless"]["products_per_second"] == 2.0

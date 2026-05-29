@@ -11,6 +11,10 @@ from datetime import date
 
 from Code.contracts import ListSize, LoggingLevel, Supermarket
 from Code.file_handler import FileHandler
+from Code.list_size_help import (
+    PERFORMANCE_CONFIG_TEMPLATE_PATH,
+    load_performance_profile,
+)
 from Code.logger import Logger
 from Code.product_parser import ProductParser
 from Code.scrape_coordinator import ScrapeCoordinator
@@ -48,6 +52,7 @@ def _prepare_runtime_dependencies(
     logger,
     web_driver,
     headless,
+    hard_driver_reset,
     proxy_server,
     file_name: str,
     file_path: str,
@@ -55,8 +60,24 @@ def _prepare_runtime_dependencies(
 ):
     injected_web_driver = web_driver is not None
     if not injected_web_driver:
+        performance_profile = load_performance_profile()
+        if performance_profile is None:
+            performance_profile = load_performance_profile(
+                PERFORMANCE_CONFIG_TEMPLATE_PATH
+            )
+        max_pages_per_session = (
+            performance_profile["max_pages_per_session"]
+            if performance_profile is not None
+            else 12
+        )
         file_handler = file_handler or FileHandler(file_name, file_path, header, logger)
-        web_driver = WebDriver(headless, proxy_server)
+        web_driver = WebDriver(
+            logger=logger,
+            headless=headless,
+            proxy_server=proxy_server,
+            hard_driver_reset=hard_driver_reset,
+            max_pages_per_session=max_pages_per_session,
+        )
 
     return file_handler, web_driver, injected_web_driver
 
@@ -121,6 +142,7 @@ def main(
     default_list_size: ListSize | None = ListSize.TESTING,
     supermarket: str | Supermarket | None = Supermarket.WOOLWORTHS,
     refresh_category_lists=False,
+    hard_driver_reset=False,
     proxy_server=None,
     file_handler=None,
     logger=None,
@@ -143,6 +165,7 @@ def main(
         logger=logger,
         web_driver=web_driver,
         headless=headless,
+        hard_driver_reset=hard_driver_reset,
         proxy_server=proxy_server,
         file_name=file_name,
         file_path=file_path,

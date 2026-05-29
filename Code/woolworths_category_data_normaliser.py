@@ -133,7 +133,6 @@ class WoolworthsCategoryDataNormaliser:
 
         for i, product_text in enumerate(products):
             try:
-                self.logger.debug("Reading data for product - {0}".format(product_text))
                 parsed_product = self.product_parser.parse(product_text)
 
                 product_name = parsed_product["name"]

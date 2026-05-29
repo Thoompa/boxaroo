@@ -2,10 +2,12 @@ import pytest
 from Code.web_driver import WebDriver
 import Code.web_driver as web_driver_module
 from Tests.test_helpers import (
-    DummyWebDriverShell,
+    DummyWebDriverHarness,
     DummyWait,
-    DummySeleniumDriver,
+    DummySeleniumSession,
     DummyProductElement,
+    DummyLogger,
+    DummyDriverFactory,
 )
 
 
@@ -85,7 +87,7 @@ def test_resolve_driver_binaries_raises_with_linux_setup_guidance(monkeypatch):
 
 def test_get_category_total_items_from_selector():
     # GIVEN: the script response contains a plain product count
-    driver = DummyWebDriverShell()
+    driver = DummyWebDriverHarness()
     driver._category_total_script_response = "Showing 480 products"
 
     # WHEN: the category total is retrieved
@@ -97,7 +99,7 @@ def test_get_category_total_items_from_selector():
 
 def test_get_category_total_items_fallback_to_tile_count():
     # GIVEN: the product count is only available from tile elements on the page
-    driver = DummyWebDriverShell()
+    driver = DummyWebDriverHarness()
     driver._category_total_script_response = "wc-product-tile:42"
 
     # WHEN: the category total is retrieved
@@ -109,7 +111,7 @@ def test_get_category_total_items_fallback_to_tile_count():
 
 def test_get_category_total_items_parses_total_from_range_text():
     # GIVEN: the page displays the product count as a pagination range
-    driver = DummyWebDriverShell()
+    driver = DummyWebDriverHarness()
     driver._category_total_script_response = "1 - 36 of 10,000 Products"
 
     # WHEN: the category total is retrieved
@@ -121,7 +123,7 @@ def test_get_category_total_items_parses_total_from_range_text():
 
 def test_get_category_total_items_parses_total_from_last_numeric_token():
     # GIVEN: the page shows a count string with no "of N" pattern
-    driver = DummyWebDriverShell()
+    driver = DummyWebDriverHarness()
     driver._category_total_script_response = "Items 1,200"
 
     # WHEN: the category total is retrieved
@@ -138,7 +140,7 @@ def test_get_category_total_items_parses_total_from_last_numeric_token():
 
 def test_get_category_total_items_returns_none_for_empty_text():
     # GIVEN: the page provides no product count text
-    driver = DummyWebDriverShell()
+    driver = DummyWebDriverHarness()
     driver._category_total_script_response = ""
 
     # WHEN: the category total is retrieved
@@ -150,7 +152,7 @@ def test_get_category_total_items_returns_none_for_empty_text():
 
 def test_get_category_total_items_returns_none_for_non_numeric_text():
     # GIVEN: the page shows text that contains no recognisable product count
-    driver = DummyWebDriverShell()
+    driver = DummyWebDriverHarness()
     driver._category_total_script_response = "No products found"
 
     # WHEN: the category total is retrieved
@@ -162,7 +164,7 @@ def test_get_category_total_items_returns_none_for_non_numeric_text():
 
 def test_get_category_total_items_returns_none_when_script_returns_none():
     # GIVEN: the product count element is absent from the page
-    driver = DummyWebDriverShell()
+    driver = DummyWebDriverHarness()
     driver._category_total_script_response = None
 
     # WHEN: the category total is retrieved
@@ -174,7 +176,7 @@ def test_get_category_total_items_returns_none_when_script_returns_none():
 
 def test_get_category_total_items_returns_none_for_malformed_tile_count():
     # GIVEN: the wc-product-tile fallback value is not a valid integer
-    driver = DummyWebDriverShell()
+    driver = DummyWebDriverHarness()
     driver._category_total_script_response = "wc-product-tile:abc"
 
     # WHEN: the category total is retrieved
@@ -194,8 +196,8 @@ def test_get_products_page_stats_aggregation(monkeypatch):
     monkeypatch.setattr(web_driver_module, "WebDriverWait", DummyWait)
     monkeypatch.setattr(web_driver_module.time, "sleep", lambda _: None)
     monkeypatch.setattr(web_driver_module.random, "uniform", lambda a, b: 0)
-    driver = DummyWebDriverShell()
-    driver.driver = DummySeleniumDriver(mark_incomplete_a=True)
+    driver = DummyWebDriverHarness()
+    driver.driver = DummySeleniumSession(mark_incomplete_a=True)
 
     # WHEN: the products are retrieved
     res = WebDriver.get_products(driver, driver.driver.get_products_callback)
@@ -212,8 +214,8 @@ def test_get_products_advances_using_next_href(monkeypatch):
     monkeypatch.setattr(web_driver_module, "WebDriverWait", DummyWait)
     monkeypatch.setattr(web_driver_module.time, "sleep", lambda _: None)
     monkeypatch.setattr(web_driver_module.random, "uniform", lambda a, b: 0)
-    driver = DummyWebDriverShell()
-    driver.driver = DummySeleniumDriver()
+    driver = DummyWebDriverHarness()
+    driver.driver = DummySeleniumSession()
 
     # WHEN: the products are retrieved across both pages
     result = WebDriver.get_products(
@@ -234,8 +236,8 @@ def test_advance_to_next_page_uses_click_when_href_is_empty(monkeypatch):
     # GIVEN: the next pagination button has no href, requiring a JS click
     monkeypatch.setattr(web_driver_module.time, "sleep", lambda _: None)
     monkeypatch.setattr(web_driver_module.random, "uniform", lambda a, b: 0)
-    driver = DummyWebDriverShell()
-    driver.driver = DummySeleniumDriver(
+    driver = DummyWebDriverHarness()
+    driver.driver = DummySeleniumSession(
         next_button_href="", click_advances_url_to="page-2"
     )
 
@@ -251,8 +253,8 @@ def test_advance_to_next_page_returns_false_when_button_is_hidden(monkeypatch):
     # GIVEN: the next button exists but is not visible on the page
     monkeypatch.setattr(web_driver_module.time, "sleep", lambda _: None)
     monkeypatch.setattr(web_driver_module.random, "uniform", lambda a, b: 0)
-    driver = DummyWebDriverShell()
-    driver.driver = DummySeleniumDriver(next_button_displayed=False)
+    driver = DummyWebDriverHarness()
+    driver.driver = DummySeleniumSession(next_button_displayed=False)
 
     # WHEN: the next page is advanced
     result = WebDriver._advance_to_next_page(driver)
@@ -265,8 +267,8 @@ def test_advance_to_next_page_returns_false_when_button_is_missing(monkeypatch):
     # GIVEN: there is no next pagination button on the page
     monkeypatch.setattr(web_driver_module.time, "sleep", lambda _: None)
     monkeypatch.setattr(web_driver_module.random, "uniform", lambda a, b: 0)
-    driver = DummyWebDriverShell()
-    driver.driver = DummySeleniumDriver(next_button_missing=True)
+    driver = DummyWebDriverHarness()
+    driver.driver = DummySeleniumSession(next_button_missing=True)
 
     # WHEN: the next page is advanced
     result = WebDriver._advance_to_next_page(driver)
@@ -285,8 +287,8 @@ def test_get_products_payload_always_contains_required_keys(monkeypatch):
     monkeypatch.setattr(web_driver_module, "WebDriverWait", DummyWait)
     monkeypatch.setattr(web_driver_module.time, "sleep", lambda _: None)
     monkeypatch.setattr(web_driver_module.random, "uniform", lambda a, b: 0)
-    driver = DummyWebDriverShell()
-    driver.driver = DummySeleniumDriver()
+    driver = DummyWebDriverHarness()
+    driver.driver = DummySeleniumSession()
 
     # WHEN: the products are retrieved
     result = WebDriver.get_products(
@@ -308,8 +310,8 @@ def test_get_products_page_stats_track_incomplete_count(monkeypatch):
     monkeypatch.setattr(web_driver_module, "WebDriverWait", DummyWait)
     monkeypatch.setattr(web_driver_module.time, "sleep", lambda _: None)
     monkeypatch.setattr(web_driver_module.random, "uniform", lambda a, b: 0)
-    driver = DummyWebDriverShell()
-    driver.driver = DummySeleniumDriver()
+    driver = DummyWebDriverHarness()
+    driver.driver = DummySeleniumSession()
 
     # WHEN: products are retrieved across two pages
     result = WebDriver.get_products(
@@ -331,8 +333,8 @@ def test_get_products_callback_receives_plain_string_payloads(monkeypatch):
     monkeypatch.setattr(web_driver_module, "WebDriverWait", DummyWait)
     monkeypatch.setattr(web_driver_module.time, "sleep", lambda _: None)
     monkeypatch.setattr(web_driver_module.random, "uniform", lambda a, b: 0)
-    driver = DummyWebDriverShell()
-    driver.driver = DummySeleniumDriver()
+    driver = DummyWebDriverHarness()
+    driver.driver = DummySeleniumSession()
     seen_payloads = []
 
     def callback(product_texts, *, page_number):
@@ -352,8 +354,8 @@ def test_get_products_supports_list_return_from_callback(monkeypatch):
     monkeypatch.setattr(web_driver_module, "WebDriverWait", DummyWait)
     monkeypatch.setattr(web_driver_module.time, "sleep", lambda _: None)
     monkeypatch.setattr(web_driver_module.random, "uniform", lambda a, b: 0)
-    driver = DummyWebDriverShell()
-    driver.driver = DummySeleniumDriver()
+    driver = DummyWebDriverHarness()
+    driver.driver = DummySeleniumSession()
 
     # WHEN: the products are retrieved
     result = WebDriver.get_products(
@@ -371,8 +373,8 @@ def test_get_products_without_callback_returns_empty_products(monkeypatch):
     monkeypatch.setattr(web_driver_module, "WebDriverWait", DummyWait)
     monkeypatch.setattr(web_driver_module.time, "sleep", lambda _: None)
     monkeypatch.setattr(web_driver_module.random, "uniform", lambda a, b: 0)
-    driver = DummyWebDriverShell()
-    driver.driver = DummySeleniumDriver()
+    driver = DummyWebDriverHarness()
+    driver.driver = DummySeleniumSession()
 
     # WHEN: the products are retrieved
     result = WebDriver.get_products(driver)
@@ -395,8 +397,8 @@ def test_get_products_reloads_page_on_per_element_timeout(monkeypatch):
     monkeypatch.setattr(web_driver_module, "WebDriverWait", DummyWait)
     monkeypatch.setattr(web_driver_module.time, "sleep", lambda _: None)
     monkeypatch.setattr(web_driver_module.random, "uniform", lambda a, b: 0)
-    driver = DummyWebDriverShell()
-    driver.driver = DummySeleniumDriver()
+    driver = DummyWebDriverHarness()
+    driver.driver = DummySeleniumSession()
     reload_calls = []
     driver.reload_page = lambda: reload_calls.append(1)
     call_count = {"n": 0}
@@ -435,8 +437,8 @@ def test_get_products_records_failure_without_reload_on_generic_error(monkeypatc
     monkeypatch.setattr(web_driver_module, "WebDriverWait", DummyWait)
     monkeypatch.setattr(web_driver_module.time, "sleep", lambda _: None)
     monkeypatch.setattr(web_driver_module.random, "uniform", lambda a, b: 0)
-    driver = DummyWebDriverShell()
-    driver.driver = DummySeleniumDriver()
+    driver = DummyWebDriverHarness()
+    driver.driver = DummySeleniumSession()
     reload_calls = []
     driver.reload_page = lambda: reload_calls.append(1)
     call_count = {"n": 0}
@@ -470,8 +472,8 @@ def test_get_products_does_not_mask_callback_typeerror(monkeypatch):
     monkeypatch.setattr(web_driver_module, "WebDriverWait", DummyWait)
     monkeypatch.setattr(web_driver_module.time, "sleep", lambda _: None)
     monkeypatch.setattr(web_driver_module.random, "uniform", lambda a, b: 0)
-    driver = DummyWebDriverShell()
-    driver.driver = DummySeleniumDriver()
+    driver = DummyWebDriverHarness()
+    driver.driver = DummySeleniumSession()
 
     def callback_with_page_context(elements, *, page_number):
         raise TypeError("internal callback type error")
@@ -483,13 +485,358 @@ def test_get_products_does_not_mask_callback_typeerror(monkeypatch):
 
 
 # ============================================================
+# get_products – hard driver reset behavior
+# ============================================================
+
+
+def test_get_products_triggers_driver_reset_after_threshold(monkeypatch):
+    # GIVEN: a three-page category and a one-page reset threshold
+    monkeypatch.setattr(web_driver_module, "WebDriverWait", DummyWait)
+    monkeypatch.setattr(web_driver_module.time, "sleep", lambda _: None)
+    monkeypatch.setattr(web_driver_module.random, "uniform", lambda a, b: 0)
+    logger = DummyLogger()
+    driver = DummyWebDriverHarness()
+    original_driver = DummySeleniumSession(
+        pages=[["A", "B"], ["C", "D"], ["E", "F"]],
+        page_urls=["page-1", "page-2", "page-3"],
+    )
+    driver.driver = original_driver
+    driver.logger = logger
+    driver.hard_driver_reset = True
+    driver.max_pages_per_session = 1
+    factory = DummyDriverFactory(
+        pages=[["A", "B"], ["C", "D"], ["E", "F"]],
+        page_urls=["page-1", "page-2", "page-3"],
+    )
+    driver._create_fresh_driver = factory
+
+    # WHEN: the products are retrieved
+    result = WebDriver.get_products(
+        driver,
+        lambda elements, *, page_number: {
+            "products": list(elements),
+            "incomplete_items": [],
+        },
+        category_name="beauty",
+    )
+
+    # THEN: scraping resumes across driver resets without losing data
+    assert result["products"] == ["A", "B", "C", "D", "E", "F"]
+    assert len(result["page_stats"]) == 3
+    assert original_driver.called.count(("quit",)) == 1
+    assert factory.calls == 2
+    assert factory.created_drivers[0].called == [("get", "page-2")]
+    assert factory.created_drivers[1].called == [("get", "page-3")]
+    assert any(
+        level == "INFO" and "Driver reset triggered: pages_processed=1" in message
+        for level, message in logger.records
+    )
+    assert any(
+        level == "INFO" and "WebDriver reset completed:" in message
+        for level, message in logger.records
+    )
+
+
+def test_get_products_does_not_reset_when_category_finishes_before_threshold(
+    monkeypatch,
+):
+    # GIVEN: a single-page category and a higher reset threshold
+    monkeypatch.setattr(web_driver_module, "WebDriverWait", DummyWait)
+    monkeypatch.setattr(web_driver_module.time, "sleep", lambda _: None)
+    monkeypatch.setattr(web_driver_module.random, "uniform", lambda a, b: 0)
+    logger = DummyLogger()
+    driver = DummyWebDriverHarness()
+    original_driver = DummySeleniumSession(pages=[["A", "B"]], page_urls=["page-1"])
+    driver.driver = original_driver
+    driver.logger = logger
+    driver.hard_driver_reset = True
+    driver.max_pages_per_session = 12
+    factory = DummyDriverFactory(pages=[["A", "B"]], page_urls=["page-1"])
+    driver._create_fresh_driver = factory
+
+    # WHEN: the products are retrieved
+    result = WebDriver.get_products(
+        driver,
+        lambda elements, *, page_number: {
+            "products": list(elements),
+            "incomplete_items": [],
+        },
+        category_name="bakery",
+    )
+
+    # THEN: the category completes without an unnecessary reset
+    assert result["products"] == ["A", "B"]
+    assert original_driver.called.count(("quit",)) == 0
+    assert factory.calls == 0
+    assert not any("Driver reset triggered" in message for _, message in logger.records)
+
+
+def test_get_products_retries_driver_creation_before_succeeding(monkeypatch):
+    # GIVEN: driver recreation fails before eventually succeeding
+    monkeypatch.setattr(web_driver_module, "WebDriverWait", DummyWait)
+    monkeypatch.setattr(web_driver_module.time, "sleep", lambda _: None)
+    monkeypatch.setattr(web_driver_module.random, "uniform", lambda a, b: 0)
+    logger = DummyLogger()
+    driver = DummyWebDriverHarness()
+    original_driver = DummySeleniumSession(
+        pages=[["A", "B"], ["C", "D"]],
+        page_urls=["page-1", "page-2"],
+    )
+    driver.driver = original_driver
+    driver.logger = logger
+    driver.hard_driver_reset = True
+    driver.max_pages_per_session = 1
+    factory = DummyDriverFactory(
+        pages=[["A", "B"], ["C", "D"]],
+        page_urls=["page-1", "page-2"],
+        failures_before_success=2,
+    )
+    driver._create_fresh_driver = factory
+
+    # WHEN: the products are retrieved
+    result = WebDriver.get_products(
+        driver,
+        lambda elements, *, page_number: {
+            "products": list(elements),
+            "incomplete_items": [],
+        },
+        category_name="beauty",
+    )
+
+    # THEN: the driver is recreated with retries and the scrape still completes
+    assert result["products"] == ["A", "B", "C", "D"]
+    assert factory.calls == 3
+    assert any(
+        level == "INFO" and "WebDriver reset completed:" in message
+        for level, message in logger.records
+    )
+
+
+def test_get_products_preserves_page_stats_across_resets(monkeypatch):
+    # GIVEN: a multi-page category with a reset occurring mid-scrape
+    monkeypatch.setattr(web_driver_module, "WebDriverWait", DummyWait)
+    monkeypatch.setattr(web_driver_module.time, "sleep", lambda _: None)
+    monkeypatch.setattr(web_driver_module.random, "uniform", lambda a, b: 0)
+    driver = DummyWebDriverHarness()
+    driver.driver = DummySeleniumSession(
+        pages=[["A", "B"], ["C", "D"], ["E", "F"]],
+        page_urls=["page-1", "page-2", "page-3"],
+    )
+    driver.hard_driver_reset = True
+    driver.max_pages_per_session = 1
+    driver._create_fresh_driver = DummyDriverFactory(
+        pages=[["A", "B"], ["C", "D"], ["E", "F"]],
+        page_urls=["page-1", "page-2", "page-3"],
+    )
+
+    # WHEN: the products are retrieved
+    result = WebDriver.get_products(
+        driver,
+        lambda elements, *, page_number: {
+            "products": list(elements),
+            "incomplete_items": [{"name": elements[0], "missing": ["price"]}],
+        },
+        category_name="fruit-veg",
+    )
+
+    # THEN: products and incomplete items are preserved across the reset boundary
+    assert result["products"] == ["A", "B", "C", "D", "E", "F"]
+    assert len(result["incomplete_items"]) == 3
+    assert len(result["page_stats"]) == 3
+
+
+def test_get_products_logs_category_summary_after_reset_run(monkeypatch):
+    # GIVEN: a reset-enabled scrape with multiple pages in one category
+    monkeypatch.setattr(web_driver_module, "WebDriverWait", DummyWait)
+    monkeypatch.setattr(web_driver_module.time, "sleep", lambda _: None)
+    monkeypatch.setattr(web_driver_module.random, "uniform", lambda a, b: 0)
+    logger = DummyLogger()
+    driver = DummyWebDriverHarness()
+    driver.driver = DummySeleniumSession(
+        pages=[["A", "B"], ["C", "D"]],
+        page_urls=["page-1", "page-2"],
+    )
+    driver.logger = logger
+    driver.hard_driver_reset = True
+    driver.max_pages_per_session = 1
+    driver._create_fresh_driver = DummyDriverFactory(
+        pages=[["A", "B"], ["C", "D"]],
+        page_urls=["page-1", "page-2"],
+    )
+
+    # WHEN: the products are retrieved
+    WebDriver.get_products(
+        driver,
+        lambda elements, *, page_number: {
+            "products": list(elements),
+            "incomplete_items": [],
+        },
+        category_name="beauty",
+    )
+
+    # THEN: the category completion summary is logged after reset processing
+    assert any(
+        level == "INFO" and "Category beauty: reset_count=" in message
+        for level, message in logger.records
+    )
+
+
+def test_get_products_does_not_reset_when_hard_reset_is_disabled(monkeypatch):
+    # GIVEN: a multi-page category where threshold is reached but hard reset is disabled
+    monkeypatch.setattr(web_driver_module, "WebDriverWait", DummyWait)
+    monkeypatch.setattr(web_driver_module.time, "sleep", lambda _: None)
+    monkeypatch.setattr(web_driver_module.random, "uniform", lambda a, b: 0)
+    logger = DummyLogger()
+    driver = DummyWebDriverHarness()
+    original_driver = DummySeleniumSession(
+        pages=[["A", "B"], ["C", "D"]],
+        page_urls=["page-1", "page-2"],
+    )
+    driver.driver = original_driver
+    driver.logger = logger
+    driver.hard_driver_reset = False
+    driver.max_pages_per_session = 1
+    factory = DummyDriverFactory(
+        pages=[["A", "B"], ["C", "D"]],
+        page_urls=["page-1", "page-2"],
+    )
+    driver._create_fresh_driver = factory
+
+    # WHEN: the products are retrieved
+    result = WebDriver.get_products(
+        driver,
+        lambda elements, *, page_number: {
+            "products": list(elements),
+            "incomplete_items": [],
+        },
+        category_name="beauty",
+    )
+
+    # THEN: pagination continues without any reset attempt
+    assert result["products"] == ["A", "B", "C", "D"]
+    assert factory.calls == 0
+    assert original_driver.called.count(("quit",)) == 0
+    assert not any("Driver reset triggered" in message for _, message in logger.records)
+
+
+def test_reset_driver_for_next_page_raises_after_max_attempts(monkeypatch):
+    # GIVEN: a reset sequence where every fresh driver creation attempt fails
+    monkeypatch.setattr(web_driver_module.time, "sleep", lambda _: None)
+    logger = DummyLogger()
+    driver = DummyWebDriverHarness()
+    driver.driver = DummySeleniumSession(
+        pages=[["A", "B"]],
+        page_urls=["page-1"],
+    )
+    driver.logger = logger
+    factory = DummyDriverFactory(failures_before_success=3)
+    driver._create_fresh_driver = factory
+
+    # WHEN: the driver is reset for the next page
+    # THEN: the final failure is raised after max attempts
+    with pytest.raises(RuntimeError, match="driver creation failed"):
+        WebDriver._reset_driver_for_next_page(driver, "page-2")
+
+    assert factory.calls == 3
+    assert any(
+        level == "INFO" and "WebDriver reset retry 1/2" in message
+        for level, message in logger.records
+    )
+    assert any(
+        level == "INFO" and "WebDriver reset retry 2/2" in message
+        for level, message in logger.records
+    )
+
+
+def test_reset_driver_for_next_page_logs_quit_failure_and_continues(monkeypatch):
+    # GIVEN: quitting the old driver fails but a fresh driver can still be created
+    monkeypatch.setattr(web_driver_module.time, "sleep", lambda _: None)
+    logger = DummyLogger()
+    driver = DummyWebDriverHarness()
+    old_driver = DummySeleniumSession(
+        pages=[["A", "B"], ["C", "D"]],
+        page_urls=["page-1", "page-2"],
+    )
+
+    def _raise_on_quit():
+        raise RuntimeError("quit failed")
+
+    old_driver.quit = _raise_on_quit
+    driver.driver = old_driver
+    driver.logger = logger
+    factory = DummyDriverFactory(
+        pages=[["A", "B"], ["C", "D"]],
+        page_urls=["page-1", "page-2"],
+    )
+    driver._create_fresh_driver = factory
+
+    # WHEN: the driver is reset for the next page
+    WebDriver._reset_driver_for_next_page(driver, "page-2")
+
+    # THEN: quit failure is logged and reset still completes
+    assert factory.calls == 1
+    assert driver.driver.current_url == "page-2"
+    assert any(
+        level == "WARNING"
+        and "Failed to quit previous WebDriver before reset" in message
+        for level, message in logger.records
+    )
+    assert any(
+        level == "INFO" and "WebDriver reset completed:" in message
+        for level, message in logger.records
+    )
+
+
+def test_get_products_skips_reset_when_next_page_lookup_errors(monkeypatch):
+    # GIVEN: next-page lookup errors while hard reset is enabled and threshold is reached
+    monkeypatch.setattr(web_driver_module, "WebDriverWait", DummyWait)
+    monkeypatch.setattr(web_driver_module.time, "sleep", lambda _: None)
+    monkeypatch.setattr(web_driver_module.random, "uniform", lambda a, b: 0)
+    logger = DummyLogger()
+    driver = DummyWebDriverHarness()
+    original_driver = DummySeleniumSession(
+        pages=[["A", "B"], ["C", "D"]],
+        page_urls=["page-1", "page-2"],
+        next_button_missing=True,
+    )
+    driver.driver = original_driver
+    driver.logger = logger
+    driver.hard_driver_reset = True
+    driver.max_pages_per_session = 1
+    factory = DummyDriverFactory(
+        pages=[["A", "B"], ["C", "D"]],
+        page_urls=["page-1", "page-2"],
+    )
+    driver._create_fresh_driver = factory
+
+    # WHEN: the products are retrieved
+    result = WebDriver.get_products(
+        driver,
+        lambda elements, *, page_number: {
+            "products": list(elements),
+            "incomplete_items": [],
+        },
+        category_name="beauty",
+    )
+
+    # THEN: the warning path returns no next URL and reset is skipped
+    assert result["products"] == ["A", "B"]
+    assert factory.calls == 0
+    assert original_driver.called.count(("quit",)) == 0
+    assert any(
+        level == "WARNING" and "Unable to find next page button" in message
+        for level, message in logger.records
+    )
+
+
+# ============================================================
 # Reading text from a product element
 # ============================================================
 
 
 def test_extract_text_returns_empty_for_none_element():
     # GIVEN: a None element
-    driver = DummyWebDriverShell()
+    driver = DummyWebDriverHarness()
 
     # WHEN: text is retrieved from the element
     result = WebDriver._extract_text_from_product_element(driver, None)
@@ -500,7 +847,7 @@ def test_extract_text_returns_empty_for_none_element():
 
 def test_extract_text_returns_stripped_string_passthrough():
     # GIVEN: a plain string element with surrounding whitespace
-    driver = DummyWebDriverShell()
+    driver = DummyWebDriverHarness()
     text = "  Milk 2L  "
 
     # WHEN: text is retrieved from the element
@@ -512,7 +859,7 @@ def test_extract_text_returns_stripped_string_passthrough():
 
 def test_extract_text_uses_element_dot_text():
     # GIVEN: a product element with recognisable text
-    driver = DummyWebDriverShell()
+    driver = DummyWebDriverHarness()
     element = DummyProductElement(text="Bread 1 loaf\n$3.00\n$3.00 / 1EA")
 
     # WHEN: text is retrieved from the element
@@ -524,8 +871,8 @@ def test_extract_text_uses_element_dot_text():
 
 def test_extract_text_shadow_root_fallback_when_text_is_empty():
     # GIVEN: a product element with no directly accessible text
-    driver = DummyWebDriverShell()
-    driver.driver = DummySeleniumDriver(script_result="Shadow Product 500g")
+    driver = DummyWebDriverHarness()
+    driver.driver = DummySeleniumSession(script_result="Shadow Product 500g")
     element = DummyProductElement(text="")
 
     # WHEN: text is retrieved from the element
@@ -537,8 +884,8 @@ def test_extract_text_shadow_root_fallback_when_text_is_empty():
 
 def test_extract_text_falls_through_to_shadow_when_text_raises():
     # GIVEN: a product element that errors on direct text access
-    driver = DummyWebDriverShell()
-    driver.driver = DummySeleniumDriver(script_result="Shadow Product 500g")
+    driver = DummyWebDriverHarness()
+    driver.driver = DummySeleniumSession(script_result="Shadow Product 500g")
     element = DummyProductElement(raise_on_text=True)
 
     # WHEN: text is retrieved from the element
@@ -550,8 +897,8 @@ def test_extract_text_falls_through_to_shadow_when_text_raises():
 
 def test_extract_text_stringifies_non_string_shadow_result():
     # GIVEN: a product element whose retrieved text value is not a string
-    driver = DummyWebDriverShell()
-    driver.driver = DummySeleniumDriver(script_result=42)
+    driver = DummyWebDriverHarness()
+    driver.driver = DummySeleniumSession(script_result=42)
     element = DummyProductElement(text="")
 
     # WHEN: text is retrieved from the element
@@ -563,8 +910,8 @@ def test_extract_text_stringifies_non_string_shadow_result():
 
 def test_extract_text_propagates_timeout_error_from_shadow_root():
     # GIVEN: a product element that times out during text retrieval
-    driver = DummyWebDriverShell()
-    driver.driver = DummySeleniumDriver(
+    driver = DummyWebDriverHarness()
+    driver.driver = DummySeleniumSession(
         script_side_effect=TimeoutError("stale element")
     )
     element = DummyProductElement(text="")
@@ -577,7 +924,7 @@ def test_extract_text_propagates_timeout_error_from_shadow_root():
 
 def test_extract_text_propagates_timeout_error_from_element_dot_text():
     # GIVEN: a product element whose text property raises a TimeoutError
-    driver = DummyWebDriverShell()
+    driver = DummyWebDriverHarness()
     element = DummyProductElement(text_error=TimeoutError("stale element"))
 
     # WHEN: text is retrieved from the element
@@ -588,8 +935,8 @@ def test_extract_text_propagates_timeout_error_from_element_dot_text():
 
 def test_extract_text_returns_empty_when_shadow_root_returns_none():
     # GIVEN: a product element whose shadow root extraction returns None
-    driver = DummyWebDriverShell()
-    driver.driver = DummySeleniumDriver()  # script_result defaults to None
+    driver = DummyWebDriverHarness()
+    driver.driver = DummySeleniumSession()  # script_result defaults to None
     element = DummyProductElement(text="")
 
     # WHEN: text is retrieved from the element

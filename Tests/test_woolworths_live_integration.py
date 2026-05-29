@@ -36,7 +36,7 @@ def _is_live_test_enabled() -> bool:
 def test_live_woolworths_category_discovery_count_classification_and_cache(tmp_path):
     logger = DummyLogger()
     file_handler = DummyFileHandler()
-    driver = WebDriver(headless=False)
+    driver = WebDriver(logger=logger, headless=False)
     parser = ProductParser(logger=logger)
 
     try:
