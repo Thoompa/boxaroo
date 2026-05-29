@@ -19,6 +19,7 @@ class PerformanceConfig(TypedDict):
 
 
 PERFORMANCE_CONFIG_PATH = os.path.join("Config", "performance.json")
+PERFORMANCE_CONFIG_TEMPLATE_PATH = os.path.join("Config", "performance.example.json")
 LIST_TOTALS_CACHE_PATH = os.path.join(
     "Data", "category_lists", "woolworths-category-lists.json"
 )
@@ -70,7 +71,15 @@ def load_performance_profile(
         with open(config_path, "r", encoding="utf-8") as file_handle:
             raw_profile = json.load(file_handle)
     except Exception:
-        return None
+        if config_path != PERFORMANCE_CONFIG_PATH:
+            return None
+        try:
+            with open(
+                PERFORMANCE_CONFIG_TEMPLATE_PATH, "r", encoding="utf-8"
+            ) as file_handle:
+                raw_profile = json.load(file_handle)
+        except Exception:
+            return None
 
     if not isinstance(raw_profile, dict):
         return None
