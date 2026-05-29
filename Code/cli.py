@@ -42,6 +42,11 @@ def build_parser() -> argparse.ArgumentParser:
         help="Force refresh of cached category lists and list product totals from the website.",
     )
     parser.add_argument(
+        "--hard_driver_reset",
+        action="store_true",
+        help="Recreate the browser after a fixed number of pages to reduce long-run browser degradation.",
+    )
+    parser.add_argument(
         "--proxy_server", help="Proxy server URL (for example http://host:port)."
     )
     parser.add_argument(
@@ -75,5 +80,6 @@ def run(argv: list[str] | None = None) -> None:
         default_list_size=_parse_list_size(args.list_size),
         supermarket=_parse_supermarket(args.supermarket),
         refresh_category_lists=args.refresh_category_lists,
+        hard_driver_reset=args.hard_driver_reset,
         proxy_server=args.proxy_server,
     )

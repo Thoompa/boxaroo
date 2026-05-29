@@ -9,10 +9,10 @@ from selenium_stealth import stealth
 from selenium.webdriver.common.by import By
 from selenium.webdriver.support.ui import WebDriverWait
 from selenium.webdriver.support import expected_conditions as EC
-from typing import Any
+from typing import Any, cast
 import time
 import random
-from Code.contracts import IWebDriver, ProductsCallback, ProductsPageResult
+from Code.contracts import IWebDriver, ILogger, ProductsCallback, ProductsPageResult
 
 
 class WebDriver(IWebDriver):
@@ -93,9 +93,20 @@ class WebDriver(IWebDriver):
             )
         return browser_binary, chromedriver_binary
 
-    def __init__(self, headless: bool = False, proxy_server: str | None = None):
+    def __init__(
+        self,
+        logger: ILogger,
+        headless: bool = False,
+        proxy_server: str | None = None,
+        hard_driver_reset: bool = False,
+        max_pages_per_session: int = 12,
+    ):
         self.headless = headless
         self.proxy_server = proxy_server
+        self.hard_driver_reset = hard_driver_reset
+        self.max_pages_per_session = max_pages_per_session
+        self.logger = logger
+        self.driver: Any = None
         browser_binary = None
         chromedriver_binary = None
         resolution_error = None
@@ -160,6 +171,15 @@ class WebDriver(IWebDriver):
 
         # Set window size to avoid detection
         self.driver.set_window_size(1920, 1080)
+
+    def _create_fresh_driver(self):
+        return WebDriver(
+            headless=self.headless,
+            proxy_server=self.proxy_server,
+            hard_driver_reset=self.hard_driver_reset,
+            max_pages_per_session=self.max_pages_per_session,
+            logger=self.logger,
+        )
 
     def get_page(self, url: str) -> None:
         # Add random delay before navigation (1-3 seconds)
@@ -311,18 +331,87 @@ class WebDriver(IWebDriver):
         except Exception:
             return ""
 
+    def _get_next_page_url(self) -> str | None:
+        try:
+            next_button = self.driver.find_element(By.CSS_SELECTOR, ".paging-next")
+            if not next_button.is_displayed() or not next_button.is_enabled():
+                return None
+
+            current_url = self.driver.current_url
+            next_href = (next_button.get_attribute("href") or "").strip()
+            if next_href and next_href != current_url:
+                return next_href
+        except Exception as exc:
+            self.logger.warning(
+                f"Unable to find next page button: {type(exc).__name__}: {exc}"
+            )
+            return None
+
+        return None
+
+    def _reset_driver_for_next_page(self, next_page_url: str) -> None:
+        old_driver = self.driver
+        if old_driver is not None:
+            try:
+                old_driver.quit()
+            except Exception as exc:
+                self.logger.warning(
+                    f"Failed to quit previous WebDriver before reset: {type(exc).__name__}: {exc}"
+                )
+
+        max_attempts = 3
+        last_error: Exception | None = None
+        for attempt in range(1, max_attempts + 1):
+            candidate_driver = None
+            try:
+                new_driver = self._create_fresh_driver()
+                candidate_driver = cast(Any, getattr(new_driver, "driver", new_driver))
+                candidate_driver.get(next_page_url)
+                self.driver = candidate_driver
+                self.logger.log(
+                    f"WebDriver reset completed: next_page={next_page_url} attempts={attempt}"
+                )
+                return
+            except Exception as exc:
+                if candidate_driver is not None:
+                    try:
+                        candidate_driver.quit()
+                    except Exception as quit_exc:
+                        self.logger.warning(
+                            f"Failed to quit unsuccessful WebDriver reset attempt: {type(quit_exc).__name__}: {quit_exc}"
+                        )
+                last_error = exc
+                if attempt >= max_attempts:
+                    break
+                self.logger.log(
+                    f"WebDriver reset retry {attempt}/{max_attempts - 1}: {type(exc).__name__}: {exc}"
+                )
+                time.sleep(2**attempt)
+
+        if last_error is not None:
+            self.logger.error(
+                f"WebDriver reset failed after {max_attempts} retries: {type(last_error).__name__}: {last_error}"
+            )
+            raise last_error
+
     def get_products(
         self,
         _callback: ProductsCallback | None = None,
+        category_name: str | None = None,
     ) -> ProductsPageResult:
         """Paginate product tiles and expose only plain text payloads to callback."""
         all_data = []
         all_incomplete = []
         page_stats = []
         page_number = 0
+        reset_count = 0
+        pages_since_reset = 0
+        hard_reset_enabled = self.hard_driver_reset
+        reset_threshold = self.max_pages_per_session
 
         while True:
             page_number += 1
+            pages_since_reset += 1
 
             # Add delay before waiting for products
             time.sleep(random.uniform(1, 2))
@@ -380,8 +469,24 @@ class WebDriver(IWebDriver):
                 }
             )
 
+            if hard_reset_enabled and pages_since_reset >= reset_threshold:
+                next_page_url = self._get_next_page_url()
+                if next_page_url:
+                    self.logger.log(
+                        f"Driver reset triggered: pages_processed={pages_since_reset} reset_count={reset_count + 1}"
+                    )
+                    reset_count += 1
+                    pages_since_reset = 0
+                    self._reset_driver_for_next_page(next_page_url)
+                    continue
+
             if not self._advance_to_next_page():
                 break
+
+        if category_name is not None:
+            self.logger.log(
+                f"Category {category_name}: reset_count={reset_count} pages_processed={page_number}"
+            )
 
         return {
             "products": all_data,

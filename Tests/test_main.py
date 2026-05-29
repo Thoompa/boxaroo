@@ -87,6 +87,54 @@ def test_main_does_not_create_webdriver_when_file_handler_init_raises(monkeypatc
     assert ("INFO", "WebDriver lifecycle stop") not in logger.records
 
 
+@pytest.mark.parametrize("hard_driver_reset", [False, True])
+def test_main_wires_webdriver_constructor_args(monkeypatch, hard_driver_reset):
+    # GIVEN: No injected webdriver and a selected hard driver reset state
+    logger = DummyLogger()
+    captured_args = None
+    captured_kwargs = None
+
+    monkeypatch.setattr(
+        "Code.main.FileHandler",
+        lambda *args, **kwargs: DummyFileHandler(),
+    )
+
+    def capture_web_driver(*args, **kwargs):
+        nonlocal captured_args, captured_kwargs
+        captured_args = args
+        captured_kwargs = kwargs
+        return DummyWebDriver()
+
+    monkeypatch.setattr("Code.main.WebDriver", capture_web_driver)
+    supermarket = DummySupermarket(logger=logger)
+    monkeypatch.setattr(
+        "Code.main.supermarket_factory", lambda *args, **kwargs: supermarket
+    )
+
+    # WHEN: main() is invoked without an injected web driver
+    main(
+        headless=True,
+        logging_level=LoggingLevel.INFO,
+        default_list_size=ListSize.TESTING,
+        refresh_category_lists=False,
+        proxy_server="http://host:port",
+        file_handler=None,
+        logger=logger,
+        web_driver=None,
+        hard_driver_reset=hard_driver_reset,
+    )
+
+    # THEN: WebDriver receives the expected constructor arguments
+    assert captured_args == ()
+    assert captured_kwargs == {
+        "logger": logger,
+        "headless": True,
+        "proxy_server": "http://host:port",
+        "hard_driver_reset": hard_driver_reset,
+        "max_pages_per_session": 12,
+    }
+
+
 # 4: Test None defaults to TESTING
 def test_main_default_list_size_none(monkeypatch):
     # GIVEN: default_list_size=None

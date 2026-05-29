@@ -1,4 +1,5 @@
 {
+  "max_pages_per_session": 12,
   "headless": {
     "products_per_second": 2.0,
     "fixed_overhead_seconds": 30

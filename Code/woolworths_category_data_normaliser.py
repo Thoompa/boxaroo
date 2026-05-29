@@ -37,7 +37,9 @@ class WoolworthsCategoryDataNormaliser:
                 f"{category_name} total count (page data): {category_total if category_total is not None else 'unknown'}"
             )
 
-            data_result = self.web_driver.get_products(self._get_products_data)
+            data_result = self.web_driver.get_products(
+                self._get_products_data, category_name=category_name
+            )
             products = (
                 data_result.get("products", [])
                 if isinstance(data_result, dict)
@@ -133,7 +135,6 @@ class WoolworthsCategoryDataNormaliser:
 
         for i, product_text in enumerate(products):
             try:
-                self.logger.debug("Reading data for product - {0}".format(product_text))
                 parsed_product = self.product_parser.parse(product_text)
 
                 product_name = parsed_product["name"]

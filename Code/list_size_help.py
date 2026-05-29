@@ -14,6 +14,7 @@ class RuntimeProfile(TypedDict):
 
 
 class PerformanceConfig(TypedDict):
+    max_pages_per_session: int
     headless: RuntimeProfile
     interactive: RuntimeProfile
 
@@ -24,7 +25,7 @@ LIST_TOTALS_CACHE_PATH = os.path.join(
     "Data", "category_lists", "woolworths-category-lists.json"
 )
 LIST_SIZE_KEYS = tuple(size.name.lower() for size in ListSize)
-_PERFORMANCE_MODES = tuple(PerformanceConfig.__annotations__)
+_PERFORMANCE_MODES = ("headless", "interactive")
 
 _PROFILE_FIELD_CONSTRAINTS: dict[str, Callable[[float], bool]] = {
     "products_per_second": lambda v: v > 0,
@@ -84,6 +85,14 @@ def load_performance_profile(
     if not isinstance(raw_profile, dict):
         return None
 
+    max_pages_per_session = raw_profile.get("max_pages_per_session", 12)
+    if (
+        not isinstance(max_pages_per_session, int)
+        or isinstance(max_pages_per_session, bool)
+        or max_pages_per_session <= 0
+    ):
+        return None
+
     profiles: dict[str, RuntimeProfile] = {}
     for mode in _PERFORMANCE_MODES:
         profile = _validate_runtime_profile(raw_profile.get(mode))
@@ -91,7 +100,10 @@ def load_performance_profile(
             return None
         profiles[mode] = profile
 
-    return profiles  # type: ignore[return-value]
+    return {
+        "max_pages_per_session": max_pages_per_session,
+        **profiles,
+    }
 
 
 def _format_duration(total_seconds: int) -> str:

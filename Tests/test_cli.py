@@ -14,6 +14,7 @@ from Code.contracts import ListSize, LoggingLevel, Supermarket
         "--refresh_category_lists",
         "--proxy_server",
         "--supermarket",
+        "--hard_driver_reset",
     ],
 )
 def test_build_parser_includes_expected_options(option_string):
@@ -39,6 +40,7 @@ def test_build_parser_preserves_default_values():
     assert args.refresh_category_lists is False
     assert args.proxy_server is None
     assert args.supermarket == Supermarket.WOOLWORTHS.value
+    assert args.hard_driver_reset is False
 
 
 def test_build_parser_uses_current_list_size_help(monkeypatch):
@@ -117,6 +119,7 @@ def test_run_calls_main_with_expected_arguments(monkeypatch):
             "http://host:port",
             "--supermarket",
             Supermarket.WOOLWORTHS.value,
+            "--hard_driver_reset",
         ]
     )
 
@@ -128,4 +131,5 @@ def test_run_calls_main_with_expected_arguments(monkeypatch):
         "supermarket": Supermarket.WOOLWORTHS,
         "refresh_category_lists": True,
         "proxy_server": "http://host:port",
+        "hard_driver_reset": True,
     }
