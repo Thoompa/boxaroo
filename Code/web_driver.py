@@ -265,15 +265,24 @@ class WebDriver(IWebDriver):
         try:
             next_button = self.driver.find_element(By.CSS_SELECTOR, ".paging-next")
             if not next_button.is_displayed() or not next_button.is_enabled():
+                self.logger.debug(
+                    "Pagination stop: next button is not visible or not enabled"
+                )
                 return False
 
             current_url = self.driver.current_url
             next_href = (next_button.get_attribute("href") or "").strip()
+            self.logger.debug(
+                f"Pagination probe: current_url={current_url} next_href={next_href if next_href else '[empty]'}"
+            )
 
             if next_href and next_href != current_url:
                 time.sleep(random.uniform(1, 2))
                 self.driver.get(next_href)
                 time.sleep(random.uniform(3, 6))
+                self.logger.debug(
+                    f"Pagination via href: navigated_to={self.driver.current_url}"
+                )
                 return True
 
             self.driver.execute_script(
@@ -282,8 +291,15 @@ class WebDriver(IWebDriver):
             time.sleep(random.uniform(0.5, 1.0))
             self.driver.execute_script("arguments[0].click();", next_button)
             time.sleep(random.uniform(3, 6))
-            return self.driver.current_url != current_url
-        except Exception:
+            advanced = self.driver.current_url != current_url
+            self.logger.debug(
+                f"Pagination via click: advanced={advanced} new_url={self.driver.current_url}"
+            )
+            return advanced
+        except Exception as exc:
+            self.logger.warning(
+                f"Pagination stop: unable to advance to next page ({type(exc).__name__}: {exc})"
+            )
             return False
 
     def _extract_text_from_product_element(self, element: Any) -> str:
@@ -362,24 +378,33 @@ class WebDriver(IWebDriver):
         max_attempts = 3
         last_error: Exception | None = None
         for attempt in range(1, max_attempts + 1):
-            candidate_driver = None
+            candidate_driver = None
+
             try:
                 new_driver = self._create_fresh_driver()
-                candidate_driver = cast(Any, getattr(new_driver, "driver", new_driver))
-                candidate_driver.get(next_page_url)
-                self.driver = candidate_driver
+                candidate_driver = cast(Any, getattr(new_driver, "driver", new_driver))
+
+                candidate_driver.get(next_page_url)
+
+                self.driver = candidate_driver
+
                 self.logger.log(
                     f"WebDriver reset completed: next_page={next_page_url} attempts={attempt}"
                 )
                 return
             except Exception as exc:
-                if candidate_driver is not None:
-                    try:
-                        candidate_driver.quit()
-                    except Exception as quit_exc:
-                        self.logger.warning(
-                            f"Failed to quit unsuccessful WebDriver reset attempt: {type(quit_exc).__name__}: {quit_exc}"
-                        )
+                if candidate_driver is not None:
+
+                    try:
+
+                        candidate_driver.quit()
+
+                    except Exception as quit_exc:
+
+                        self.logger.warning(
+                            f"Failed to quit unsuccessful WebDriver reset attempt: {type(quit_exc).__name__}: {quit_exc}"
+                        )
+
                 last_error = exc
                 if attempt >= max_attempts:
                     break
