@@ -76,8 +76,9 @@ class DummyWebDriver(IWebDriver):
     def get_products(
         self,
         _callback: ProductsCallback | None = None,
+        category_name: str | None = None,
     ) -> ProductsPageResult:
-        self.called.append(("get_products",))
+        self.called.append(("get_products", category_name))
         if (
             self.invoke_products_callback
             and _callback is not None
@@ -240,7 +241,6 @@ class DummyWebDriverHarness(WebDriver):
     def get_products(
         self,
         _callback: Any | None = None,
-        *,
         category_name: str | None = None,
     ):
         self.page_saved += 1

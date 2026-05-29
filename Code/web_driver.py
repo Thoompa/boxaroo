@@ -388,7 +388,6 @@ class WebDriver(IWebDriver):
     def get_products(
         self,
         _callback: ProductsCallback | None = None,
-        *,
         category_name: str | None = None,
     ) -> ProductsPageResult:
         """Paginate product tiles and expose only plain text payloads to callback."""

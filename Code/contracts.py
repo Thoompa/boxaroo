@@ -176,6 +176,7 @@ class IWebDriver(ABC):
     def get_products(
         self,
         _callback: ProductsCallback | None = None,
+        category_name: str | None = None,
     ) -> ProductsPageResult:
         pass
 
