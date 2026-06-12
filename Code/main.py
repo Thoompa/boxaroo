@@ -150,7 +150,7 @@ def main(
     product_parser=None,
 ) -> None:
     """Compose a scrape run and hand control to the scrape coordinator."""
-    logger = logger or Logger(logging_level)
+    logger = logger if logger is not None else Logger(logging_level)
     (
         list_size,
         selected_supermarket,
