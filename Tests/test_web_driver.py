@@ -819,7 +819,7 @@ def test_reset_driver_for_next_page_logs_quit_failure_and_continues(monkeypatch)
     )
 
 
-def test_get_products_skips_reset_when_next_page_lookup_errors(monkeypatch):
+def test_get_products_skips_reset_when_no_next_page_button(monkeypatch):
     # GIVEN: no next-page button is available while hard reset is enabled and threshold is reached
     monkeypatch.setattr(web_driver_module, "WebDriverWait", DummyWait)
     monkeypatch.setattr(web_driver_module.time, "sleep", lambda _: None)
