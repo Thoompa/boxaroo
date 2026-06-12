@@ -398,7 +398,11 @@ class DummySeleniumSession:
         self._next_button_missing = next_button_missing
         self._click_advances_url_to = click_advances_url_to
         self._mark_incomplete_a = mark_incomplete_a
-        self._next_button_selectors = next_button_selectors or set(NEXT_BUTTON_LOCATORS)
+        self._next_button_selectors = (
+            set(NEXT_BUTTON_LOCATORS)
+            if next_button_selectors is None
+            else next_button_selectors
+        )
 
     def get_products_callback(self, elements, *, page_number):
         products = list(elements)
