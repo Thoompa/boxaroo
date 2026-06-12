@@ -15,6 +15,18 @@ import random
 from Code.contracts import IWebDriver, ILogger, ProductsCallback, ProductsPageResult
 
 
+NEXT_BUTTON_LOCATORS = (
+    (By.CSS_SELECTOR, "a[rel='next']"),
+    (By.CSS_SELECTOR, "a[aria-labelledby='next']"),
+    (
+        By.XPATH,
+        "//a[normalize-space()='Next' or .//span[normalize-space()='Next']]",
+    ),
+    (By.CSS_SELECTOR, "a[class*='pagination-next']"),
+    (By.CSS_SELECTOR, ".paging-next"),
+)
+
+
 class WebDriver(IWebDriver):
 
     @staticmethod
@@ -265,12 +277,16 @@ class WebDriver(IWebDriver):
         try:
             # Wait briefly for next button; if not found, we're at end of pagination.
             try:
-                next_button = WebDriverWait(self.driver, 2).until(
-                    EC.presence_of_element_located((By.CSS_SELECTOR, ".paging-next"))
-                )
+                next_button = self._find_next_button(timeout=2)
             except Exception as wait_exc:
                 self.logger.debug(
                     f"Pagination stop: next button not found after wait ({type(wait_exc).__name__})"
+                )
+                return False
+
+            if next_button is None:
+                self.logger.debug(
+                    "Pagination stop: next button lookup returned no result"
                 )
                 return False
 
@@ -311,6 +327,36 @@ class WebDriver(IWebDriver):
                 f"Pagination stop: unexpected error during advancement ({type(exc).__name__}: {exc})"
             )
             return False
+
+    def _find_next_button(self, timeout: int = 0) -> Any | None:
+        def locate(driver: Any) -> Any | bool:
+            for by, selector in NEXT_BUTTON_LOCATORS:
+                try:
+                    candidate = driver.find_element(by, selector)
+                except Exception:
+                    continue
+
+                if candidate is None:
+                    continue
+
+                try:
+                    if not candidate.is_displayed():
+                        continue
+                except Exception:
+                    continue
+
+                self.logger.debug(
+                    f"Pagination next selector matched: by={by} selector={selector}"
+                )
+                return candidate
+
+            return False
+
+        if timeout > 0:
+            return WebDriverWait(self.driver, timeout).until(locate)
+
+        next_button = locate(self.driver)
+        return next_button if next_button is not False else None
 
     def _extract_text_from_product_element(self, element: Any) -> str:
         """Return plain product text from a Selenium tile element."""
@@ -359,7 +405,10 @@ class WebDriver(IWebDriver):
 
     def _get_next_page_url(self) -> str | None:
         try:
-            next_button = self.driver.find_element(By.CSS_SELECTOR, ".paging-next")
+            next_button = self._find_next_button()
+            if next_button is None:
+                return None
+
             if not next_button.is_displayed() or not next_button.is_enabled():
                 return None
 

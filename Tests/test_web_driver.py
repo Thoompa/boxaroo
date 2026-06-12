@@ -249,6 +249,38 @@ def test_advance_to_next_page_uses_click_when_href_is_empty(monkeypatch):
     assert driver.driver.current_url == "page-2"
 
 
+def test_advance_to_next_page_prefers_rel_next_selector(monkeypatch):
+    # GIVEN: the current site exposes the next button via a semantic rel attribute
+    monkeypatch.setattr(web_driver_module, "WebDriverWait", DummyWait)
+    monkeypatch.setattr(web_driver_module.time, "sleep", lambda _: None)
+    monkeypatch.setattr(web_driver_module.random, "uniform", lambda a, b: 0)
+    driver = DummyWebDriverHarness()
+    driver.driver = DummySeleniumSession(
+        next_button_selectors={("css selector", "a[rel='next']")}
+    )
+
+    # WHEN: the next page is advanced
+    result = WebDriver._advance_to_next_page(driver)
+
+    # THEN: href-based navigation succeeds without the legacy class selector
+    assert result is True
+    assert driver.driver.current_url == "page-2"
+
+
+def test_get_next_page_url_uses_legacy_selector_as_fallback():
+    # GIVEN: only the legacy pagination selector is available on the page
+    driver = DummyWebDriverHarness()
+    driver.driver = DummySeleniumSession(
+        next_button_selectors={("css selector", ".paging-next")}
+    )
+
+    # WHEN: the next page URL is retrieved
+    result = WebDriver._get_next_page_url(driver)
+
+    # THEN: the legacy selector still resolves the next page href
+    assert result == "page-2"
+
+
 def test_advance_to_next_page_returns_false_when_button_is_hidden(monkeypatch):
     # GIVEN: the next button exists but is not visible on the page
     monkeypatch.setattr(web_driver_module.time, "sleep", lambda _: None)
@@ -787,8 +819,8 @@ def test_reset_driver_for_next_page_logs_quit_failure_and_continues(monkeypatch)
     )
 
 
-def test_get_products_skips_reset_when_next_page_lookup_errors(monkeypatch):
-    # GIVEN: next-page lookup errors while hard reset is enabled and threshold is reached
+def test_get_products_skips_reset_when_no_next_page_button(monkeypatch):
+    # GIVEN: no next-page button is available while hard reset is enabled and threshold is reached
     monkeypatch.setattr(web_driver_module, "WebDriverWait", DummyWait)
     monkeypatch.setattr(web_driver_module.time, "sleep", lambda _: None)
     monkeypatch.setattr(web_driver_module.random, "uniform", lambda a, b: 0)
@@ -819,14 +851,10 @@ def test_get_products_skips_reset_when_next_page_lookup_errors(monkeypatch):
         category_name="beauty",
     )
 
-    # THEN: the warning path returns no next URL and reset is skipped
+    # THEN: no next URL is returned and the reset is skipped
     assert result["products"] == ["A", "B"]
     assert factory.calls == 0
     assert original_driver.called.count(("quit",)) == 0
-    assert any(
-        level == "WARNING" and "Unable to find next page button" in message
-        for level, message in logger.records
-    )
 
 
 # ============================================================

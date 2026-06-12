@@ -19,7 +19,7 @@ from Code.contracts import (
     LoggingLevel,
     IFileHandler,
 )
-from Code.web_driver import WebDriver
+from Code.web_driver import WebDriver, NEXT_BUTTON_LOCATORS
 from Code.woolworths_category_data_normaliser import WoolworthsCategoryDataNormaliser
 from Code.woolworths_category_source import WoolworthsCategorySource
 
@@ -379,6 +379,7 @@ class DummySeleniumSession:
         pages: list[list[str]] | None = None,
         page_urls: list[str] | None = None,
         start_page_index: int = 0,
+        next_button_selectors: set[tuple[str, str]] | None = None,
     ):
         self.pages = pages or [["A", "B"], ["C", "D"]]
         self.page_urls = page_urls or [
@@ -397,6 +398,11 @@ class DummySeleniumSession:
         self._next_button_missing = next_button_missing
         self._click_advances_url_to = click_advances_url_to
         self._mark_incomplete_a = mark_incomplete_a
+        self._next_button_selectors = (
+            set(NEXT_BUTTON_LOCATORS)
+            if next_button_selectors is None
+            else next_button_selectors
+        )
 
     def get_products_callback(self, elements, *, page_number):
         products = list(elements)
@@ -426,7 +432,7 @@ class DummySeleniumSession:
             if tiles:
                 return tiles[0]
             raise Exception("no product tiles")
-        if by == "css selector" and value == ".paging-next":
+        if (by, value) in self._next_button_selectors:
             if self._next_button_missing:
                 raise Exception("no next button")
             if self.page_index < len(self.pages) - 1:
