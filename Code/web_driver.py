@@ -218,6 +218,7 @@ class WebDriver(IWebDriver):
         script = r"""
         try {
             var selectors = [
+                '[class*="pagination-info_component_pagination-info"]',
                 '.ais-Stats-text',
                 '.search-result-count',
                 '.search-results-count',
@@ -237,6 +238,10 @@ class WebDriver(IWebDriver):
             var displayMatch = bodyText.match(/displaying\s+\d+\s*[–-]\s*(?:to\s*)?\d+\s+of\s+\d[\d,]*\s+products/i);
             if (displayMatch && displayMatch[0]) {
                 return displayMatch[0].trim();
+            }
+            var rangeMatch = bodyText.match(/\b\d[\d,]*\s*[–-]\s*(?:to\s*)?\d[\d,]*\s+of\s+\d[\d,]*\s+products\b/i);
+            if (rangeMatch && rangeMatch[0]) {
+                return rangeMatch[0].trim();
             }
             var tiles = document.querySelectorAll('wc-product-tile');
             if (tiles) {

@@ -121,6 +121,18 @@ def test_get_category_total_items_parses_total_from_range_text():
     assert total == 10000
 
 
+def test_get_category_total_items_parses_total_from_updated_pagination_component():
+    # GIVEN: the page displays the new pagination component text format
+    driver = DummyWebDriverHarness()
+    driver._category_total_script_response = "1 –to 36 of 557 Products"
+
+    # WHEN: the category total is retrieved
+    total = driver.get_category_total_items()
+
+    # THEN: the total product count is returned correctly
+    assert total == 557
+
+
 def test_get_category_total_items_parses_total_from_last_numeric_token():
     # GIVEN: the page shows a count string with no "of N" pattern
     driver = DummyWebDriverHarness()
@@ -131,6 +143,21 @@ def test_get_category_total_items_parses_total_from_last_numeric_token():
 
     # THEN: the last numeric token is parsed and returned
     assert total == 1200
+
+
+def test_get_category_total_items_script_includes_pagination_info_selector():
+    # GIVEN: a web driver harness that records the JavaScript extraction script
+    driver = DummyWebDriverHarness()
+    driver._category_total_script_response = "Showing 1 Products"
+
+    # WHEN: the category total is retrieved
+    driver.get_category_total_items()
+
+    # THEN: the extraction script targets the new pagination component class
+    assert any(
+        "pagination-info_component_pagination-info" in script
+        for script in driver.scripts
+    )
 
 
 # ============================================================
