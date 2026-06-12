@@ -146,7 +146,7 @@ def test_get_category_total_items_parses_total_from_last_numeric_token():
 
 
 def test_get_category_total_items_script_includes_pagination_info_selector():
-    # GIVEN: a web driver harness that records the JavaScript extraction script
+    # GIVEN: the page exposes the total count via the new pagination component class
     driver = DummyWebDriverHarness()
     driver._category_total_script_response = "Showing 1 Products"
 
