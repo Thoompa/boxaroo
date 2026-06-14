@@ -32,6 +32,19 @@ def test_supermarket_enum_includes_coles_value():
     assert "coles" in supported_values
 
 
+def test_supermarket_factory_registers_coles_adapter():
+    # GIVEN: the supermarket factory registry
+
+    # WHEN: the Coles registry entry is inspected
+    coles_adapter = supermarket_factory_module.SUPERMARKET_REGISTRY.get(
+        Supermarket.COLES
+    )
+
+    # THEN: Coles is mapped to its dedicated adapter implementation
+    assert coles_adapter is not None
+    assert coles_adapter.__name__ == "Coles"
+
+
 @pytest.mark.parametrize(
     "supermarket_input",
     ["WOOLWORTHS", "woolworths", "COLES", "coles"],

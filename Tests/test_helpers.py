@@ -19,6 +19,8 @@ from Code.contracts import (
     LoggingLevel,
     IFileHandler,
 )
+from Code.coles_category_data_normaliser import ColesCategoryDataNormaliser
+from Code.coles_category_source import ColesCategorySource
 from Code.web_driver import WebDriver, NEXT_BUTTON_LOCATORS
 from Code.woolworths_category_data_normaliser import WoolworthsCategoryDataNormaliser
 from Code.woolworths_category_source import WoolworthsCategorySource
@@ -60,11 +62,11 @@ class DummyWebDriver(IWebDriver):
         if error_on_init:
             raise AssertionError("WebDriver should not be created")
         self.called = []
-        self.script_response = ""
-        self.category_total_items = None
+        self.script_response: Any = ""
+        self.category_total_items: int | None = None
         self.category_total_items_sequence = []
         self.invoke_products_callback = False
-        self.products_response: ProductsPageResult = {
+        self.products_response: Any = {
             "products": [],
             "incomplete_items": [],
             "page_stats": [],
@@ -290,6 +292,25 @@ def make_woolworths_category_source(
     )
 
 
+def make_coles_category_source(
+    cache_path: str,
+    logger: DummyLogger | None = None,
+    web_driver: DummyWebDriver | None = None,
+    base_url: str = "https://www.coles.com.au",
+    browse_url: str = "https://www.coles.com.au/browse/",
+) -> ColesCategorySource:
+    logger = logger or DummyLogger()
+    web_driver = web_driver or DummyWebDriver()
+    service = CategoryListService(cache_path, logger)
+    return ColesCategorySource(
+        logger=logger,
+        web_driver=web_driver,
+        category_list_service=service,
+        base_url=base_url,
+        browse_url=browse_url,
+    )
+
+
 def make_woolworths_category_data_normaliser(
     logger: DummyLogger | None = None,
     web_driver: DummyWebDriver | None = None,
@@ -300,6 +321,23 @@ def make_woolworths_category_data_normaliser(
     web_driver = web_driver or DummyWebDriver()
     product_parser = product_parser or DummyProductParser()
     return WoolworthsCategoryDataNormaliser(
+        logger=logger,
+        web_driver=web_driver,
+        product_parser=product_parser,
+        browse_url=browse_url,
+    )
+
+
+def make_coles_category_data_normaliser(
+    logger: DummyLogger | None = None,
+    web_driver: DummyWebDriver | None = None,
+    product_parser: DummyProductParser | None = None,
+    browse_url: str = "https://www.coles.com.au/browse/",
+) -> ColesCategoryDataNormaliser:
+    logger = logger or DummyLogger()
+    web_driver = web_driver or DummyWebDriver()
+    product_parser = product_parser or DummyProductParser()
+    return ColesCategoryDataNormaliser(
         logger=logger,
         web_driver=web_driver,
         product_parser=product_parser,
