@@ -1,0 +1,10 @@
+[Unit]
+Description=Run Boxaroo scraper
+After=network-online.target
+Wants=network-online.target
+
+[Service]
+Type=oneshot
+WorkingDirectory=/home/<your-user>/boxaroo
+ExecStart=/home/<your-user>/boxaroo/.venv/bin/python __main__.py --list_size FULL --headless
+User=<your-user>

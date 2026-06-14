@@ -1,0 +1,9 @@
+[Unit]
+Description=Run Boxaroo every Wednesday at 8am
+
+[Timer]
+OnCalendar=Wed *-*-* 08:00:00
+Persistent=true
+
+[Install]
+WantedBy=timers.target
