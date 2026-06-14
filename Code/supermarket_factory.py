@@ -8,6 +8,7 @@ from Code.contracts import (
 from Code.file_handler import IFileHandler
 from Code.logger import ILogger
 from Code.product_parser import IProductParser
+from Code.coles import Coles
 from Code.woolworths import Woolworths
 
 __all__ = [
@@ -38,7 +39,7 @@ def resolve_supermarket(supermarket: str | Supermarket | None) -> Supermarket:
 
 SUPERMARKET_REGISTRY = {
     Supermarket.WOOLWORTHS: Woolworths,
-    Supermarket.COLES: Woolworths,
+    Supermarket.COLES: Coles,
 }
 
 
