@@ -38,7 +38,6 @@ def resolve_supermarket(supermarket: str | Supermarket | None) -> Supermarket:
 
 SUPERMARKET_REGISTRY = {
     Supermarket.WOOLWORTHS: Woolworths,
-    Supermarket.COLES: Woolworths,
 }
 
 

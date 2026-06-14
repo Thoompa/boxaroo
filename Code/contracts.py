@@ -5,7 +5,6 @@ from typing import Any, Iterable, Protocol, Sequence, TypedDict
 
 class Supermarket(Enum):
     WOOLWORTHS = "woolworths"
-    COLES = "coles"
 
 
 class ListSize(Enum):
