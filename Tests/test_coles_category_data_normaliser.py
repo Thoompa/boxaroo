@@ -43,3 +43,36 @@ def test_get_category_data_returns_expected_shape_on_success():
     ]
     assert result["scraped"] == 2
     assert result["incomplete"] == 1
+
+
+def test_get_category_data_invokes_parser_via_products_callback():
+    # GIVEN: a driver that returns raw product payloads and invokes the products callback
+    logger = DummyLogger()
+    parser = DummyProductParser()
+    parser.set_default_response(
+        {
+            "name": "Apple each",
+            "price": "$1.00",
+            "unit_price": "$1.00 / 1EA",
+            "promotion": "",
+            "missing_fields": [],
+        }
+    )
+    web_driver = DummyWebDriver()
+    web_driver.invoke_products_callback = True
+    web_driver.category_total_items = 1
+    web_driver.products_response = {
+        "products": ["raw text from UI"],
+        "incomplete_items": [],
+        "page_stats": [],
+    }
+    normaliser = make_coles_category_data_normaliser(
+        logger=logger, web_driver=web_driver, product_parser=parser
+    )
+
+    # WHEN: category data is retrieved
+    result = normaliser.get_category_data("fruit-veg")
+
+    # THEN: the parser is invoked and parsed products are returned
+    assert parser.calls == ["raw text from UI"]
+    assert result["products"] == [["Apple each", "$1.00", "$1.00 / 1EA", ""]]
