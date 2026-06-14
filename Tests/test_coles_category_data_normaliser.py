@@ -71,7 +71,7 @@ def test_get_category_data_invokes_parser_via_products_callback():
     )
 
     # WHEN: category data is retrieved
-    result = normaliser.get_category_data("fruit-veg")
+    result = normaliser.get_category_data("deli")
 
     # THEN: the parser is invoked and parsed products are returned
     assert parser.calls == ["raw text from UI"]

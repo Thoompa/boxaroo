@@ -44,7 +44,7 @@ class Coles(ISuperMarket):
         ]
         self.driver = web_driver
         self.base_url = "https://www.coles.com.au"
-        self.url = "https://www.coles.com.au/shop/browse/"
+        self.url = "https://www.coles.com.au/browse/"
         default_cache_path = os.path.join(
             "Data", "category_lists", "coles-category-lists.json"
         )
