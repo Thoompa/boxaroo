@@ -22,9 +22,19 @@ def test_resolve_supermarket_defaults_to_woolworths(supermarket_input):
     assert resolved == Supermarket.WOOLWORTHS
 
 
+def test_supermarket_enum_includes_coles_value():
+    # GIVEN: The supported supermarket domain enum
+
+    # WHEN: enum values are inspected
+    supported_values = [member.value for member in Supermarket]
+
+    # THEN: Coles is available as a first-class supermarket option
+    assert "coles" in supported_values
+
+
 @pytest.mark.parametrize(
     "supermarket_input",
-    ["WOOLWORTHS", "woolworths"],
+    ["WOOLWORTHS", "woolworths", "COLES", "coles"],
 )
 def test_resolve_supermarket_matches_by_name_and_value(supermarket_input):
     # GIVEN: A supermarket key provided as enum name or enum value
@@ -33,7 +43,12 @@ def test_resolve_supermarket_matches_by_name_and_value(supermarket_input):
     resolved = resolve_supermarket(supermarket_input)
 
     # THEN: The matching supermarket enum member is returned
-    assert resolved == Supermarket.WOOLWORTHS
+    expected = (
+        Supermarket.WOOLWORTHS
+        if supermarket_input.lower() == "woolworths"
+        else Supermarket.COLES
+    )
+    assert resolved == expected
 
 
 def test_resolve_supermarket_raises_for_unsupported_key():
