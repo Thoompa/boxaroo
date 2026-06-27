@@ -12,3 +12,5 @@ dist/
 Config/performance.json
 Deploy/boxaroo.*
 !Deploy/boxaroo.example.*
+Deploy/boxaroo-long-categories.*
+!Deploy/boxaroo-long-categories.example.*

@@ -32,8 +32,8 @@ class WoolworthsCategorySource:
     def get_categories(
         self,
         list_size: ListSize,
-        category: str | None = None,
         refresh_category_lists: bool = False,
+        category: str | None = None,
         category_discovery: Callable[[], list[WebsiteCategory]] | None = None,
     ) -> list[str]:
         # Keep current cache in memory for the happy path and for fallback recovery.

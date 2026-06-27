@@ -1,9 +1,0 @@
-[Unit]
-Description=Run Boxaroo LONG category loop every Wednesday at 8am
-
-[Timer]
-OnCalendar=Wed *-*-* 08:00:00
-Persistent=true
-
-[Install]
-WantedBy=timers.target
