@@ -101,11 +101,13 @@ class CategoryListService(ICategoryListService):
                 "category_product_totals": {},
             }
 
-        testing = [min(category_counts, key=lambda x: (x["count"], x["name"]))["name"]]
-        short = sorted([x["name"] for x in category_counts if x["count"] < 1000])
-        medium = sorted([x["name"] for x in category_counts if x["count"] < 1800])
-        long = sorted([x["name"] for x in category_counts if x["count"] < 10000])
-        full = sorted([x["name"] for x in category_counts])
+        sorted_counts = sorted(category_counts, key=lambda x: (x["count"], x["name"]))
+
+        testing = [sorted_counts[0]["name"]]
+        short = [x["name"] for x in sorted_counts if x["count"] < 1000]
+        medium = [x["name"] for x in sorted_counts if x["count"] < 1800]
+        long = [x["name"] for x in sorted_counts if x["count"] < 10000]
+        full = [x["name"] for x in sorted_counts]
 
         count_map = {x["name"]: x["count"] for x in category_counts}
 
@@ -130,15 +132,23 @@ class CategoryListService(ICategoryListService):
     def select(
         self, category_lists: CategoryListCache, list_size: ListSize
     ) -> list[str]:
+        category_totals = category_lists.get("category_product_totals")
+
         if list_size == ListSize.TESTING:
-            return category_lists.get("testing", [])
+            selected = category_lists.get("testing", [])
+            return self._sort_by_totals_if_available(selected, category_totals)
         if list_size == ListSize.SHORT:
-            return category_lists.get("short", [])
+            selected = category_lists.get("short", [])
+            return self._sort_by_totals_if_available(selected, category_totals)
         if list_size == ListSize.MEDIUM:
-            return category_lists.get("medium", [])
+            selected = category_lists.get("medium", [])
+            return self._sort_by_totals_if_available(selected, category_totals)
         if list_size == ListSize.LONG:
-            return category_lists.get("long", [])
-        return category_lists.get("full", [])
+            selected = category_lists.get("long", [])
+            return self._sort_by_totals_if_available(selected, category_totals)
+
+        selected = category_lists.get("full", [])
+        return self._sort_by_totals_if_available(selected, category_totals)
 
     def load_cached_lists(self) -> CategoryListCache:
         loaded = self.load()
@@ -156,28 +166,49 @@ class CategoryListService(ICategoryListService):
 
         if not isinstance(cached.get("medium"), list):
             if isinstance(category_totals, dict) and category_totals:
-                cached["medium"] = sorted(
-                    [
-                        name
-                        for name in full
-                        if isinstance(category_totals.get(name), int)
-                        and category_totals.get(name, 0) < 1800
-                    ]
+                medium_candidates = [
+                    name
+                    for name in full
+                    if isinstance(category_totals.get(name), int)
+                    and category_totals.get(name, 0) < 1800
+                ]
+                cached["medium"] = self._sort_by_totals_if_available(
+                    medium_candidates,
+                    category_totals,
                 )
             else:
                 cached["medium"] = short
 
         if not isinstance(cached.get("long"), list):
             if isinstance(category_totals, dict) and category_totals:
-                cached["long"] = sorted(
-                    [
-                        name
-                        for name in full
-                        if isinstance(category_totals.get(name), int)
-                        and category_totals.get(name, 0) < 10000
-                    ]
+                long_candidates = [
+                    name
+                    for name in full
+                    if isinstance(category_totals.get(name), int)
+                    and category_totals.get(name, 0) < 10000
+                ]
+                cached["long"] = self._sort_by_totals_if_available(
+                    long_candidates,
+                    category_totals,
                 )
             else:
                 cached["long"] = full
 
         return cached
+
+    def _sort_by_totals_if_available(
+        self, categories: list[str], category_totals: object
+    ) -> list[str]:
+        if not isinstance(category_totals, dict) or not category_totals:
+            return categories
+
+        missing_total = any(
+            not isinstance(category_totals.get(name), int) for name in categories
+        )
+        if missing_total:
+            return categories
+
+        return sorted(
+            categories,
+            key=lambda name: (cast(dict[str, int], category_totals)[name], name),
+        )
