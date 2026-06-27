@@ -36,12 +36,15 @@ class ScrapeCoordinator:
     def run(
         self,
         list_size: ListSize = ListSize.FULL,
+        category: str | None = None,
         refresh_category_lists: bool = False,
     ) -> None:
         start_time = perf_counter()
         self.logger.log(f"Scraping {type(self.supermarket).__name__} categories")
         categories = self.supermarket.get_categories(
-            list_size, refresh_category_lists=refresh_category_lists
+            list_size,
+            category=category,
+            refresh_category_lists=refresh_category_lists,
         )
 
         total_products = 0

@@ -9,6 +9,7 @@ from Code.contracts import ListSize, LoggingLevel, Supermarket
     "option_string",
     [
         "--list_size",
+        "--category",
         "--headless",
         "--logging_level",
         "--refresh_category_lists",
@@ -35,6 +36,7 @@ def test_build_parser_preserves_default_values():
 
     # THEN: The current default values are preserved
     assert args.list_size == "FULL"
+    assert args.category is None
     assert args.headless is False
     assert args.logging_level == "INFO"
     assert args.refresh_category_lists is False
@@ -111,6 +113,8 @@ def test_run_calls_main_with_expected_arguments(monkeypatch):
         [
             "--list_size",
             "FULL",
+            "--category",
+            "fruit-veg",
             "--headless",
             "--logging_level",
             "ERROR",
@@ -128,6 +132,7 @@ def test_run_calls_main_with_expected_arguments(monkeypatch):
         "headless": True,
         "logging_level": LoggingLevel.ERROR,
         "default_list_size": ListSize.FULL,
+        "category": "fruit-veg",
         "supermarket": Supermarket.WOOLWORTHS,
         "refresh_category_lists": True,
         "proxy_server": "http://host:port",

@@ -68,10 +68,12 @@ class Woolworths(ISuperMarket):
     def get_categories(
         self,
         list_size: ListSize = ListSize.FULL,
+        category: str | None = None,
         refresh_category_lists: bool = False,
     ) -> list[str]:
         return self.category_source.get_categories(
             list_size=list_size,
+            category=category,
             refresh_category_lists=refresh_category_lists,
         )
 

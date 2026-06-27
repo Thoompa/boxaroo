@@ -7,6 +7,7 @@ Ownership:
 - Surface a main() function for CLI and other potential entry points to invoke.
 """
 
+import re
 from datetime import date
 
 from Code.contracts import ListSize, LoggingLevel, Supermarket
@@ -26,15 +27,30 @@ from Code.supermarket_factory import (
 from Code.web_driver import WebDriver
 
 
+def _build_output_file_name(
+    supermarket_name: str,
+    list_size: ListSize,
+    category: str | None,
+) -> str:
+    suffix = list_size.name
+    if category is not None and category.strip():
+        normalized_category = re.sub(r"[^a-z0-9-]+", "-", category.strip().lower())
+        normalized_category = re.sub(r"-+", "-", normalized_category).strip("-")
+        suffix = normalized_category or list_size.name
+
+    return "{0}-{1}-{2}.csv".format(supermarket_name, date.today(), suffix)
+
+
 def _build_run_context(
     default_list_size: ListSize | None,
+    category: str | None,
     supermarket: str | Supermarket | None,
 ) -> tuple[ListSize, Supermarket, str, str, str, list[str]]:
     list_size = default_list_size if default_list_size is not None else ListSize.TESTING
     selected_supermarket = resolve_supermarket(supermarket)
     supermarket_name = selected_supermarket.value
     file_path = "Data/{0}".format(date.today())
-    file_name = "{0}-{1}-{2}.csv".format(supermarket_name, date.today(), list_size.name)
+    file_name = _build_output_file_name(supermarket_name, list_size, category)
     header = ["Product Name", "Price", "Unit Price", "Promotion"]
     return (
         list_size,
@@ -87,6 +103,7 @@ def _run_scrape(
     selected_supermarket: Supermarket,
     supermarket_name: str,
     list_size: ListSize,
+    category: str | None,
     refresh_category_lists: bool,
     injected_web_driver: bool,
     headless: bool,
@@ -111,14 +128,23 @@ def _run_scrape(
         product_parser,
     )
     coordinator = ScrapeCoordinator(supermarket_adapter, logger, file_handler)
+    target_label = (
+        "category - {0}".format(category.strip())
+        if isinstance(category, str) and category.strip()
+        else "list size - {0}".format(list_size.name)
+    )
     logger.log(
-        "Running{0} Boxaroo with supermarket - {1} and list size - {2}".format(
-            " Headless" if headless else "", supermarket_name, list_size.name
+        "Running{0} Boxaroo with supermarket - {1} and {2}".format(
+            " Headless" if headless else "", supermarket_name, target_label
         )
     )
     logger.log("WebDriver lifecycle start")
     mark_lifecycle_started()
-    coordinator.run(list_size=list_size, refresh_category_lists=refresh_category_lists)
+    coordinator.run(
+        list_size=list_size,
+        category=category,
+        refresh_category_lists=refresh_category_lists,
+    )
 
 
 def _teardown_web_driver(
@@ -140,6 +166,7 @@ def main(
     headless=False,
     logging_level=LoggingLevel.INFO,
     default_list_size: ListSize | None = ListSize.TESTING,
+    category: str | None = None,
     supermarket: str | Supermarket | None = Supermarket.WOOLWORTHS,
     refresh_category_lists=False,
     hard_driver_reset=False,
@@ -158,7 +185,7 @@ def main(
         file_path,
         file_name,
         header,
-    ) = _build_run_context(default_list_size, supermarket)
+    ) = _build_run_context(default_list_size, category, supermarket)
 
     file_handler, web_driver, injected_web_driver = _prepare_runtime_dependencies(
         file_handler=file_handler,
@@ -183,6 +210,7 @@ def main(
             selected_supermarket=selected_supermarket,
             supermarket_name=supermarket_name,
             list_size=list_size,
+            category=category,
             refresh_category_lists=refresh_category_lists,
             injected_web_driver=injected_web_driver,
             headless=headless,

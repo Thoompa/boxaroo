@@ -1,6 +1,8 @@
 import json
 from unittest.mock import patch
 
+import pytest
+
 from Code.contracts import ListSize
 from Tests.test_helpers import (
     DummyLogger,
@@ -48,6 +50,138 @@ def test_get_categories_uses_cache_when_selected_categories_match_site(tmp_path)
 
     # THEN: cached selected categories are returned without total-count refresh checks
     assert result == ["fruit-veg", "pantry"]
+    assert (
+        len([c for c in web_driver.called if c[0] == "get_category_total_items"]) == 0
+    )
+
+
+def test_get_categories_returns_requested_category_when_present_in_selected_list(
+    tmp_path,
+):
+    # GIVEN: a cached selected list that contains the requested category
+    logger = DummyLogger()
+    web_driver = DummyWebDriver()
+    cache_file = tmp_path / "woolworths-category-lists.json"
+    cache_data = {
+        "supermarket_categories": ["fruit-veg", "pantry", "pet"],
+        "testing": ["fruit-veg"],
+        "short": ["fruit-veg", "pantry"],
+        "full": ["fruit-veg", "pantry", "pet"],
+    }
+    cache_file.write_text(json.dumps(cache_data), encoding="utf-8")
+
+    source = make_woolworths_category_source(
+        cache_path=str(cache_file), logger=logger, web_driver=web_driver
+    )
+    web_driver.script_response = [
+        True,
+        [
+            {
+                "name": "fruit-veg",
+                "href": "https://www.woolworths.com.au/shop/browse/fruit-veg",
+            },
+            {
+                "name": "pantry",
+                "href": "https://www.woolworths.com.au/shop/browse/pantry",
+            },
+            {
+                "name": "pet",
+                "href": "https://www.woolworths.com.au/shop/browse/pet",
+            },
+        ],
+    ]
+
+    # WHEN: categories are requested with a specific category override
+    result = source.get_categories(list_size=ListSize.SHORT, category="pantry")
+
+    # THEN: only the requested category is returned
+    assert result == ["pantry"]
+
+
+def test_get_categories_logs_error_and_exits_when_requested_category_is_missing(
+    tmp_path,
+):
+    # GIVEN: a cached selected list that does not include the requested category
+    logger = DummyLogger()
+    web_driver = DummyWebDriver()
+    cache_file = tmp_path / "woolworths-category-lists.json"
+    cache_data = {
+        "supermarket_categories": ["fruit-veg", "pantry", "pet"],
+        "testing": ["fruit-veg"],
+        "short": ["fruit-veg", "pantry"],
+        "full": ["fruit-veg", "pantry", "pet"],
+    }
+    cache_file.write_text(json.dumps(cache_data), encoding="utf-8")
+
+    source = make_woolworths_category_source(
+        cache_path=str(cache_file), logger=logger, web_driver=web_driver
+    )
+    web_driver.script_response = [
+        True,
+        [
+            {
+                "name": "fruit-veg",
+                "href": "https://www.woolworths.com.au/shop/browse/fruit-veg",
+            },
+            {
+                "name": "pantry",
+                "href": "https://www.woolworths.com.au/shop/browse/pantry",
+            },
+            {
+                "name": "pet",
+                "href": "https://www.woolworths.com.au/shop/browse/pet",
+            },
+        ],
+    ]
+
+    # WHEN: categories are requested with an unknown category override
+    with pytest.raises(SystemExit, match="1"):
+        source.get_categories(list_size=ListSize.SHORT, category="seafood")
+
+    # THEN: an error is logged describing the unknown category
+    error_messages = [message for level, message in logger.records if level == "ERROR"]
+    assert any(
+        "Category 'seafood' was not found" in message for message in error_messages
+    )
+
+
+def test_get_categories_category_override_skips_refresh_when_cache_selection_mismatches(
+    tmp_path,
+):
+    # GIVEN: selected cache categories mismatch the site and category override is requested
+    logger = DummyLogger()
+    web_driver = DummyWebDriver()
+    cache_file = tmp_path / "woolworths-category-lists.json"
+    cache_data = {
+        "supermarket_categories": ["fruit-veg", "pantry"],
+        "testing": ["fruit-veg"],
+        "short": ["fruit-veg", "pantry"],
+        "full": ["fruit-veg", "pantry"],
+    }
+    cache_file.write_text(json.dumps(cache_data), encoding="utf-8")
+
+    source = make_woolworths_category_source(
+        cache_path=str(cache_file), logger=logger, web_driver=web_driver
+    )
+    web_driver.script_response = [
+        True,
+        [
+            {
+                "name": "baby",
+                "href": "https://www.woolworths.com.au/shop/browse/baby",
+            },
+            {
+                "name": "pantry",
+                "href": "https://www.woolworths.com.au/shop/browse/pantry",
+            },
+        ],
+    ]
+
+    # WHEN: categories are requested with category override
+    result = source.get_categories(list_size=ListSize.SHORT, category="baby")
+
+    # THEN: the requested category is returned without full category count refresh
+    assert result == ["baby"]
     assert (
         len([c for c in web_driver.called if c[0] == "get_category_total_items"]) == 0
     )
@@ -477,22 +611,22 @@ def test_refresh_category_lists_from_site_classifies_by_count(tmp_path):
 
     # THEN: categories are classified by size based on product count
     assert out["testing"] == ["liquor"]
-    assert out["short"] == ["fruit-veg", "liquor"]
-    assert out["medium"] == ["dairy-eggs-fridge", "fruit-veg", "liquor", "pantry"]
+    assert out["short"] == ["liquor", "fruit-veg"]
+    assert out["medium"] == ["liquor", "fruit-veg", "pantry", "dairy-eggs-fridge"]
     assert out["long"] == [
-        "dairy-eggs-fridge",
-        "fruit-veg",
-        "home-lifestyle",
         "liquor",
+        "fruit-veg",
         "pantry",
+        "dairy-eggs-fridge",
+        "home-lifestyle",
     ]
     assert out["full"] == [
-        "dairy-eggs-fridge",
-        "electronics",
-        "fruit-veg",
-        "home-lifestyle",
         "liquor",
+        "fruit-veg",
         "pantry",
+        "dairy-eggs-fridge",
+        "home-lifestyle",
+        "electronics",
     ]
     assert len(out["short"]) < len(out["medium"]) < len(out["long"]) < len(out["full"])
     assert (
@@ -528,10 +662,10 @@ def test_refresh_category_lists_from_site_skips_zero_count_categories(tmp_path):
 
     # THEN: categories with zero items are excluded from all lists
     assert out["testing"] == ["liquor"]
-    assert out["short"] == ["fruit-veg", "liquor"]
-    assert out["medium"] == ["fruit-veg", "liquor"]
-    assert out["long"] == ["fruit-veg", "liquor"]
-    assert out["full"] == ["fruit-veg", "liquor"]
+    assert out["short"] == ["liquor", "fruit-veg"]
+    assert out["medium"] == ["liquor", "fruit-veg"]
+    assert out["long"] == ["liquor", "fruit-veg"]
+    assert out["full"] == ["liquor", "fruit-veg"]
     assert "front-of-store" not in out["testing"]
     assert "front-of-store" not in out["short"]
     assert "front-of-store" not in out["full"]
