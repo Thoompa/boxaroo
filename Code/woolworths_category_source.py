@@ -33,12 +33,15 @@ class WoolworthsCategorySource:
         self,
         list_size: ListSize,
         refresh_category_lists: bool = False,
+        category: str | None = None,
         category_discovery: Callable[[], list[WebsiteCategory]] | None = None,
     ) -> list[str]:
+        # Keep current cache in memory for the happy path and for fallback recovery.
         cached_lists = self.category_list_service.load()
         discover_categories = category_discovery or self._get_supermarket_categories
 
         try:
+            # Always attempt a live discovery first so we can validate cache freshness.
             website_categories = discover_categories()
             website_category_names = (
                 [item["name"] for item in website_categories]
@@ -51,6 +54,26 @@ class WoolworthsCategorySource:
                 else []
             )
 
+            # Category override path: validate against available category names and
+            # return the single requested category without list-size refresh/counting.
+            if category is not None:
+                available_categories = (
+                    website_category_names
+                    or (cached_lists.get("full", []) if cached_lists else [])
+                    or selected_cached_categories
+                )
+                return self._select_requested_category_or_exit(
+                    selected_categories=[],
+                    requested_category=category,
+                    available_categories=available_categories,
+                )
+
+            # Fast path gate:
+            # - user did not force refresh
+            # - we have cached categories for this list size
+            # - cached categories still exist on the website
+            # - for TESTING runs, each cached category still reports products
+            # If all checks pass, we skip recounting categories from the site.
             if (
                 not refresh_category_lists
                 and selected_cached_categories
@@ -70,15 +93,41 @@ class WoolworthsCategorySource:
                 self.logger.log(
                     f"Selected {len(selected_cached_categories)} categories: {selected_cached_categories}"
                 )
-                return selected_cached_categories
+                # Build a lookup source for --category validation in priority order:
+                # 1) freshly discovered site names, 2) cached full list, 3) selected list.
+                # This keeps validation resilient when one source is temporarily empty.
+                available_categories = (
+                    website_category_names
+                    or (cached_lists.get("full", []) if cached_lists else [])
+                    or selected_cached_categories
+                )
+                return self._select_requested_category_or_exit(
+                    selected_cached_categories,
+                    category,
+                    available_categories,
+                )
 
+            # Slow path: rebuild category lists from live category counts and persist them.
             refreshed_lists = self._refresh_category_lists_from_site(website_categories)
             if not website_category_names:
                 website_category_names = refreshed_lists.get("full", [])
             self.category_list_service.save(refreshed_lists, website_category_names)
-            return self.category_list_service.select(refreshed_lists, list_size)
+            selected_categories = self.category_list_service.select(
+                refreshed_lists, list_size
+            )
+            available_categories = (
+                website_category_names
+                or refreshed_lists.get("full", [])
+                or selected_categories
+            )
+            return self._select_requested_category_or_exit(
+                selected_categories,
+                category,
+                available_categories,
+            )
 
         except Exception as e:
+            # Recovery path: log discovery/refresh failure and use cached lists if available.
             msg = getattr(e, "msg", None) or str(e) or repr(e)
             self.logger.error(f"{type(e).__name__}: {msg}")
             self.logger.log(
@@ -88,7 +137,39 @@ class WoolworthsCategorySource:
             fallback_lists = (
                 cached_lists or self.category_list_service.load_cached_lists()
             )
-            return self.category_list_service.select(fallback_lists, list_size)
+            selected_categories = self.category_list_service.select(
+                fallback_lists, list_size
+            )
+            available_categories = fallback_lists.get("full", []) or selected_categories
+            return self._select_requested_category_or_exit(
+                selected_categories,
+                category,
+                available_categories,
+            )
+
+    def _select_requested_category_or_exit(
+        self,
+        selected_categories: list[str],
+        requested_category: str | None,
+        available_categories: list[str],
+    ) -> list[str]:
+        if requested_category is None:
+            return selected_categories
+
+        normalized_requested = requested_category.strip().lower()
+        available_lookup = {
+            name.strip().lower(): name
+            for name in available_categories
+            if isinstance(name, str) and name.strip()
+        }
+
+        if normalized_requested in available_lookup:
+            return [available_lookup[normalized_requested]]
+
+        self.logger.error(
+            f"Category '{requested_category}' was not found in available Woolworths categories"
+        )
+        raise SystemExit(1)
 
     def _selected_categories_match_site(
         self, selected_categories: list[str], website_names: list[str]

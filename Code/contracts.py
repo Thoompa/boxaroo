@@ -207,7 +207,10 @@ class ISuperMarket(ABC):
 
     @abstractmethod
     def get_categories(
-        self, list_size: ListSize = ListSize.FULL, refresh_category_lists: bool = False
+        self,
+        list_size: ListSize = ListSize.FULL,
+        refresh_category_lists: bool = False,
+        category: str | None = None,
     ) -> list[str]:
         """Return the category names selected for the current run."""
         pass

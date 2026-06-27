@@ -1,4 +1,5 @@
 import pytest
+from datetime import date
 from Code.contracts import ListSize, Supermarket
 from Code.main import main
 from Code.logger import LoggingLevel
@@ -223,6 +224,78 @@ def test_main_refresh_category_lists_default_false(monkeypatch):
     # THEN: refresh_category_lists=False is forwarded to the supermarket
     assert supermarket.get_categories_called
     assert supermarket.last_refresh_category_lists is False
+
+
+def test_main_forwards_category_to_coordinator_run(monkeypatch):
+    # GIVEN: A patched coordinator run method that records run() arguments
+    logger = DummyLogger()
+    file_handler = DummyFileHandler()
+    web_driver = DummyWebDriver()
+    supermarket = DummySupermarket(logger=logger)
+    run_kwargs = {}
+
+    def dummy_run(self, **kwargs):
+        run_kwargs.update(kwargs)
+
+    monkeypatch.setattr(
+        "Code.main.supermarket_factory", lambda *args, **kwargs: supermarket
+    )
+    monkeypatch.setattr("Code.main.ScrapeCoordinator.run", dummy_run)
+
+    # WHEN: main() is invoked with a category override
+    main(
+        headless=True,
+        logging_level=LoggingLevel.INFO,
+        default_list_size=ListSize.FULL,
+        category="fruit-veg",
+        refresh_category_lists=False,
+        proxy_server=None,
+        file_handler=file_handler,
+        logger=logger,
+        web_driver=web_driver,
+    )
+
+    # THEN: coordinator.run() receives the selected category
+    assert run_kwargs["category"] == "fruit-veg"
+
+
+def test_main_uses_category_in_output_file_name_when_category_override_is_set(
+    monkeypatch,
+):
+    # GIVEN: A run with a category override and no injected runtime dependencies
+    logger = DummyLogger()
+    captured = {}
+
+    def capture_file_handler(file_name, file_path, header, logger):
+        captured["file_name"] = file_name
+        captured["file_path"] = file_path
+        captured["header"] = header
+        return DummyFileHandler()
+
+    monkeypatch.setattr("Code.main.FileHandler", capture_file_handler)
+    monkeypatch.setattr("Code.main.WebDriver", lambda *args, **kwargs: DummyWebDriver())
+    monkeypatch.setattr(
+        "Code.main.supermarket_factory",
+        lambda *args, **kwargs: DummySupermarket(logger=logger),
+    )
+    category = "fruit-veg"
+
+    # WHEN: main() is invoked with category override
+    main(
+        headless=True,
+        logging_level=LoggingLevel.INFO,
+        default_list_size=ListSize.FULL,
+        category=category,
+        refresh_category_lists=False,
+        proxy_server=None,
+        file_handler=None,
+        logger=logger,
+        web_driver=None,
+    )
+
+    # THEN: the output file name uses the category slug instead of list size
+    expected_name = f"woolworths-{date.today()}-{category}.csv"
+    assert captured["file_name"] == expected_name
 
 
 def test_main_resolves_selected_supermarket_via_supermarket_factory(monkeypatch):

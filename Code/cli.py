@@ -26,6 +26,10 @@ def build_parser() -> argparse.ArgumentParser:
         help=build_list_size_help(),
     )
     parser.add_argument(
+        "--category",
+        help="Run only a specific category slug (for example fruit-veg).",
+    )
+    parser.add_argument(
         "--headless",
         action="store_true",
         help="Run browser in headless mode (no visible window).",
@@ -78,6 +82,7 @@ def run(argv: list[str] | None = None) -> None:
         headless=args.headless,
         logging_level=_parse_logging_level(args.logging_level),
         default_list_size=_parse_list_size(args.list_size),
+        category=args.category,
         supermarket=_parse_supermarket(args.supermarket),
         refresh_category_lists=args.refresh_category_lists,
         hard_driver_reset=args.hard_driver_reset,

@@ -181,7 +181,10 @@ class DummySupermarket(ISuperMarket):
         self.get_category_data_calls: list[str] = []
 
     def get_categories(
-        self, list_size: ListSize = ListSize.FULL, refresh_category_lists: bool = False
+        self,
+        list_size: ListSize = ListSize.FULL,
+        refresh_category_lists: bool = False,
+        category: str | None = None,
     ) -> list[str]:
         if self.logic:
             self.logic(self.logger, list_size, refresh_category_lists)
@@ -190,6 +193,8 @@ class DummySupermarket(ISuperMarket):
         self.get_categories_called = True
         if self.get_categories_error is not None:
             raise self.get_categories_error
+        if category is not None:
+            return [category]
         if self.categories:
             return self.categories
         if self.products_to_store is not None:
