@@ -124,11 +124,11 @@ def test_load_derives_medium_long_from_totals(service, cache_file):
     # WHEN: the cache is loaded
     result = service.load()
 
-    # THEN: medium and long are derived from totals thresholds
+    # THEN: medium and long are derived from totals thresholds in size order
     # medium threshold < 1800: fruit-veg (300), pantry (1500)
-    assert sorted(result["medium"]) == ["fruit-veg", "pantry"]
+    assert result["medium"] == ["fruit-veg", "pantry"]
     # long threshold < 10000: fruit-veg (300), pantry (1500), home-lifestyle (8000)
-    assert sorted(result["long"]) == ["fruit-veg", "home-lifestyle", "pantry"]
+    assert result["long"] == ["fruit-veg", "pantry", "home-lifestyle"]
 
 
 def test_load_preserves_existing_medium_and_long(service, cache_file):
@@ -190,22 +190,22 @@ def test_refresh_builds_correct_lists_from_counts(service):
 
     # THEN: each list and total map reflects threshold-based membership
     assert out["testing"] == ["liquor"]
-    assert out["short"] == ["fruit-veg", "liquor"]
-    assert out["medium"] == ["dairy-eggs-fridge", "fruit-veg", "liquor", "pantry"]
+    assert out["short"] == ["liquor", "fruit-veg"]
+    assert out["medium"] == ["liquor", "fruit-veg", "pantry", "dairy-eggs-fridge"]
     assert out["long"] == [
-        "dairy-eggs-fridge",
-        "fruit-veg",
-        "home-lifestyle",
         "liquor",
+        "fruit-veg",
         "pantry",
+        "dairy-eggs-fridge",
+        "home-lifestyle",
     ]
     assert out["full"] == [
-        "dairy-eggs-fridge",
-        "electronics",
-        "fruit-veg",
-        "home-lifestyle",
         "liquor",
+        "fruit-veg",
         "pantry",
+        "dairy-eggs-fridge",
+        "home-lifestyle",
+        "electronics",
     ]
     assert out["category_product_totals"]["liquor"] == 80
     assert out["category_product_totals"]["electronics"] == 12000
@@ -227,13 +227,13 @@ def test_refresh_applies_strict_per_list_threshold_boundaries(service):
 
     # THEN: each list applies its own strict less-than boundary threshold
     assert out["short"] == ["short-below"]
-    assert out["medium"] == ["medium-below", "short-below", "short-boundary"]
+    assert out["medium"] == ["short-below", "short-boundary", "medium-below"]
     assert out["long"] == [
-        "long-below",
-        "medium-below",
-        "medium-boundary",
         "short-below",
         "short-boundary",
+        "medium-below",
+        "medium-boundary",
+        "long-below",
     ]
 
 
@@ -466,6 +466,24 @@ def test_select_missing_key_returns_empty(service):
     # WHEN: a missing list key is selected
     # THEN: an empty list is returned
     assert service.select({}, ListSize.FULL) == []
+
+
+def test_select_returns_categories_in_size_order_when_totals_available(service):
+    # GIVEN: a selected list is not ordered by category size but totals are available
+    category_lists = {
+        "full": ["b", "c", "a"],
+        "category_product_totals": {
+            "a": 50,
+            "b": 100,
+            "c": 10,
+        },
+    }
+
+    # WHEN: the full list is selected
+    result = service.select(category_lists, ListSize.FULL)
+
+    # THEN: categories are returned in ascending size order
+    assert result == ["c", "a", "b"]
 
 
 # ============================================================
