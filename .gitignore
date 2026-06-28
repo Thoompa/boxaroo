@@ -14,3 +14,5 @@ Deploy/boxaroo.*
 !Deploy/boxaroo.example.*
 Deploy/boxaroo-long-categories.*
 !Deploy/boxaroo-long-categories.example.*
+Deploy/boxaroo-rpi-import.*
+Scripts/import_rpi.sh
