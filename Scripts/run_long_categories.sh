@@ -23,11 +23,21 @@ import json
 import os
 import pathlib
 
-data = json.loads(pathlib.Path(os.environ["CATEGORY_LISTS_PATH"]).read_text())
-print("\n".join(data["long"]))
+path = pathlib.Path(os.environ["CATEGORY_LISTS_PATH"])
+data = json.loads(path.read_text(encoding="utf-8"))
+categories = data.get("long")
+if not isinstance(categories, list):
+    raise SystemExit("Expected JSON key 'long' to be a list of category names")
+for name in categories:
+    if isinstance(name, str) and name.strip():
+        print(name.strip())
 PY
 )
 
+ if [[ ${#categories[@]} -eq 0 ]]; then
+     echo "[boxaroo] No categories found in 'long' list in: $CATEGORY_LISTS" >&2
+     exit 1
+ fi
 for category in "${categories[@]}"; do
     echo "[boxaroo] Running category: ${category}"
     "$PYTHON_BIN" "$REPO_ROOT/__main__.py" --category "$category" --headless

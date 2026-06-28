@@ -124,9 +124,6 @@ source .venv/bin/activate
 
 # Run tests
 python -m pytest -q
-
-# Or use the provided script
-./scripts/run_tests.sh
 ```
 
 ### Setup Requirements

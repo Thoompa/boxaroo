@@ -5,6 +5,7 @@ Wants=network-online.target
 
 [Service]
 Type=oneshot
+TimeoutStartSec=infinity
 WorkingDirectory=/home/<your-user>/boxaroo
 ExecStart=/bin/bash /home/<your-user>/boxaroo/Scripts/run_long_categories.sh
 User=<your-user>
