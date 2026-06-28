@@ -6,5 +6,5 @@ Wants=network-online.target
 [Service]
 Type=oneshot
 WorkingDirectory=/home/<your-user>/boxaroo
-ExecStart=/bin/bash -lc 'set -euo pipefail; mapfile -t categories < <(/home/<your-user>/boxaroo/.venv/bin/python -c "import json, pathlib; data = json.loads(pathlib.Path(\"Data/category_lists/woolworths-category-lists.json\").read_text()); print(\"\\n\".join(data[\"long\"]))"); for category in "${categories[@]}"; do echo "[boxaroo] Running category: ${category}"; /home/<your-user>/boxaroo/.venv/bin/python __main__.py --category "${category}" --headless; done'
+ExecStart=/bin/bash /home/<your-user>/boxaroo/Scripts/run_long_categories.sh
 User=<your-user>
