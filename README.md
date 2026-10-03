@@ -141,8 +141,8 @@ python -m pip install -r requirements.txt
 ```
 
 ### Test Files
-- `tests/test_woolworths.py` - Woolworths scraper unit tests
-- `tests/test_web_driver.py` - Web driver tests
+- `Tests/test_woolworths.py` - Woolworths scraper unit tests
+- `Tests/test_web_driver.py` - Web driver tests
 
 ### Verbose Output
 ```bash
