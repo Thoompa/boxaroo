@@ -26,6 +26,6 @@ py-modules = ["__main__"]
 minversion = "7.0"
 addopts = "-q"
 testpaths = ["Tests"]
-
-[tool.boxaroo.tests]
-run_live_woolworths = true
+markers = [
+    "live: hits the real Woolworths site (slow, bot-detected); skipped unless run with `-m live` or selected explicitly by file/test id",
+]

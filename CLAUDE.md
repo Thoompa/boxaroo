@@ -13,7 +13,8 @@ Selenium-based scraper that collects Woolworths (Australia) product and price da
 ## Commands
 
 - Setup: `python3 -m venv .venv && source .venv/bin/activate && pip install -r requirements.txt pytest`
-- Tests: `python -m pytest -q` (`Tests/test_woolworths_live_integration.py` hits the live site; skip it for routine runs)
+- Tests: `python -m pytest -q` (live-site tests are marked `live` and skipped unless opted in)
+- Live tests: `python -m pytest -m live`, or select the test by file/id, e.g. from the VS Code Testing panel (headless; `BOXAROO_LIVE_HEADED=1` for a visible browser; failures save a screenshot and HTML to `Logs/live-test-failures/`)
 - Run one category: `python __main__.py --category <name> --headless`
 - Quick check: `python __main__.py --list_size TESTING --logging_level DEBUG`
 - Full usage and list sizes: `README.md`
