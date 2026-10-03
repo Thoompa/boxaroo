@@ -80,21 +80,50 @@ def _save_failure_artifacts(driver: WebDriver, test_name: str) -> None:
         print(f"Could not save live failure artifacts: {type(exc).__name__}: {exc}")
 
 
+@pytest.fixture(scope="session")
+def _live_browser():
+    """One real browser shared by every live test in the session (launching is slow)."""
+    headless = os.getenv("BOXAROO_LIVE_HEADED") != "1"
+    driver = WebDriver(logger=PrintingLogger(), headless=headless)
+    try:
+        yield driver
+    finally:
+        driver.quit()
+
+
 @pytest.fixture
 def live_logger():
     return PrintingLogger()
 
 
 @pytest.fixture
-def live_driver(request, live_logger):
-    """Real browser, headless unless BOXAROO_LIVE_HEADED=1. Saves a screenshot and
-    the page HTML to Logs/live-test-failures/ when the test fails."""
-    headless = os.getenv("BOXAROO_LIVE_HEADED") != "1"
-    driver = WebDriver(logger=live_logger, headless=headless)
-    try:
-        yield driver
-    finally:
-        failed = getattr(request.node, "rep_call", None)
-        if failed is not None and failed.failed:
-            _save_failure_artifacts(driver, request.node.name)
-        driver.quit()
+def live_driver(request, _live_browser):
+    """The shared real browser (headless unless BOXAROO_LIVE_HEADED=1). Saves a
+    screenshot and the page HTML to Logs/live-test-failures/ when the test fails."""
+    yield _live_browser
+    failed = getattr(request.node, "rep_call", None)
+    if failed is not None and failed.failed:
+        _save_failure_artifacts(_live_browser, request.node.name)
+
+
+@pytest.fixture
+def limit_pages(monkeypatch):
+    """Returns limit(driver, max_pages): stop get_products after max_pages pages by
+    making the driver report there is no next page. Patches the pagination entry
+    point, which differs between versions of web_driver.py."""
+
+    def limit(driver: WebDriver, max_pages: int) -> None:
+        method_name = next(
+            name
+            for name in ("_advance_with_recovery", "_advance_to_next_page")
+            if hasattr(driver, name)
+        )
+        pages_seen = {"count": 0}
+
+        def advance(*_args, **_kwargs) -> bool:
+            pages_seen["count"] += 1
+            return pages_seen["count"] < max_pages
+
+        monkeypatch.setattr(driver, method_name, advance)
+
+    return limit

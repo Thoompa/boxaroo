@@ -25,6 +25,7 @@ Selenium-based scraper that collects Woolworths (Australia) product and price da
 - Tests use GIVEN/WHEN/THEN comments (WHEN in passive voice), `Dummy*` test doubles, and reuse `Tests/test_helpers.py` (`.github/instructions/python-tests.instructions.md`).
 - `Code/web_driver.py` uses CRLF line endings; preserve them when editing.
 - Formatting/linting via pre-commit (Black, Ruff).
+- Commit messages: a heading, a summary paragraph, then dot points, all following the 50/72 rule (heading 50 characters or fewer, body lines wrapped at 72). Do not add a `Co-Authored-By` line.
 - Scraping is slow (hours per large category) and the site bot-detects: don't add live scraping to routine verification.
 
 ## Known issues
