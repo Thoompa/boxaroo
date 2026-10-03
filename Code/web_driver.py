@@ -12,6 +12,7 @@ from selenium.webdriver.support import expected_conditions as EC
 from typing import Any, cast
 import time
 import random
+from urllib.parse import parse_qsl, urlencode, urlparse, urlunparse
 from Code.contracts import IWebDriver, ILogger, ProductsCallback, ProductsPageResult
 
 
@@ -25,6 +26,14 @@ NEXT_BUTTON_LOCATORS = (
     (By.CSS_SELECTOR, "a[class*='pagination-next']"),
     (By.CSS_SELECTOR, ".paging-next"),
 )
+
+
+PAGINATION_ADVANCED = "advanced"
+PAGINATION_END = "end"
+PAGINATION_ERROR = "error"
+
+MAX_ADVANCE_RECOVERIES = 3
+END_CONFIRMATION_WAIT_SECONDS = 10
 
 
 class WebDriver(IWebDriver):
@@ -279,27 +288,31 @@ class WebDriver(IWebDriver):
         return None
 
     def _advance_to_next_page(self) -> bool:
+        return self._advance_outcome() == PAGINATION_ADVANCED
+
+    def _advance_outcome(self, next_button_timeout: int = 2) -> str:
+        """Try to move to the next page and report why we did or did not."""
         try:
-            # Wait briefly for next button; if not found, we're at end of pagination.
+            # Wait briefly for next button; if not found, we may be at the end.
             try:
-                next_button = self._find_next_button(timeout=2)
+                next_button = self._find_next_button(timeout=next_button_timeout)
             except Exception as wait_exc:
                 self.logger.debug(
                     f"Pagination stop: next button not found after wait ({type(wait_exc).__name__})"
                 )
-                return False
+                return PAGINATION_END
 
-            if next_button is None:
+            if not next_button:
                 self.logger.debug(
                     "Pagination stop: next button lookup returned no result"
                 )
-                return False
+                return PAGINATION_END
 
             if not next_button.is_displayed() or not next_button.is_enabled():
                 self.logger.debug(
                     "Pagination stop: next button is not visible or not enabled"
                 )
-                return False
+                return PAGINATION_END
 
             current_url = self.driver.current_url
             next_href = (next_button.get_attribute("href") or "").strip()
@@ -314,7 +327,7 @@ class WebDriver(IWebDriver):
                 self.logger.debug(
                     f"Pagination via href: navigated_to={self.driver.current_url}"
                 )
-                return True
+                return PAGINATION_ADVANCED
 
             self.driver.execute_script(
                 "arguments[0].scrollIntoView({block: 'center'});", next_button
@@ -326,12 +339,67 @@ class WebDriver(IWebDriver):
             self.logger.debug(
                 f"Pagination via click: advanced={advanced} new_url={self.driver.current_url}"
             )
-            return advanced
+            return PAGINATION_ADVANCED if advanced else PAGINATION_END
         except Exception as exc:
             self.logger.warning(
-                f"Pagination stop: unexpected error during advancement ({type(exc).__name__}: {exc})"
+                f"Pagination error: unexpected error during advancement ({type(exc).__name__}: {exc})"
             )
-            return False
+            return PAGINATION_ERROR
+
+    @staticmethod
+    def _build_page_url(base_url: str, page_number: int) -> str:
+        """Return base_url with its pageNumber query parameter set."""
+        parts = urlparse(base_url)
+        query = [(k, v) for k, v in parse_qsl(parts.query) if k != "pageNumber"]
+        query.append(("pageNumber", str(page_number)))
+        return urlunparse(parts._replace(query=urlencode(query)))
+
+    def _advance_with_recovery(self, base_url: str, page_number: int) -> bool:
+        """Advance to the next page, recovering from hangs and false ends.
+
+        A missing next button is only trusted after a reload, and a failed
+        advance (e.g. a hung browser) is retried on a fresh driver pointed at
+        the next page URL instead of silently ending the category.
+        """
+        outcome = self._advance_outcome()
+        for attempt in range(1, MAX_ADVANCE_RECOVERIES + 1):
+            if outcome == PAGINATION_ADVANCED:
+                return True
+
+            if outcome == PAGINATION_END:
+                try:
+                    self.reload_page()
+                    outcome = self._advance_outcome(END_CONFIRMATION_WAIT_SECONDS)
+                except Exception as exc:
+                    self.logger.warning(
+                        f"Pagination end check failed: {type(exc).__name__}: {exc}"
+                    )
+                    outcome = PAGINATION_ERROR
+                if outcome == PAGINATION_END:
+                    return False
+                if outcome == PAGINATION_ADVANCED:
+                    self.logger.warning(
+                        f"Pagination recovered: next button reappeared after reload on page {page_number}"
+                    )
+                    return True
+
+            next_page_url = self._build_page_url(base_url, page_number + 1)
+            self.logger.warning(
+                f"Pagination recovery {attempt}/{MAX_ADVANCE_RECOVERIES}: restarting driver at {next_page_url}"
+            )
+            try:
+                self._reset_driver_for_next_page(next_page_url)
+                return True
+            except Exception as exc:
+                self.logger.error(
+                    f"Pagination recovery failed: {type(exc).__name__}: {exc}"
+                )
+                outcome = PAGINATION_ERROR
+
+        self.logger.error(
+            f"Pagination stop: giving up after {MAX_ADVANCE_RECOVERIES} recovery attempts on page {page_number}"
+        )
+        return False
 
     def _find_next_button(self, timeout: int = 0) -> Any | None:
         def locate(driver: Any) -> Any | bool:
@@ -497,6 +565,7 @@ class WebDriver(IWebDriver):
         pages_since_reset = 0
         hard_reset_enabled = self.hard_driver_reset
         reset_threshold = self.max_pages_per_session
+        base_url = None
 
         while True:
             page_number += 1
@@ -504,6 +573,9 @@ class WebDriver(IWebDriver):
 
             # Add delay before waiting for products
             time.sleep(random.uniform(1, 2))
+
+            if base_url is None:
+                base_url = self.driver.current_url
 
             # Wait for the products to load
             WebDriverWait(self.driver, 15).until(
@@ -569,7 +641,7 @@ class WebDriver(IWebDriver):
                     self._reset_driver_for_next_page(next_page_url)
                     continue
 
-            if not self._advance_to_next_page():
+            if not self._advance_with_recovery(base_url, page_number):
                 break
 
         if category_name is not None:
