@@ -219,9 +219,20 @@ class WoolworthsCategorySource:
 
         extract_menu_categories_script = """
         try {
-            var links = document.querySelectorAll(
-                'a.item.ng-star-inserted[href^="/shop/browse/"], a.item[href^="/shop/browse/"]'
-            );
+            // Try the known menu link selectors in order (most recent markup first)
+            // and use the first one that matches, so older markup keeps working.
+            var selectors = [
+                'a[href^="/shop/browse/"]',
+                'a.item[href^="/shop/browse/"]',
+                'a.item.ng-star-inserted[href^="/shop/browse/"]'
+            ];
+            var links = [];
+            for (var s = 0; s < selectors.length; s++) {
+                links = document.querySelectorAll(selectors[s]);
+                if (links.length > 0) {
+                    break;
+                }
+            }
             var seen = {};
             var categories = [];
             for (var i = 0; i < links.length; i++) {
