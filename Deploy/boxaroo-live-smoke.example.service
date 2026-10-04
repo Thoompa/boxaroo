@@ -1,0 +1,14 @@
+[Unit]
+Description=Run Boxaroo live smoke tests against Woolworths
+After=network-online.target
+Wants=network-online.target
+
+[Service]
+Type=oneshot
+# Unlike the scrape services this should never take long; stop a hung browser.
+TimeoutStartSec=15min
+WorkingDirectory=/home/<your-user>/boxaroo
+# Skips the slow full category refresh test. A failing test fails this unit
+# and leaves a screenshot and page HTML in Logs/live-test-failures/.
+ExecStart=/home/<your-user>/boxaroo/.venv/bin/python -m pytest -m live -k "not refresh"
+User=<your-user>
