@@ -1,8 +1,8 @@
 [Unit]
-Description=Run Boxaroo live smoke tests every Tuesday at 8am, the day before the scrape
+Description=Run Boxaroo live smoke tests every Monday at 8am, the day before the scrape
 
 [Timer]
-OnCalendar=Tue *-*-* 08:00:00
+OnCalendar=Mon *-*-* 08:00:00
 Persistent=true
 
 [Install]
