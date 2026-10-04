@@ -5,6 +5,7 @@ come first. Together they take a few minutes, dominated by the full refresh test
 """
 
 import json
+import math
 
 import pytest
 
@@ -15,6 +16,9 @@ from Tests.test_helpers import DummyFileHandler
 
 # Categories that have existed for years; the list itself drifts (promo pages come and go).
 STABLE_CATEGORIES = ["fruit-veg", "dairy-eggs-fridge", "pantry", "bakery"]
+
+# Woolworths shows 36 products per page.
+PAGE_SIZE = 36
 
 # A mid-sized category: several pages, quick enough to scrape one page of.
 SAMPLE_CATEGORY = "deli"
@@ -80,6 +84,100 @@ def test_live_first_page_of_a_category_is_scraped_and_parsed(
     priced = [row for row in data["products"] if len(row) > 1 and row[1].startswith("$")]
     assert len(priced) >= 0.9 * data["scraped"], "Most products should have a price"
     print(f"Sample product row: {data['products'][0]}")
+
+
+def _assert_different_pages(first: set[str], second: set[str]) -> None:
+    # Woolworths reshuffles results between loads (reloading page 1 repeats only
+    # ~85% of it, and consecutive pages share ~45%), so only reject a page that
+    # is essentially the same one again.
+    overlap = len(first & second) / len(first)
+    assert overlap < 0.9, f"Page 2 repeats {overlap:.0%} of page 1; did it advance?"
+
+
+def _collect_pages(driver, pages):
+    """get_products with a callback that records each page's raw tile text."""
+
+    def record(payloads, page_number):
+        pages[page_number] = set(payloads)
+        return []
+
+    return driver.get_products(record, category_name=SAMPLE_CATEGORY)
+
+
+@pytest.mark.live
+def test_live_pagination_advances_to_distinct_pages(
+    woolworths, live_driver, limit_pages
+):
+    # GIVEN scraping is limited to three pages
+    limit_pages(live_driver, 3)
+    live_driver.get_page(woolworths.url + SAMPLE_CATEGORY)
+    pages: dict[int, set[str]] = {}
+
+    # WHEN the category is paginated
+    result = _collect_pages(live_driver, pages)
+
+    # THEN each of the three pages has products, and they are different pages
+    assert [stat["page"] for stat in result["page_stats"]] == [1, 2, 3]
+    assert all(stat["product_tiles"] > 0 for stat in result["page_stats"])
+    assert "pageNumber=3" in live_driver.driver.current_url
+    _assert_different_pages(pages[1], pages[2])
+
+
+@pytest.mark.live
+def test_live_pagination_confirms_the_end_of_a_category(
+    woolworths, live_driver, limit_pages, capsys
+):
+    # GIVEN the final page of a category is loaded directly
+    live_driver.get_page(woolworths.url + SAMPLE_CATEGORY)
+    total = live_driver.get_category_total_items()
+    assert isinstance(total, int) and 50 <= total < 10000, f"Unusable total: {total!r}"
+    last_page = math.ceil(total / PAGE_SIZE)
+    live_driver.get_page(f"{woolworths.url}{SAMPLE_CATEGORY}?pageNumber={last_page}")
+    # (the cap only guards against a wrong total sending us down the whole category)
+    limit_pages(live_driver, 3)
+    pages: dict[int, set[str]] = {}
+
+    # WHEN the category is paginated from there
+    result = _collect_pages(live_driver, pages)
+
+    # THEN pagination ends after that page, without a false end being recovered
+    assert len(result["page_stats"]) == 1, (
+        f"Expected the end after page {last_page} of {total} products, but "
+        f"scraped {len(result['page_stats'])} pages; the total or next-button "
+        "detection may be wrong"
+    )
+    assert "Pagination recovered" not in capsys.readouterr().out
+
+
+@pytest.mark.live
+def test_live_pagination_recovers_from_a_failed_advance(
+    woolworths, live_driver, limit_pages, monkeypatch, capsys
+):
+    # GIVEN the first attempt to advance fails, as it does when the browser hangs
+    limit_pages(live_driver, 2)
+    original_outcome = live_driver._advance_outcome
+    attempts = {"count": 0}
+
+    def fail_once(*args, **kwargs):
+        attempts["count"] += 1
+        if attempts["count"] == 1:
+            return "error"
+        return original_outcome(*args, **kwargs)
+
+    monkeypatch.setattr(live_driver, "_advance_outcome", fail_once)
+    live_driver.get_page(woolworths.url + SAMPLE_CATEGORY)
+    pages: dict[int, set[str]] = {}
+
+    # WHEN the category is paginated
+    result = _collect_pages(live_driver, pages)
+
+    # THEN the browser is restarted on page 2 and scraping carries on
+    output = capsys.readouterr().out
+    assert "Pagination recovery 1/3" in output
+    assert "pageNumber=2" in live_driver.driver.current_url
+    assert [stat["page"] for stat in result["page_stats"]] == [1, 2]
+    assert result["page_stats"][1]["product_tiles"] > 0
+    _assert_different_pages(pages[1], pages[2])
 
 
 @pytest.mark.live

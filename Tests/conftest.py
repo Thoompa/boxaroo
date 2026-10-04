@@ -108,8 +108,9 @@ def live_driver(request, _live_browser):
 
 @pytest.fixture
 def limit_pages(monkeypatch):
-    """Returns limit(driver, max_pages): stop get_products after max_pages pages by
-    making the driver report there is no next page. Patches the pagination entry
+    """Returns limit(driver, max_pages): stop get_products after max_pages pages.
+    Real pagination runs for the earlier pages; only the advance after the last
+    allowed page is replaced with "no next page". Patches the pagination entry
     point, which differs between versions of web_driver.py."""
 
     def limit(driver: WebDriver, max_pages: int) -> None:
@@ -118,11 +119,14 @@ def limit_pages(monkeypatch):
             for name in ("_advance_with_recovery", "_advance_to_next_page")
             if hasattr(driver, name)
         )
-        pages_seen = {"count": 0}
+        original = getattr(driver, method_name)
+        calls = {"count": 0}
 
-        def advance(*_args, **_kwargs) -> bool:
-            pages_seen["count"] += 1
-            return pages_seen["count"] < max_pages
+        def advance(*args, **kwargs) -> bool:
+            calls["count"] += 1
+            if calls["count"] >= max_pages:
+                return False
+            return original(*args, **kwargs)
 
         monkeypatch.setattr(driver, method_name, advance)
 
