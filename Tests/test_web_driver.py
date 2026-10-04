@@ -10,7 +10,6 @@ from Tests.test_helpers import (
     DummyDriverFactory,
 )
 
-
 # ============================================================
 # WebDriver setup – browser/driver discovery
 # ============================================================
@@ -310,6 +309,7 @@ def test_get_next_page_url_uses_legacy_selector_as_fallback():
 
 def test_advance_to_next_page_returns_false_when_button_is_hidden(monkeypatch):
     # GIVEN: the next button exists but is not visible on the page
+    monkeypatch.setattr(web_driver_module, "WebDriverWait", DummyWait)
     monkeypatch.setattr(web_driver_module.time, "sleep", lambda _: None)
     monkeypatch.setattr(web_driver_module.random, "uniform", lambda a, b: 0)
     driver = DummyWebDriverHarness()
@@ -324,6 +324,7 @@ def test_advance_to_next_page_returns_false_when_button_is_hidden(monkeypatch):
 
 def test_advance_to_next_page_returns_false_when_button_is_missing(monkeypatch):
     # GIVEN: there is no next pagination button on the page
+    monkeypatch.setattr(web_driver_module, "WebDriverWait", DummyWait)
     monkeypatch.setattr(web_driver_module.time, "sleep", lambda _: None)
     monkeypatch.setattr(web_driver_module.random, "uniform", lambda a, b: 0)
     driver = DummyWebDriverHarness()

@@ -3,12 +3,19 @@ from unittest.mock import patch
 
 import pytest
 
+from Code import woolworths_category_source
 from Code.contracts import ListSize
 from Tests.test_helpers import (
     DummyLogger,
     DummyWebDriver,
     make_woolworths_category_source,
 )
+
+
+@pytest.fixture(autouse=True)
+def no_retry_sleeps(monkeypatch):
+    """Discovery retries sleep between attempts; don't wait for them in tests."""
+    monkeypatch.setattr(woolworths_category_source.time, "sleep", lambda _: None)
 
 
 def test_get_categories_uses_cache_when_selected_categories_match_site(tmp_path):
