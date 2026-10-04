@@ -10,7 +10,6 @@ from Tests.test_helpers import (
     DummyDriverFactory,
 )
 
-
 # ============================================================
 # WebDriver setup – browser/driver discovery
 # ============================================================
@@ -310,6 +309,7 @@ def test_get_next_page_url_uses_legacy_selector_as_fallback():
 
 def test_advance_to_next_page_returns_false_when_button_is_hidden(monkeypatch):
     # GIVEN: the next button exists but is not visible on the page
+    monkeypatch.setattr(web_driver_module, "WebDriverWait", DummyWait)
     monkeypatch.setattr(web_driver_module.time, "sleep", lambda _: None)
     monkeypatch.setattr(web_driver_module.random, "uniform", lambda a, b: 0)
     driver = DummyWebDriverHarness()
@@ -324,6 +324,7 @@ def test_advance_to_next_page_returns_false_when_button_is_hidden(monkeypatch):
 
 def test_advance_to_next_page_returns_false_when_button_is_missing(monkeypatch):
     # GIVEN: there is no next pagination button on the page
+    monkeypatch.setattr(web_driver_module, "WebDriverWait", DummyWait)
     monkeypatch.setattr(web_driver_module.time, "sleep", lambda _: None)
     monkeypatch.setattr(web_driver_module.random, "uniform", lambda a, b: 0)
     driver = DummyWebDriverHarness()
@@ -479,8 +480,9 @@ def test_get_products_reloads_page_on_per_element_timeout(monkeypatch):
         },
     )
 
-    # THEN: the page is reloaded once; the failed element is skipped and tracked in stats
-    assert len(reload_calls) == 1
+    # THEN: the page is reloaded for the timeout (plus once to confirm the end of
+    # pagination); the failed element is skipped and tracked in stats
+    assert len(reload_calls) == 2
     assert result["products"] == ["B", "C", "D"]
     assert len(result["page_stats"]) == 2
     assert result["page_stats"][0]["product_tiles"] == 2
@@ -519,8 +521,9 @@ def test_get_products_records_failure_without_reload_on_generic_error(monkeypatc
         },
     )
 
-    # THEN: the page is not reloaded; the failure is counted and remaining elements are scraped
-    assert len(reload_calls) == 0
+    # THEN: the only reload is the end-of-pagination confirmation; the failure is
+    # counted and remaining elements are scraped
+    assert len(reload_calls) == 1
     assert result["page_stats"][0]["extraction_failures"] == 1
     assert result["page_stats"][0]["scraped"] == 1
     assert result["products"] == ["B", "C", "D"]
@@ -999,3 +1002,119 @@ def test_extract_text_returns_empty_when_shadow_root_returns_none():
 
     # THEN: an empty string is returned
     assert result == ""
+
+
+# ============================================================
+# get_products – pagination recovery
+# ============================================================
+
+RECOVERY_PAGE_URLS = [
+    "https://shop.test/browse/a",
+    "https://shop.test/browse/a?pageNumber=2",
+    "https://shop.test/browse/a?pageNumber=3",
+]
+
+
+def _patch_fast_driver(monkeypatch):
+    monkeypatch.setattr(web_driver_module, "WebDriverWait", DummyWait)
+    monkeypatch.setattr(web_driver_module.time, "sleep", lambda _: None)
+    monkeypatch.setattr(web_driver_module.random, "uniform", lambda a, b: 0)
+
+
+def _script_outcomes(driver, outcomes):
+    remaining = list(outcomes)
+    driver._advance_outcome = lambda *args, **kwargs: remaining.pop(0)
+    return remaining
+
+
+def _collect(elements, *, page_number):
+    return {"products": list(elements), "incomplete_items": []}
+
+
+def test_build_page_url_sets_page_number_and_keeps_other_params():
+    # GIVEN: a category URL with an unrelated query parameter and an old page number
+    url = "https://shop.test/browse/a?sort=name&pageNumber=2"
+
+    # WHEN: the URL for page 5 is built
+    result = WebDriver._build_page_url(url, 5)
+
+    # THEN: only the page number changes
+    assert result == "https://shop.test/browse/a?sort=name&pageNumber=5"
+
+
+def test_get_products_recovers_from_advance_error_with_fresh_driver(monkeypatch):
+    # GIVEN: advancing from page 1 fails with a driver error (e.g. hung browser)
+    _patch_fast_driver(monkeypatch)
+    driver = DummyWebDriverHarness()
+    driver.driver = DummySeleniumSession(
+        pages=[["A", "B"], ["C", "D"], ["E", "F"]], page_urls=RECOVERY_PAGE_URLS
+    )
+    factory = DummyDriverFactory(
+        pages=[["A", "B"], ["C", "D"], ["E", "F"]], page_urls=RECOVERY_PAGE_URLS
+    )
+    driver._create_fresh_driver = factory
+    _script_outcomes(driver, ["error", "end", "end"])
+
+    # WHEN: the products are retrieved
+    result = WebDriver.get_products(driver, _collect, category_name="pantry")
+
+    # THEN: scraping resumes on page 2 using a fresh driver instead of stopping
+    assert result["products"] == ["A", "B", "C", "D"]
+    assert factory.created_drivers[0].called == [("get", RECOVERY_PAGE_URLS[1])]
+    assert any(
+        level == "WARNING" and "Pagination recovery 1/3" in message
+        for level, message in driver.logger.records
+    )
+
+
+def test_get_products_does_not_trust_missing_next_button_until_reload(monkeypatch):
+    # GIVEN: the next button is missing on the first look but present after a reload
+    _patch_fast_driver(monkeypatch)
+    driver = DummyWebDriverHarness()
+    driver.driver = DummySeleniumSession(pages=[["A", "B"]], page_urls=["page-1"])
+    remaining = _script_outcomes(driver, ["end", "advanced", "end", "end"])
+
+    # WHEN: the products are retrieved
+    result = WebDriver.get_products(driver, _collect)
+
+    # THEN: the false end is ignored and scraping continues to the real end
+    assert len(result["page_stats"]) == 2
+    assert remaining == []
+
+
+def test_get_products_confirms_real_end_with_single_reload(monkeypatch):
+    # GIVEN: the next button is still missing after a reload
+    _patch_fast_driver(monkeypatch)
+    driver = DummyWebDriverHarness()
+    driver.driver = DummySeleniumSession(pages=[["A", "B"]], page_urls=["page-1"])
+    reloads = []
+    driver.reload_page = lambda: reloads.append(1)
+    _script_outcomes(driver, ["end", "end"])
+
+    # WHEN: the products are retrieved
+    result = WebDriver.get_products(driver, _collect)
+
+    # THEN: pagination ends after exactly one confirming reload
+    assert result["products"] == ["A", "B"]
+    assert len(reloads) == 1
+
+
+def test_get_products_keeps_partial_data_when_recovery_keeps_failing(monkeypatch):
+    # GIVEN: advancing fails and fresh drivers can never be created
+    _patch_fast_driver(monkeypatch)
+    driver = DummyWebDriverHarness()
+    driver.driver = DummySeleniumSession(
+        pages=[["A", "B"], ["C", "D"]], page_urls=RECOVERY_PAGE_URLS[:2]
+    )
+    driver._create_fresh_driver = DummyDriverFactory(failures_before_success=100)
+    _script_outcomes(driver, ["error"])
+
+    # WHEN: the products are retrieved
+    result = WebDriver.get_products(driver, _collect)
+
+    # THEN: the scrape stops with the data already collected and logs an error
+    assert result["products"] == ["A", "B"]
+    assert any(
+        level == "ERROR" and "giving up after 3 recovery attempts" in message
+        for level, message in driver.logger.records
+    )
