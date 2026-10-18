@@ -16,6 +16,7 @@ from Code.contracts import (
     CategoryData,
     ISuperMarket,
     ListSize,
+    RowSink,
 )
 from Code.woolworths_category_data_normaliser import WoolworthsCategoryDataNormaliser
 from Code.woolworths_category_source import WoolworthsCategorySource
@@ -77,5 +78,9 @@ class Woolworths(ISuperMarket):
             category=category,
         )
 
-    def get_category_data(self, category_name: str) -> CategoryData:
-        return self.category_data_normaliser.get_category_data(category_name)
+    def get_category_data(
+        self, category_name: str, on_rows: RowSink | None = None
+    ) -> CategoryData:
+        return self.category_data_normaliser.get_category_data(
+            category_name, on_rows=on_rows
+        )

@@ -1,6 +1,6 @@
 from abc import ABC, abstractmethod
 from enum import Enum
-from typing import Any, Iterable, Protocol, Sequence, TypedDict
+from typing import Any, Callable, Iterable, NotRequired, Protocol, Sequence, TypedDict
 
 
 class Supermarket(Enum):
@@ -58,6 +58,19 @@ class ProductsPageResult(TypedDict):
     products: list[list[str]]
     incomplete_items: list[IncompleteProductItem]
     page_stats: list[PageStats]
+    # Set when pagination stopped on an error; the pages read before it are
+    # still returned so the caller can keep them.
+    error: NotRequired[str | None]
+
+
+class CategoryStatus(str, Enum):
+    COMPLETE = "complete"
+    PARTIAL = "partial"
+    FAILED = "failed"
+
+
+# Receives the new rows from each page as soon as that page has been read.
+RowSink = Callable[[list[list[str]]], None]
 
 
 class CategoryData(TypedDict):
@@ -67,6 +80,11 @@ class CategoryData(TypedDict):
     incomplete_items: list[IncompleteProductItem]
     scraped: int
     incomplete: int
+    # Absent on payloads from older adapters; treated as COMPLETE.
+    status: NotRequired[CategoryStatus]
+    error: NotRequired[str | None]
+    pages_committed: NotRequired[int]
+    rows_stored: NotRequired[int]
 
 
 class ProductParseResult(TypedDict):
@@ -160,6 +178,9 @@ class IFileHandler(ABC):
     def store_data(self, data: Iterable[Iterable[Any]]) -> None:
         pass
 
+    def write_status(self, category: str, status: dict[str, Any]) -> None:
+        """Record how a category finished. Optional; the default does nothing."""
+
 
 class IProductParser(ABC):
     @abstractmethod
@@ -216,6 +237,13 @@ class ISuperMarket(ABC):
         pass
 
     @abstractmethod
-    def get_category_data(self, category_name: str) -> CategoryData:
-        """Return normalized data for one category scrape attempt."""
+    def get_category_data(
+        self, category_name: str, on_rows: RowSink | None = None
+    ) -> CategoryData:
+        """Return normalized data for one category scrape attempt.
+
+        When on_rows is given, each page's new rows are passed to it as soon as
+        the page is read, so data survives a later failure. The returned
+        products are the same rows, for counting.
+        """
         pass

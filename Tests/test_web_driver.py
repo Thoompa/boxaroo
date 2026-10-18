@@ -1,4 +1,5 @@
 import pytest
+from selenium.common.exceptions import TimeoutException, WebDriverException
 from Code.web_driver import WebDriver
 import Code.web_driver as web_driver_module
 from Tests.test_helpers import (
@@ -1118,3 +1119,104 @@ def test_get_products_keeps_partial_data_when_recovery_keeps_failing(monkeypatch
         level == "ERROR" and "giving up after 3 recovery attempts" in message
         for level, message in driver.logger.records
     )
+
+
+# ============================================================
+# get_products – failures keep the pages already read (known-issues #1)
+# ============================================================
+
+
+def _patch_for_get_products(monkeypatch):
+    monkeypatch.setattr(web_driver_module, "WebDriverWait", DummyWait)
+    monkeypatch.setattr(web_driver_module.time, "sleep", lambda _: None)
+    monkeypatch.setattr(web_driver_module.random, "uniform", lambda a, b: 0)
+
+
+def test_get_products_returns_earlier_pages_and_error_when_a_later_page_crashes(
+    monkeypatch,
+):
+    # GIVEN: a three-page category where the browser crashes reading page 3
+    _patch_for_get_products(monkeypatch)
+    driver = DummyWebDriverHarness()
+    session = DummySeleniumSession(pages=[["A", "B"], ["C", "D"], ["E", "F"]])
+    driver.driver = session
+    original_find_elements = session.find_elements
+
+    def crashing_find_elements(by, value):
+        if session.page_index == 2:
+            raise WebDriverException("tab crashed")
+        return original_find_elements(by, value)
+
+    session.find_elements = crashing_find_elements
+    pages_seen = []
+
+    def callback(texts, *, page_number):
+        pages_seen.append(page_number)
+        return {"products": list(texts), "incomplete_items": []}
+
+    # WHEN: the products are retrieved
+    result = WebDriver.get_products(driver, callback)
+
+    # THEN: pages 1 and 2 are returned instead of the crash discarding them
+    assert pages_seen == [1, 2]
+    assert result["products"] == ["A", "B", "C", "D"]
+    assert len(result["page_stats"]) == 2
+
+    # AND: the error names the exception and the page it happened on
+    assert "WebDriverException" in (result.get("error") or "")
+    assert "tab crashed" in (result.get("error") or "")
+    assert "page 3" in (result.get("error") or "")
+    assert any(
+        level == "ERROR" and "Pagination aborted on page 3" in msg
+        for level, msg in driver.logger.records
+    )
+
+
+def test_get_products_returns_earlier_pages_when_the_tile_wait_times_out(monkeypatch):
+    # GIVEN: the product tiles never appear on page 2
+    _patch_for_get_products(monkeypatch)
+
+    class WaitThatTimesOutOnSecondPage(DummyWait):
+        def until(self, condition):
+            if self.driver.page_index == 1:
+                raise TimeoutException("tiles did not load")
+            return super().until(condition)
+
+    monkeypatch.setattr(
+        web_driver_module, "WebDriverWait", WaitThatTimesOutOnSecondPage
+    )
+    driver = DummyWebDriverHarness()
+    driver.driver = DummySeleniumSession(pages=[["A", "B"], ["C", "D"]])
+
+    # WHEN: the products are retrieved
+    result = WebDriver.get_products(
+        driver,
+        lambda texts, *, page_number: {
+            "products": list(texts),
+            "incomplete_items": [],
+        },
+    )
+
+    # THEN: page 1 is kept and the timeout is reported rather than raised
+    assert result["products"] == ["A", "B"]
+    assert "TimeoutException" in (result.get("error") or "")
+
+
+def test_get_products_reports_no_error_on_a_clean_run(monkeypatch):
+    # GIVEN: a two-page category with no failures
+    _patch_for_get_products(monkeypatch)
+    driver = DummyWebDriverHarness()
+    driver.driver = DummySeleniumSession()
+
+    # WHEN: the products are retrieved
+    result = WebDriver.get_products(
+        driver,
+        lambda texts, *, page_number: {
+            "products": list(texts),
+            "incomplete_items": [],
+        },
+    )
+
+    # THEN: the error field is empty
+    assert result["products"] == ["A", "B", "C", "D"]
+    assert result.get("error") is None

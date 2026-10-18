@@ -1,6 +1,6 @@
 import pytest
 from datetime import date
-from Code.contracts import ListSize, Supermarket
+from Code.contracts import CategoryStatus, ListSize, Supermarket
 from Code.main import main
 from Code.logger import LoggingLevel
 from Tests.test_helpers import (
@@ -392,18 +392,22 @@ def test_main_logs_category_failure_and_quits_webdriver(monkeypatch):
     )
 
     # WHEN: main() is invoked
-    main(
-        headless=True,
-        logging_level=LoggingLevel.INFO,
-        default_list_size=ListSize.TESTING,
-        refresh_category_lists=False,
-        proxy_server=None,
-        file_handler=file_handler,
-        logger=logger,
-        web_driver=web_driver,
-    )
+    with pytest.raises(SystemExit) as exit_info:
+        main(
+            headless=True,
+            logging_level=LoggingLevel.INFO,
+            default_list_size=ListSize.TESTING,
+            refresh_category_lists=False,
+            proxy_server=None,
+            file_handler=file_handler,
+            logger=logger,
+            web_driver=web_driver,
+        )
 
-    # THEN: category failure is logged and WebDriver teardown still completes
+    # THEN: the process exits non-zero so schedulers can see the failure
+    assert exit_info.value.code == 1
+
+    # AND: category failure is logged and WebDriver teardown still completes
     assert web_driver.called.count(("quit",)) == 1
     assert ("INFO", "WebDriver lifecycle start") in logger.records
     assert ("INFO", "WebDriver lifecycle stop") in logger.records
@@ -650,3 +654,44 @@ def test_main_injected_logger_not_replaced(monkeypatch):
 
     # THEN: The Logger constructor is not called; the injected logger is used as-is
     assert len(DummyLogger.instances) == 0
+
+
+def test_main_exits_non_zero_when_a_category_was_only_partly_scraped(monkeypatch):
+    # GIVEN: a category that saved some rows and then stopped on an error
+    logger = DummyLogger()
+    file_handler = DummyFileHandler()
+    web_driver = DummyWebDriver()
+    supermarket = DummySupermarket(
+        logger=logger,
+        categories=["baby"],
+        category_data={
+            "baby": {
+                "category": "baby",
+                "total": 10,
+                "products": [["A", "$1", "$1 / 1EA", ""]],
+                "incomplete_items": [],
+                "scraped": 1,
+                "incomplete": 0,
+                "status": CategoryStatus.PARTIAL,
+                "error": "tab crashed",
+            }
+        },
+    )
+    monkeypatch.setattr(
+        "Code.main.supermarket_factory", lambda *args, **kwargs: supermarket
+    )
+
+    # WHEN: main() is invoked
+    with pytest.raises(SystemExit) as exit_info:
+        main(
+            headless=True,
+            default_list_size=ListSize.TESTING,
+            file_handler=file_handler,
+            logger=logger,
+            web_driver=web_driver,
+        )
+
+    # THEN: the exit code is non-zero, the rows were still saved, and the driver quit
+    assert exit_info.value.code == 1
+    assert file_handler.saved == [[["A", "$1", "$1 / 1EA", ""]]]
+    assert web_driver.called.count(("quit",)) == 1

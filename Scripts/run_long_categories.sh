@@ -38,7 +38,18 @@ PY
      echo "[boxaroo] No categories found in 'long' list in: $CATEGORY_LISTS" >&2
      exit 1
  fi
+# A category that fails or only partly scrapes exits non-zero. Keep going so one
+# bad category does not skip the rest, then report the failures at the end.
+failed_categories=()
 for category in "${categories[@]}"; do
     echo "[boxaroo] Running category: ${category}"
-    "$PYTHON_BIN" "$REPO_ROOT/__main__.py" --category "$category" --headless
+    if ! "$PYTHON_BIN" "$REPO_ROOT/__main__.py" --category "$category" --headless; then
+        echo "[boxaroo] Category did not finish cleanly: ${category}" >&2
+        failed_categories+=("$category")
+    fi
 done
+
+if [[ ${#failed_categories[@]} -gt 0 ]]; then
+    echo "[boxaroo] Categories with failed or partial runs: ${failed_categories[*]}" >&2
+    exit 1
+fi
