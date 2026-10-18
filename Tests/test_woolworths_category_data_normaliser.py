@@ -1,10 +1,12 @@
 from Tests.test_helpers import (
     DummyLogger,
+    DummyPagedWebDriver,
     DummyProductParser,
     DummyWebDriver,
+    EchoProductParser,
     make_woolworths_category_data_normaliser,
 )
-from Code.contracts import ProductParseResult
+from Code.contracts import CategoryStatus, ProductParseResult
 
 
 def test_get_category_data_returns_expected_shape_on_success():
@@ -565,3 +567,139 @@ def test_get_category_data_warns_when_found_scraped_gap_is_high():
     assert any(
         "Category fruit-veg scrape gap warning" in msg for msg in warning_messages
     )
+
+
+# ============================================================
+# Per-page saving and honest status (known-issues #1)
+# ============================================================
+
+
+def _make_streaming_normaliser(web_driver, logger=None):
+    return make_woolworths_category_data_normaliser(
+        logger=logger or DummyLogger(),
+        web_driver=web_driver,
+        product_parser=EchoProductParser(),
+    )
+
+
+def test_get_category_data_hands_each_page_to_the_sink_as_it_is_read():
+    # GIVEN: a three-page category and a sink that records each call
+    web_driver = DummyPagedWebDriver(pages=[["A", "B"], ["C"], ["D", "E"]])
+    web_driver.category_total_items = 5
+    normaliser = _make_streaming_normaliser(web_driver)
+    sink_calls: list[list[list[str]]] = []
+
+    # WHEN: category data is retrieved
+    result = normaliser.get_category_data("fruit-veg", on_rows=sink_calls.append)
+
+    # THEN: each page reached the sink separately and in order
+    assert [[row[0] for row in call] for call in sink_calls] == [
+        ["A", "B"],
+        ["C"],
+        ["D", "E"],
+    ]
+    assert result["status"] == CategoryStatus.COMPLETE
+    assert result["error"] is None
+    assert result["pages_committed"] == 3
+    assert result["rows_stored"] == 5
+
+
+def test_get_category_data_keeps_saved_pages_and_reports_partial_on_mid_category_crash():
+    # GIVEN: a crash ("tab crashed") on page 3 of a category of 6 products
+    web_driver = DummyPagedWebDriver(
+        pages=[["A", "B"], ["C", "D"], ["E", "F"]], fail_after_pages=2
+    )
+    web_driver.category_total_items = 6
+    normaliser = _make_streaming_normaliser(web_driver)
+    sink_calls: list[list[list[str]]] = []
+
+    # WHEN: category data is retrieved
+    result = normaliser.get_category_data("fruit-veg", on_rows=sink_calls.append)
+
+    # THEN: the two pages read before the crash were handed to the sink
+    assert sum(len(call) for call in sink_calls) == 4
+
+    # AND: the category is reported as partial with the crash as the reason
+    assert result["status"] == CategoryStatus.PARTIAL
+    assert "tab crashed" in (result["error"] or "")
+    assert result["pages_committed"] == 2
+    assert result["rows_stored"] == 4
+    assert len(result["products"]) == 4
+
+
+def test_get_category_data_reports_failed_when_crash_happens_before_any_page():
+    # GIVEN: a driver that fails before the first page is read
+    web_driver = DummyPagedWebDriver(pages=[["A"]], fail_after_pages=0)
+    web_driver.category_total_items = 10
+    normaliser = _make_streaming_normaliser(web_driver)
+    sink_calls: list[list[list[str]]] = []
+
+    # WHEN: category data is retrieved
+    result = normaliser.get_category_data("fruit-veg", on_rows=sink_calls.append)
+
+    # THEN: nothing was saved and the category is failed, not an empty success
+    assert sink_calls == []
+    assert result["status"] == CategoryStatus.FAILED
+    assert "tab crashed" in (result["error"] or "")
+    assert result["rows_stored"] == 0
+
+
+def test_get_category_data_reports_failed_when_loading_the_category_raises():
+    # GIVEN: a driver whose page load raises
+    web_driver = DummyWebDriver()
+
+    def failing_get_page(url):
+        raise RuntimeError("net::ERR_ADDRESS_UNREACHABLE")
+
+    web_driver.get_page = failing_get_page
+    normaliser = _make_streaming_normaliser(web_driver)
+
+    # WHEN: category data is retrieved
+    result = normaliser.get_category_data("fruit-veg", on_rows=lambda rows: None)
+
+    # THEN: the failure is carried in the result instead of looking like success
+    assert result["status"] == CategoryStatus.FAILED
+    assert "ERR_ADDRESS_UNREACHABLE" in (result["error"] or "")
+
+
+def test_get_category_data_sends_a_product_repeated_on_a_later_page_only_once():
+    # GIVEN: page 2 repeats a product from page 1 (results reshuffle between loads)
+    web_driver = DummyPagedWebDriver(pages=[["A", "B"], ["B", "C"]])
+    web_driver.category_total_items = 3
+    normaliser = _make_streaming_normaliser(web_driver)
+    sink_calls: list[list[list[str]]] = []
+
+    # WHEN: category data is retrieved
+    result = normaliser.get_category_data("fruit-veg", on_rows=sink_calls.append)
+
+    # THEN: B reaches the sink once, so the stored file has no duplicate
+    sent = [row[0] for call in sink_calls for row in call]
+    assert sent == ["A", "B", "C"]
+    assert result["rows_stored"] == 3
+
+
+def test_get_category_data_marks_category_partial_when_scrape_gap_is_large():
+    # GIVEN: a category that reports 8,542 products but only 3 were read, no error
+    web_driver = DummyPagedWebDriver(pages=[["A", "B", "C"]])
+    web_driver.category_total_items = 8542
+    normaliser = _make_streaming_normaliser(web_driver)
+
+    # WHEN: category data is retrieved
+    result = normaliser.get_category_data("health-wellness", on_rows=lambda rows: None)
+
+    # THEN: the rows are kept but the category is flagged as partial
+    assert result["status"] == CategoryStatus.PARTIAL
+    assert "scrape gap" in (result["error"] or "")
+
+
+def test_get_category_data_reports_failed_when_nothing_was_scraped_without_an_error():
+    # GIVEN: a driver that reads pages but yields no products
+    web_driver = DummyPagedWebDriver(pages=[[]])
+    web_driver.category_total_items = 100
+    normaliser = _make_streaming_normaliser(web_driver)
+
+    # WHEN: category data is retrieved
+    result = normaliser.get_category_data("fruit-veg", on_rows=lambda rows: None)
+
+    # THEN: an empty result is not reported as a success
+    assert result["status"] == CategoryStatus.FAILED

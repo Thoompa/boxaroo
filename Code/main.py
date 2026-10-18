@@ -18,7 +18,7 @@ from Code.list_size_help import (
 )
 from Code.logger import Logger
 from Code.product_parser import ProductParser
-from Code.scrape_coordinator import ScrapeCoordinator
+from Code.scrape_coordinator import RunSummary, ScrapeCoordinator
 from Code.supermarket_factory import (
     ISuperMarket,
     resolve_supermarket,
@@ -115,7 +115,7 @@ def _run_scrape(
     file_path: str,
     header: list[str],
     mark_lifecycle_started,
-) -> None:
+) -> RunSummary:
     if injected_web_driver:
         file_handler = file_handler or FileHandler(file_name, file_path, header, logger)
 
@@ -140,7 +140,7 @@ def _run_scrape(
     )
     logger.log("WebDriver lifecycle start")
     mark_lifecycle_started()
-    coordinator.run(
+    return coordinator.run(
         list_size=list_size,
         category=category,
         refresh_category_lists=refresh_category_lists,
@@ -200,13 +200,14 @@ def main(
     )
     scrape_succeeded = False
     lifecycle_started = False
+    summary: RunSummary | None = None
 
     def mark_lifecycle_started() -> None:
         nonlocal lifecycle_started
         lifecycle_started = True
 
     try:
-        _run_scrape(
+        summary = _run_scrape(
             selected_supermarket=selected_supermarket,
             supermarket_name=supermarket_name,
             list_size=list_size,
@@ -234,3 +235,8 @@ def main(
             scrape_succeeded,
             lifecycle_started,
         )
+
+    # Surface partial or failed categories to the caller (systemd, shell
+    # scripts) instead of exiting 0 after a run that lost data.
+    if summary is not None and not summary.ok:
+        raise SystemExit(1)

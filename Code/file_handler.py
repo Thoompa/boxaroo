@@ -1,6 +1,7 @@
 import csv
+import json
 import os
-from typing import Sequence
+from typing import Any, Sequence
 
 from Code.contracts import IFileHandler, ILogger
 
@@ -41,3 +42,26 @@ class FileHandler(IFileHandler):
             writer = csv.writer(file)
             writer.writerows(data)
         self.logger.log(f"Successfully stored {len(data)} rows")
+
+    def write_status(self, category: str, status: dict[str, Any]) -> None:
+        """Record how a category finished in a JSON file beside the CSV.
+
+        The CSV header is fixed (the viewer depends on it), so run status lives
+        in "<csv name>.status.json". The file is replaced atomically.
+        """
+        status_path = os.path.join(self.file_path, self.file_name + ".status.json")
+        document: dict[str, Any] = {"schema_version": 1, "categories": {}}
+        if os.path.exists(status_path):
+            try:
+                with open(status_path, encoding="utf-8") as file:
+                    loaded = json.load(file)
+                if isinstance(loaded.get("categories"), dict):
+                    document = loaded
+            except (OSError, ValueError, AttributeError):
+                self.logger.warning(f"Ignoring unreadable status file {status_path}")
+        document["categories"][category] = status
+
+        temp_path = status_path + ".tmp"
+        with open(temp_path, "w", encoding="utf-8") as file:
+            json.dump(document, file, indent=2)
+        os.replace(temp_path, status_path)

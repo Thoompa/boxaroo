@@ -13,8 +13,14 @@ from typing import Any, cast
 import time
 import random
 from urllib.parse import parse_qsl, urlencode, urlparse, urlunparse
-from Code.contracts import IWebDriver, ILogger, ProductsCallback, ProductsPageResult
-
+from Code.contracts import (
+    IncompleteProductItem,
+    ILogger,
+    IWebDriver,
+    PageStats,
+    ProductsCallback,
+    ProductsPageResult,
+)
 
 NEXT_BUTTON_LOCATORS = (
     (By.CSS_SELECTOR, "a[rel='next']"),
@@ -556,10 +562,56 @@ class WebDriver(IWebDriver):
         _callback: ProductsCallback | None = None,
         category_name: str | None = None,
     ) -> ProductsPageResult:
-        """Paginate product tiles and expose only plain text payloads to callback."""
-        all_data = []
-        all_incomplete = []
-        page_stats = []
+        """Paginate product tiles and expose only plain text payloads to callback.
+
+        A failure part-way through does not raise: the pages read before it are
+        returned with the error text, so the caller keeps them.
+        """
+        all_data: list[list[str]] = []
+        all_incomplete: list[IncompleteProductItem] = []
+        page_stats: list[PageStats] = []
+        progress = {"page": 0, "resets": 0}
+        error = None
+
+        try:
+            self._collect_pages(
+                _callback, all_data, all_incomplete, page_stats, progress
+            )
+        except TypeError:
+            # A TypeError is a programming error in the callback or driver code,
+            # not a flaky page; let it surface instead of reporting it as a
+            # partial scrape.
+            raise
+        except Exception as exc:
+            msg = getattr(exc, "msg", None) or str(exc) or repr(exc)
+            error = f"{type(exc).__name__}: {msg} (page {progress['page']})"
+            self.logger.error(
+                f"Pagination aborted on page {progress['page']} after "
+                f"{len(page_stats)} pages read: {type(exc).__name__}: {msg}"
+            )
+
+        if category_name is not None:
+            self.logger.log(
+                f"Category {category_name}: reset_count={progress['resets']} "
+                f"pages_processed={progress['page']}"
+            )
+
+        return {
+            "products": all_data,
+            "incomplete_items": all_incomplete,
+            "page_stats": page_stats,
+            "error": error,
+        }
+
+    def _collect_pages(
+        self,
+        _callback: ProductsCallback | None,
+        all_data: list[list[str]],
+        all_incomplete: list[IncompleteProductItem],
+        page_stats: list[PageStats],
+        progress: dict[str, int],
+    ) -> None:
+        """Walk the category page by page, appending results in place."""
         page_number = 0
         reset_count = 0
         pages_since_reset = 0
@@ -569,6 +621,7 @@ class WebDriver(IWebDriver):
 
         while True:
             page_number += 1
+            progress["page"] = page_number
             pages_since_reset += 1
 
             # Add delay before waiting for products
@@ -637,20 +690,10 @@ class WebDriver(IWebDriver):
                         f"Driver reset triggered: pages_processed={pages_since_reset} reset_count={reset_count + 1}"
                     )
                     reset_count += 1
+                    progress["resets"] = reset_count
                     pages_since_reset = 0
                     self._reset_driver_for_next_page(next_page_url)
                     continue
 
             if not self._advance_with_recovery(base_url, page_number):
                 break
-
-        if category_name is not None:
-            self.logger.log(
-                f"Category {category_name}: reset_count={reset_count} pages_processed={page_number}"
-            )
-
-        return {
-            "products": all_data,
-            "incomplete_items": all_incomplete,
-            "page_stats": page_stats,
-        }

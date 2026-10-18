@@ -1,4 +1,10 @@
-from Code.contracts import CategoryData, IncompleteProductItem, ProductsData
+from Code.contracts import (
+    CategoryData,
+    CategoryStatus,
+    IncompleteProductItem,
+    ProductsData,
+    RowSink,
+)
 from Code.logger import ILogger
 from Code.product_parser import IProductParser
 from Code.web_driver import IWebDriver
@@ -22,9 +28,41 @@ class WoolworthsCategoryDataNormaliser:
         self.product_parser = product_parser
         self.browse_url = browse_url
 
-    def get_category_data(self, category_name: str) -> CategoryData:
+    def get_category_data(
+        self, category_name: str, on_rows: RowSink | None = None
+    ) -> CategoryData:
         url = self.browse_url + category_name
         start_time = perf_counter()
+
+        # Rows already handed on, kept outside the try so a failure part-way
+        # through still reports what was saved.
+        seen_rows: set[tuple[str, ...]] = set()
+        stored_rows: list[list[str]] = []
+
+        def remember(rows: list[list[str]]) -> list[list[str]]:
+            """Pass rows not seen before to the sink and keep them."""
+            new_rows: list[list[str]] = []
+            for row in rows:
+                key = tuple(row)
+                if key in seen_rows:
+                    continue
+                seen_rows.add(key)
+                new_rows.append(row)
+            if new_rows and on_rows is not None:
+                on_rows(new_rows)
+            stored_rows.extend(new_rows)
+            return new_rows
+
+        def commit_page(
+            payloads: list[str], page_number: int | None = None
+        ) -> ProductsData:
+            page = self._get_products_data(payloads, page_number=page_number)
+            if isinstance(page, list):
+                return {"products": remember(page), "incomplete_items": []}
+            return {
+                "products": remember(page["products"]),
+                "incomplete_items": page["incomplete_items"],
+            }
 
         try:
             self.logger.log(
@@ -38,12 +76,7 @@ class WoolworthsCategoryDataNormaliser:
             )
 
             data_result = self.web_driver.get_products(
-                self._get_products_data, category_name=category_name
-            )
-            products = (
-                data_result.get("products", [])
-                if isinstance(data_result, dict)
-                else data_result
+                commit_page, category_name=category_name
             )
             incomplete_items = (
                 data_result.get("incomplete_items", [])
@@ -55,8 +88,16 @@ class WoolworthsCategoryDataNormaliser:
                 if isinstance(data_result, dict)
                 else []
             )
+            error = data_result.get("error") if isinstance(data_result, dict) else None
 
-            products = self._dedupe_products(products)
+            # A driver that did not stream through the callback still returns
+            # its rows; make sure none of them miss the sink.
+            if isinstance(data_result, dict):
+                remember(data_result.get("products", []))
+            elif isinstance(data_result, list):
+                remember(data_result)
+
+            products = self._dedupe_products(stored_rows)
             incomplete_items = self._dedupe_incomplete_items(incomplete_items)
 
             for page_info in page_stats:
@@ -92,11 +133,24 @@ class WoolworthsCategoryDataNormaliser:
                         f"Category {category_name} scrape gap warning: found={category_total} scraped={scraped_count} "
                         f"gap={gap_ratio:.2%}"
                     )
+                    if not error:
+                        error = (
+                            f"scrape gap: found={category_total} "
+                            f"scraped={scraped_count}"
+                        )
 
             for item in incomplete_items:
                 self.logger.log(
                     f"Incomplete product: name='{item.get('name', '[unknown]')}', missing={item.get('missing', [])}"
                 )
+
+            if not products:
+                status = CategoryStatus.FAILED
+                error = error or "no products scraped"
+            elif error:
+                status = CategoryStatus.PARTIAL
+            else:
+                status = CategoryStatus.COMPLETE
 
             return {
                 "category": category_name,
@@ -105,6 +159,10 @@ class WoolworthsCategoryDataNormaliser:
                 "incomplete_items": incomplete_items,
                 "scraped": scraped_count,
                 "incomplete": incomplete_count,
+                "status": status,
+                "error": error,
+                "pages_committed": len(page_stats),
+                "rows_stored": scraped_count,
             }
         except Exception as e:
             msg = getattr(e, "msg", None) or str(e) or repr(e)
@@ -112,10 +170,16 @@ class WoolworthsCategoryDataNormaliser:
             return {
                 "category": category_name,
                 "total": 0,
-                "products": [],
+                "products": list(stored_rows),
                 "incomplete_items": [],
-                "scraped": 0,
+                "scraped": len(stored_rows),
                 "incomplete": 0,
+                "status": (
+                    CategoryStatus.PARTIAL if stored_rows else CategoryStatus.FAILED
+                ),
+                "error": f"{type(e).__name__}: {msg}",
+                "pages_committed": 0,
+                "rows_stored": len(stored_rows),
             }
 
     def _get_products_data(

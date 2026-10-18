@@ -5,7 +5,6 @@ import pytest
 from Code.file_handler import FileHandler
 from Tests.test_helpers import DummyLogger, make_file_handler, FILE_HANDLER_HEADER
 
-
 # ---------------------------------------------------------------------------
 # _create_file behaviour (called on construction)
 # ---------------------------------------------------------------------------
@@ -169,3 +168,56 @@ def test_file_handler_multiple_store_data_calls_accumulate_rows(tmp_path):
         all_rows = list(csv.reader(f))
     assert all_rows[0] == FILE_HANDLER_HEADER
     assert all_rows[1:] == batch_one + batch_two
+
+
+# ---------------------------------------------------------------------------
+# write_status (per-category run status beside the CSV)
+# ---------------------------------------------------------------------------
+
+
+def _read_status(tmp_path):
+    import json
+
+    return json.loads((tmp_path / "out.csv.status.json").read_text(encoding="utf-8"))
+
+
+def test_write_status_creates_status_file_beside_the_csv(tmp_path):
+    # GIVEN: a file handler for out.csv
+    handler, _ = make_file_handler(tmp_path)
+
+    # WHEN: a category status is written
+    handler.write_status("baby", {"state": "partial", "rows_written": 5})
+
+    # THEN: the CSV header is untouched and the status sits in a sidecar file
+    with open(tmp_path / "out.csv", newline="") as f:
+        assert list(csv.reader(f)) == [FILE_HANDLER_HEADER]
+    document = _read_status(tmp_path)
+    assert document["schema_version"] == 1
+    assert document["categories"]["baby"] == {"state": "partial", "rows_written": 5}
+
+
+def test_write_status_keeps_other_categories_and_replaces_the_same_one(tmp_path):
+    # GIVEN: a status file that already holds two categories
+    handler, _ = make_file_handler(tmp_path)
+    handler.write_status("baby", {"state": "failed"})
+    handler.write_status("pet", {"state": "complete"})
+
+    # WHEN: baby is written again after a re-run
+    handler.write_status("baby", {"state": "complete"})
+
+    # THEN: baby is replaced and pet is preserved
+    categories = _read_status(tmp_path)["categories"]
+    assert categories == {"baby": {"state": "complete"}, "pet": {"state": "complete"}}
+    assert not (tmp_path / "out.csv.status.json.tmp").exists()
+
+
+def test_write_status_recovers_from_a_corrupt_status_file(tmp_path):
+    # GIVEN: a status file that was left truncated
+    handler, _ = make_file_handler(tmp_path)
+    (tmp_path / "out.csv.status.json").write_text("{not json", encoding="utf-8")
+
+    # WHEN: a status is written
+    handler.write_status("baby", {"state": "complete"})
+
+    # THEN: the file is rewritten with the new status
+    assert _read_status(tmp_path)["categories"] == {"baby": {"state": "complete"}}

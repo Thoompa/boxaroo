@@ -2,6 +2,7 @@
 """
 Shared dummy/mock classes for Boxaroo unit tests.
 """
+
 from typing import Any, cast
 
 from Code.file_handler import FileHandler
@@ -12,6 +13,7 @@ from Code.contracts import (
     ListSize,
     ProductsCallback,
     ProductsPageResult,
+    RowSink,
     ProductParseResult,
     IProductParser,
     IWebDriver,
@@ -50,9 +52,13 @@ class DummyFileHandler(IFileHandler):
         if error_on_init:
             raise OSError("permission denied")
         self.saved = []
+        self.statuses: dict[str, dict] = {}
 
     def store_data(self, data):
         self.saved.append(data)
+
+    def write_status(self, category, status):
+        self.statuses[category] = status
 
 
 class DummyWebDriver(IWebDriver):
@@ -119,6 +125,71 @@ class DummyWebDriver(IWebDriver):
         if self.category_total_items_sequence:
             return self.category_total_items_sequence.pop(0)
         return self.category_total_items
+
+
+class DummyPagedWebDriver(DummyWebDriver):
+    """Driver double that feeds raw pages through the callback like WebDriver.
+
+    Mirrors the real get_products contract: after `fail_after_pages` pages it
+    stops and returns the pages read so far with an error, rather than raising.
+    """
+
+    def __init__(
+        self,
+        pages: list[list[str]],
+        fail_after_pages: int | None = None,
+        error: str = "WebDriverException: tab crashed (page {page})",
+    ):
+        super().__init__()
+        self.pages = pages
+        self.fail_after_pages = fail_after_pages
+        self.error = error
+
+    def get_products(
+        self,
+        _callback: ProductsCallback | None = None,
+        category_name: str | None = None,
+    ) -> ProductsPageResult:
+        assert _callback is not None
+        products: list[list[str]] = []
+        incomplete: list = []
+        page_stats = []
+        error = None
+        for number, payloads in enumerate(self.pages, start=1):
+            if self.fail_after_pages is not None and number > self.fail_after_pages:
+                error = self.error.format(page=number)
+                break
+            result = cast(Any, _callback(payloads, page_number=number))
+            products.extend(result["products"])
+            incomplete.extend(result["incomplete_items"])
+            page_stats.append(
+                {
+                    "page": number,
+                    "product_tiles": len(payloads),
+                    "extraction_failures": 0,
+                    "scraped": len(result["products"]),
+                    "incomplete": len(result["incomplete_items"]),
+                }
+            )
+        return {
+            "products": products,
+            "incomplete_items": incomplete,
+            "page_stats": page_stats,
+            "error": error,
+        }
+
+
+class EchoProductParser(IProductParser):
+    """Parser double that turns a tile's text straight into a complete product."""
+
+    def parse(self, text: object | None) -> ProductParseResult:
+        return {
+            "name": str(text),
+            "price": "$1.00",
+            "unit_price": "$1.00 / 1EA",
+            "promotion": "",
+            "missing_fields": [],
+        }
 
 
 class DummyProductParser(IProductParser):
@@ -201,13 +272,21 @@ class DummySupermarket(ISuperMarket):
             return ["default-category"]
         return self.categories
 
-    def get_category_data(self, category_name: str) -> CategoryData:
+    def get_category_data(
+        self, category_name: str, on_rows: RowSink | None = None
+    ) -> CategoryData:
         self.get_category_data_calls.append(category_name)
         if self.get_category_data_error is not None:
             raise self.get_category_data_error
         if category_name in self.category_data:
-            return self.category_data[category_name]
+            data = self.category_data[category_name]
+            products = data.get("products")
+            if on_rows is not None and isinstance(products, list) and products:
+                on_rows(products)
+            return data
         products = self.products_to_store if self.products_to_store is not None else []
+        if on_rows is not None and products:
+            on_rows(products)
         return {
             "category": category_name,
             "total": len(products),
