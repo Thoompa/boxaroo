@@ -342,3 +342,108 @@ def test_parse_price_with_three_decimal_digits_logs_rejection():
 
     # THEN: the malformed price is logged
     assert any("$1.000" in msg for _, msg in logger.records)
+
+
+# ============================================================
+# Badge and Annotation Lines Are Never the Name
+# ============================================================
+
+BADGE_TILES = {
+    "supply-update-before-name": (
+        "$0.88\n$0.88 / 1EA\nSUPPLY UPDATE^\nCavendish Bananas each\nAdd to cart\n",
+        "Cavendish Bananas each",
+    ),
+    "designs-may-vary-before-name": (
+        "$4.35\n$4.35 / 1EA\nDESIGNS MAY VARY\nGrillworx Lighter Assorted each\n"
+        "Add to cart\n",
+        "Grillworx Lighter Assorted each",
+    ),
+    "bonus-credit-badge-before-name": (
+        "$6.00\nBUY 1 GET A BONUS CONTAINER CREDIT^\nBin Liners 30 pack\n"
+        "Add to cart\n",
+        "Bin Liners 30 pack",
+    ),
+    "restock-badge-before-name": (
+        "OUT OF STOCK\nEST. RESTOCK 12/11/26\nFlannel Sheet Set Queen\nAdd to cart\n",
+        "Flannel Sheet Set Queen",
+    ),
+    "lowest-price-badge-after-name": (
+        "$12.00\nFlannel Sheet Set Queen\nLowest price in 14 days\nAdd to cart\n",
+        "Flannel Sheet Set Queen",
+    ),
+    "everyday-low-price-after-name": (
+        "$2.00\nSunflower Oil 1L\nEVERYDAY LOW PRICE\nAdd to cart\n",
+        "Sunflower Oil 1L",
+    ),
+    "sold-by-after-name": (
+        "$19.00\nPlastic Storage Tub 10L\nSold by KG Superstore\nAdd to cart\n",
+        "Plastic Storage Tub 10L",
+    ),
+    "unit-fragment-line": (
+        "$2.95\n/ 100G\n$3.60 / 100G\nSalami Shaved per 100g\nAdd to cart\n",
+        "Salami Shaved per 100g",
+    ),
+    "name-between-badge-and-view-similar": (
+        "IN-STORE ONLY\nMasking Tape 24Mm each\nView similar\nproducts\n"
+        "   to Masking Tape 24Mm each\nSave to list",
+        "Masking Tape 24Mm each",
+    ),
+}
+
+
+@pytest.mark.parametrize(("text", "name"), BADGE_TILES.values(), ids=BADGE_TILES.keys())
+def test_parse_badge_text_is_not_chosen_as_name(product_parser, text, name):
+    # GIVEN: tile text with a badge or annotation line beside the product name
+
+    # WHEN: the text is parsed
+    parsed = product_parser.parse(text)
+
+    # THEN: the real product name is selected
+    assert parsed["name"] == name
+
+
+def test_parse_tile_with_only_badges_yields_no_name(product_parser):
+    # GIVEN: tile text where the name is missing and only badges remain
+    text = "$2.00\nLowest price in 14 days\nAdd to cart\n"
+
+    # WHEN: the text is parsed
+    parsed = product_parser.parse(text)
+
+    # THEN: no badge is reported as the name
+    assert parsed["name"] == ""
+
+
+# ============================================================
+# Unit Price Excludes the Was-Price
+# ============================================================
+
+
+@pytest.mark.parametrize(
+    ("line", "unit_price"),
+    [
+        ("$12.50 $30.00 / 1KG", "$30.00 / 1KG"),
+        ("$8.70 $4.35 / 1EA", "$4.35 / 1EA"),
+        ("$3.60 / 100G $29.50 / 1KG", "$29.50 / 1KG"),
+        ("$4.50 / 1EA", "$4.50 / 1EA"),
+    ],
+)
+def test_parse_unit_price_is_a_single_price_per_unit(product_parser, line, unit_price):
+    # GIVEN: tile text whose unit price line may carry a was-price
+    text = f"$6.00\n{line}\nCheese Brie 200g\nAdd to cart\n"
+
+    # WHEN: the text is parsed
+    parsed = product_parser.parse(text)
+
+    # THEN: only the unit price is returned
+    assert parsed["unit_price"] == unit_price
+
+
+def test_parse_bare_unit_fragment_is_not_a_unit_price(product_parser):
+    # GIVEN: tile text with a stray "/ 100G" line and no unit price
+    text = "$2.95\n/ 100G\nSalami Shaved per 100g\nAdd to cart\n"
+
+    # WHEN: the text is parsed
+    parsed = product_parser.parse(text)
+
+    # THEN: the fragment is not reported as a unit price
+    assert parsed["unit_price"] == ""

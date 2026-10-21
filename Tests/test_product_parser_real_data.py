@@ -3,9 +3,9 @@
 `Tests/fixtures/tiles/*.json` holds raw tile text exactly as the scraper
 receives it; refresh it with `python Scripts/capture_tile_fixtures.py`.
 
-Cases the parser currently gets wrong are written with the *correct* expected
-output and marked `xfail(strict=True)`. When the parser is fixed they start
-passing, strict mode fails the run, and the marker is removed.
+A case the parser gets wrong should be written with the *correct* expected
+output and marked `xfail(strict=True)`, so it fails the run once fixed and the
+marker is removed.
 """
 
 import json
@@ -110,6 +110,26 @@ CORRECT_CASES = {
             "promotion": "",
         },
     ),
+    "in-store-only-badge-before-name": (
+        "IN-STORE ONLY\nSellotape Masking Tape 24Mm X 18M each\nView similar\nproducts\n             to Sellotape Masking Tape 24Mm X 18M each\nSave to list",
+        {"name": "Sellotape Masking Tape 24Mm X 18M each"},
+    ),
+    "supply-update-badge-before-name": (
+        "$0.88\n$0.88 / 1EA\nSUPPLY UPDATE^\nCavendish Bananas each\nAdd to cart\nSave to list",
+        {"name": "Cavendish Bananas each"},
+    ),
+    "promotion-banner-before-name": (
+        "SAVE $8.00\n$12.00\n$20.00\nEXTRA 15% OFF WHEN YOU SPEND $75 ON LIQUOR. T&CS APPLY^^\nMarlborough Sounds Sauvignon Blanc 750ml\nAdd to cart\nSave to list",
+        {"name": "Marlborough Sounds Sauvignon Blanc 750ml"},
+    ),
+    "unit-fragment-line-before-name": (
+        "SAVE $0.65\n$2.95\n/ 100G\n$3.60 / 100G $29.50 / 1KG\nPrice per kg charged\nKRC Mild Hungarian Salami Shaved From The Deli per 100g\nAdd to cart\nSave to list",
+        {"name": "KRC Mild Hungarian Salami Shaved From The Deli per 100g"},
+    ),
+    "unit-price-glued-to-the-was-price": (
+        "SAVE $6.50\n$6.00\n$12.50 $30.00 / 1KG\nTasmanian Heritage Double Brie Cheese 200g\nAdd to cart\nSave to list",
+        {"unit_price": "$30.00 / 1KG"},
+    ),
 }
 
 
@@ -123,61 +143,6 @@ def test_real_tile_is_parsed_correctly(parser, tile, expected):
     result = parser.parse(tile)
 
     # THEN: the fields match what the page shows
-    assert {key: result[key] for key in expected} == expected
-
-
-KNOWN_WRONG_CASES = {
-    "name-is-a-badge-in-store-only": (
-        "IN-STORE ONLY\nSellotape Masking Tape 24Mm X 18M each\nView similar\n"
-        "products\n             to Sellotape Masking Tape 24Mm X 18M each\n"
-        "Save to list",
-        {"name": "Sellotape Masking Tape 24Mm X 18M each"},
-        "known issue 5: badge text parsed as the product name",
-    ),
-    "name-is-a-badge-supply-update": (
-        "$0.88\n$0.88 / 1EA\nSUPPLY UPDATE^\nCavendish Bananas each\nAdd to cart\n"
-        "Save to list",
-        {"name": "Cavendish Bananas each"},
-        "known issue 5: badge text parsed as the product name",
-    ),
-    "name-is-a-promotion-banner": (
-        "SAVE $8.00\n$12.00\n$20.00\nEXTRA 15% OFF WHEN YOU SPEND $75 ON LIQUOR. "
-        "T&CS APPLY^^\nMarlborough Sounds Sauvignon Blanc 750ml\nAdd to cart\n"
-        "Save to list",
-        {"name": "Marlborough Sounds Sauvignon Blanc 750ml"},
-        "known issue 5: banner text parsed as the product name",
-    ),
-    "name-is-the-unit-of-a-variable-weight-price": (
-        "SAVE $0.65\n$2.95\n/ 100G\n$3.60 / 100G $29.50 / 1KG\nPrice per kg charged\n"
-        "KRC Mild Hungarian Salami Shaved From The Deli per 100g\nAdd to cart\n"
-        "Save to list",
-        {"name": "KRC Mild Hungarian Salami Shaved From The Deli per 100g"},
-        "known issue 5: '/ 100G' parsed as the product name",
-    ),
-    "unit-price-glued-to-the-was-price": (
-        "SAVE $6.50\n$6.00\n$12.50 $30.00 / 1KG\nTasmanian Heritage Double Brie Cheese"
-        " 200g\nAdd to cart\nSave to list",
-        {"unit_price": "$30.00 / 1KG"},
-        "new: the was-price is stored in front of the unit price",
-    ),
-}
-
-
-@pytest.mark.parametrize(
-    ("tile", "expected"),
-    [
-        pytest.param(tile, expected, marks=pytest.mark.xfail(strict=True, reason=why))
-        for tile, expected, why in KNOWN_WRONG_CASES.values()
-    ],
-    ids=KNOWN_WRONG_CASES.keys(),
-)
-def test_real_tile_is_parsed_correctly_known_wrong(parser, tile, expected):
-    # GIVEN: raw text of a real product tile the parser currently misreads
-
-    # WHEN: the tile is parsed
-    result = parser.parse(tile)
-
-    # THEN: the fields should match what the page shows
     assert {key: result[key] for key in expected} == expected
 
 
@@ -221,7 +186,6 @@ def test_nearly_every_real_tile_has_a_price(parser, real_tiles):
     assert len(without_price) <= 0.02 * len(results), without_price[:3]
 
 
-@pytest.mark.xfail(strict=True, reason="known issue 5: badge text parsed as names")
 def test_every_real_tile_name_is_a_product_name(parser, real_tiles):
     # GIVEN: every captured tile
 
@@ -237,7 +201,6 @@ def test_every_real_tile_name_is_a_product_name(parser, real_tiles):
     ), f"{len(wrong)} of {len(results)} names are not product names: {wrong[:5]}"
 
 
-@pytest.mark.xfail(strict=True, reason="new: was-price stored in front of unit price")
 def test_every_real_tile_unit_price_is_a_single_price_per_unit(parser, real_tiles):
     # GIVEN: every captured tile
 
