@@ -3,6 +3,14 @@ from typing import List, Optional, Sequence
 
 from Code.contracts import ILogger, IProductParser, ProductParseResult
 
+UNIT_PRICE_PATTERN = re.compile(r"\$\d+(?:\.\d+)?\s*/\s*\w+")
+ACTION_MARKERS = ("add to cart", "view similar", "save to list", "click to save")
+BADGE_PATTERN = re.compile(
+    r"^/|\^+$|^(extra \d+%|sold by|lowest price|est\. restock|in-store only"
+    r"|designs may vary|supply update|everyday low price|price per|\[unknown\])",
+    re.IGNORECASE,
+)
+
 
 class ProductParser(IProductParser):
     """Parser for raw product text into structured product fields."""
@@ -73,7 +81,8 @@ class ProductParser(IProductParser):
     def _extract_unit_price(self, lines: List[str]) -> str:
         for line in lines:
             if self._is_unit_price_line(line):
-                return line
+                # A was-price may precede it ("$12.50 $30.00 / 1KG"): keep the last.
+                return UNIT_PRICE_PATTERN.findall(line)[-1]
             each_match = re.match(
                 r"^(\$\d+(?:\.\d{2})?)\s+each$", line.strip(), re.IGNORECASE
             )
@@ -94,15 +103,28 @@ class ProductParser(IProductParser):
         return ""
 
     def _extract_product_name(self, lines: List[str]) -> str:
-        for line in lines:
+        # The name is the last text line before the action buttons; badges can
+        # sit before it and annotations after it.
+        body = self._lines_before_actions(lines)
+
+        for line in reversed(body):
             if self._is_product_name_candidate(line):
                 return line
 
-        for line in reversed(lines):
+        for line in reversed(body):
             if self._is_fallback_name_candidate(line):
                 return line
 
         return ""
+
+    def _lines_before_actions(self, lines: List[str]) -> List[str]:
+        for index, line in enumerate(lines):
+            if line.lower().startswith(ACTION_MARKERS):
+                return lines[:index]
+        return lines
+
+    def _is_badge_line(self, value: str) -> bool:
+        return bool(BADGE_PATTERN.search(value.strip()))
 
     def _is_price_line(self, value: str) -> bool:
         stripped = value.strip()
@@ -119,11 +141,16 @@ class ProductParser(IProductParser):
         return is_price
 
     def _is_unit_price_line(self, value: str) -> bool:
-        return bool(re.match(r"^\$.*\/.+$", value.strip()))
+        stripped = value.strip()
+        return stripped.startswith("$") and bool(UNIT_PRICE_PATTERN.search(stripped))
 
     def _is_blacklisted(self, value: str) -> bool:
         value_lower = value.lower().strip()
-        return any(entry in value_lower for entry in self.blacklist)
+        # Whole-line match so "new" does not reject "New Zealand Sauvignon Blanc".
+        return any(
+            re.fullmatch(rf"{re.escape(entry)}\W*", value_lower)
+            for entry in self.blacklist
+        )
 
     def _is_product_name_candidate(self, value: str) -> bool:
         v = value.strip()
@@ -133,7 +160,7 @@ class ProductParser(IProductParser):
             return False
 
         low = v.lower()
-        if self._is_blacklisted(v):
+        if self._is_blacklisted(v) or self._is_badge_line(v):
             return False
         if "for $" in low or re.match(r"^\d+\s*for\s*\$", low):
             return False
@@ -150,7 +177,7 @@ class ProductParser(IProductParser):
 
     def _is_fallback_name_candidate(self, value: str) -> bool:
         v = value.strip()
-        if self._is_blacklisted(v):
+        if self._is_blacklisted(v) or self._is_badge_line(v):
             return False
         if v.startswith("$"):
             return False
