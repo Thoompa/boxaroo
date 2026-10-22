@@ -53,7 +53,7 @@ def capture_first_page(driver: WebDriver, category: str) -> list[str]:
     tiles: list[str] = []
 
     def record(payloads, page_number):
-        tiles.extend(payloads)
+        tiles.extend(payload["text"] for payload in payloads)
         return []
 
     driver.get_page(BASE_URL + category)

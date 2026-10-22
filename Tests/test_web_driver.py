@@ -6,6 +6,7 @@ from Tests.test_helpers import (
     DummyWebDriverHarness,
     DummyWait,
     DummySeleniumSession,
+    DummyUrlSession,
     DummyProductElement,
     DummyLogger,
     DummyDriverFactory,
@@ -248,7 +249,7 @@ def test_get_products_advances_using_next_href(monkeypatch):
     result = WebDriver.get_products(
         driver,
         lambda elements, *, page_number: {
-            "products": list(elements),
+            "products": [tile["text"] for tile in elements],
             "incomplete_items": [],
         },
     )
@@ -355,7 +356,7 @@ def test_get_products_payload_always_contains_required_keys(monkeypatch):
     result = WebDriver.get_products(
         driver,
         lambda elements, *, page_number: {
-            "products": list(elements),
+            "products": [tile["text"] for tile in elements],
             "incomplete_items": [{"name": "A", "missing": ["unit_price"]}],
         },
     )
@@ -378,7 +379,7 @@ def test_get_products_page_stats_track_incomplete_count(monkeypatch):
     result = WebDriver.get_products(
         driver,
         lambda elements, *, page_number: {
-            "products": list(elements),
+            "products": [tile["text"] for tile in elements],
             "incomplete_items": [{"name": elements[0], "missing": ["price"]}],
         },
     )
@@ -389,8 +390,8 @@ def test_get_products_page_stats_track_incomplete_count(monkeypatch):
     assert result["page_stats"][1]["incomplete"] == 1
 
 
-def test_get_products_callback_receives_plain_string_payloads(monkeypatch):
-    # GIVEN: a callback that records every payload it receives
+def test_get_products_callback_receives_text_and_url_payloads(monkeypatch):
+    # GIVEN: a two-page category and a callback that records what it receives
     monkeypatch.setattr(web_driver_module, "WebDriverWait", DummyWait)
     monkeypatch.setattr(web_driver_module.time, "sleep", lambda _: None)
     monkeypatch.setattr(web_driver_module.random, "uniform", lambda a, b: 0)
@@ -398,16 +399,16 @@ def test_get_products_callback_receives_plain_string_payloads(monkeypatch):
     driver.driver = DummySeleniumSession()
     seen_payloads = []
 
-    def callback(product_texts, *, page_number):
-        seen_payloads.extend(product_texts)
-        return {"products": list(product_texts), "incomplete_items": []}
+    def callback(tiles, *, page_number):
+        seen_payloads.extend(tiles)
+        return {"products": [tile["text"] for tile in tiles], "incomplete_items": []}
 
     # WHEN: the products are retrieved
     WebDriver.get_products(driver, callback)
 
-    # THEN: the callback received plain strings for all products across both pages
-    assert seen_payloads == ["A", "B", "C", "D"]
-    assert all(isinstance(item, str) for item in seen_payloads)
+    # THEN: the callback received a text and URLs payload for every product
+    assert [payload["text"] for payload in seen_payloads] == ["A", "B", "C", "D"]
+    assert all(payload["urls"] == [] for payload in seen_payloads)
 
 
 def test_get_products_supports_list_return_from_callback(monkeypatch):
@@ -420,7 +421,8 @@ def test_get_products_supports_list_return_from_callback(monkeypatch):
 
     # WHEN: the products are retrieved
     result = WebDriver.get_products(
-        driver, lambda elements, *, page_number: list(elements)
+        driver,
+        lambda elements, *, page_number: [tile["text"] for tile in elements],
     )
 
     # THEN: all products are still aggregated correctly
@@ -476,7 +478,7 @@ def test_get_products_reloads_page_on_per_element_timeout(monkeypatch):
     result = WebDriver.get_products(
         driver,
         lambda texts, *, page_number: {
-            "products": list(texts),
+            "products": [tile["text"] for tile in texts],
             "incomplete_items": [],
         },
     )
@@ -517,7 +519,7 @@ def test_get_products_records_failure_without_reload_on_generic_error(monkeypatc
     result = WebDriver.get_products(
         driver,
         lambda texts, *, page_number: {
-            "products": list(texts),
+            "products": [tile["text"] for tile in texts],
             "incomplete_items": [],
         },
     )
@@ -577,7 +579,7 @@ def test_get_products_triggers_driver_reset_after_threshold(monkeypatch):
     result = WebDriver.get_products(
         driver,
         lambda elements, *, page_number: {
-            "products": list(elements),
+            "products": [tile["text"] for tile in elements],
             "incomplete_items": [],
         },
         category_name="beauty",
@@ -621,7 +623,7 @@ def test_get_products_does_not_reset_when_category_finishes_before_threshold(
     result = WebDriver.get_products(
         driver,
         lambda elements, *, page_number: {
-            "products": list(elements),
+            "products": [tile["text"] for tile in elements],
             "incomplete_items": [],
         },
         category_name="bakery",
@@ -660,7 +662,7 @@ def test_get_products_retries_driver_creation_before_succeeding(monkeypatch):
     result = WebDriver.get_products(
         driver,
         lambda elements, *, page_number: {
-            "products": list(elements),
+            "products": [tile["text"] for tile in elements],
             "incomplete_items": [],
         },
         category_name="beauty",
@@ -696,7 +698,7 @@ def test_get_products_preserves_page_stats_across_resets(monkeypatch):
     result = WebDriver.get_products(
         driver,
         lambda elements, *, page_number: {
-            "products": list(elements),
+            "products": [tile["text"] for tile in elements],
             "incomplete_items": [{"name": elements[0], "missing": ["price"]}],
         },
         category_name="fruit-veg",
@@ -731,7 +733,7 @@ def test_get_products_logs_category_summary_after_reset_run(monkeypatch):
     WebDriver.get_products(
         driver,
         lambda elements, *, page_number: {
-            "products": list(elements),
+            "products": [tile["text"] for tile in elements],
             "incomplete_items": [],
         },
         category_name="beauty",
@@ -769,7 +771,7 @@ def test_get_products_does_not_reset_when_hard_reset_is_disabled(monkeypatch):
     result = WebDriver.get_products(
         driver,
         lambda elements, *, page_number: {
-            "products": list(elements),
+            "products": [tile["text"] for tile in elements],
             "incomplete_items": [],
         },
         category_name="beauty",
@@ -876,7 +878,7 @@ def test_get_products_skips_reset_when_no_next_page_button(monkeypatch):
     result = WebDriver.get_products(
         driver,
         lambda elements, *, page_number: {
-            "products": list(elements),
+            "products": [tile["text"] for tile in elements],
             "incomplete_items": [],
         },
         category_name="beauty",
@@ -1029,7 +1031,7 @@ def _script_outcomes(driver, outcomes):
 
 
 def _collect(elements, *, page_number):
-    return {"products": list(elements), "incomplete_items": []}
+    return {"products": [tile["text"] for tile in elements], "incomplete_items": []}
 
 
 def test_build_page_url_sets_page_number_and_keeps_other_params():
@@ -1152,7 +1154,7 @@ def test_get_products_returns_earlier_pages_and_error_when_a_later_page_crashes(
 
     def callback(texts, *, page_number):
         pages_seen.append(page_number)
-        return {"products": list(texts), "incomplete_items": []}
+        return {"products": [tile["text"] for tile in texts], "incomplete_items": []}
 
     # WHEN: the products are retrieved
     result = WebDriver.get_products(driver, callback)
@@ -1192,7 +1194,7 @@ def test_get_products_returns_earlier_pages_when_the_tile_wait_times_out(monkeyp
     result = WebDriver.get_products(
         driver,
         lambda texts, *, page_number: {
-            "products": list(texts),
+            "products": [tile["text"] for tile in texts],
             "incomplete_items": [],
         },
     )
@@ -1212,7 +1214,7 @@ def test_get_products_reports_no_error_on_a_clean_run(monkeypatch):
     result = WebDriver.get_products(
         driver,
         lambda texts, *, page_number: {
-            "products": list(texts),
+            "products": [tile["text"] for tile in texts],
             "incomplete_items": [],
         },
     )
@@ -1220,3 +1222,42 @@ def test_get_products_reports_no_error_on_a_clean_run(monkeypatch):
     # THEN: the error field is empty
     assert result["products"] == ["A", "B", "C", "D"]
     assert result.get("error") is None
+
+
+@pytest.mark.parametrize(
+    "script_result, expected",
+    [
+        (
+            ["/shop/productdetails/1/a", "https://x/images/1.jpg"],
+            ["/shop/productdetails/1/a", "https://x/images/1.jpg"],
+        ),
+        (["", "/a", None, 5], ["/a"]),
+        ([], []),
+        (None, []),
+        ("not a list", []),
+    ],
+)
+def test_extract_urls_returns_the_tile_links_and_images(script_result, expected):
+    # GIVEN: a tile whose script returns links and images, or something unusable
+    driver = DummyWebDriverHarness()
+    driver.driver = DummyUrlSession(result=script_result)
+
+    # WHEN: the URLs are extracted from the tile
+    result = WebDriver._extract_urls_from_product_element(driver, object())
+
+    # THEN: only the non-empty strings are returned
+    assert result == expected
+
+
+def test_extract_urls_returns_empty_for_text_only_and_failing_elements():
+    # GIVEN: a plain text element, and a session whose script raises
+    driver = DummyWebDriverHarness()
+    driver.driver = DummyUrlSession(error=RuntimeError("stale element"))
+
+    # WHEN: the URLs are extracted from each
+    from_text = WebDriver._extract_urls_from_product_element(driver, "Milk 2L")
+    from_failure = WebDriver._extract_urls_from_product_element(driver, object())
+
+    # THEN: both return an empty list instead of raising
+    assert from_text == []
+    assert from_failure == []

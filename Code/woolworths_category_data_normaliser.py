@@ -4,11 +4,17 @@ from Code.contracts import (
     IncompleteProductItem,
     ProductsData,
     RowSink,
+    TilePayload,
 )
 from Code.logger import ILogger
 from Code.product_parser import IProductParser
 from Code.web_driver import IWebDriver
+import re
 from time import perf_counter
+
+# The stockcode is in the product link (/shop/productdetails/<stockcode>/<slug>)
+# and in the image URL (/images/<n>/<stockcode>.jpg).
+SKU_PATTERN = re.compile(r"/productdetails/(\d+)|/images/\d+/(\d+)\.")
 
 
 class WoolworthsCategoryDataNormaliser:
@@ -54,7 +60,7 @@ class WoolworthsCategoryDataNormaliser:
             return new_rows
 
         def commit_page(
-            payloads: list[str], page_number: int | None = None
+            payloads: list[TilePayload], page_number: int | None = None
         ) -> ProductsData:
             page = self._get_products_data(payloads, page_number=page_number)
             if isinstance(page, list):
@@ -182,8 +188,15 @@ class WoolworthsCategoryDataNormaliser:
                 "rows_stored": len(stored_rows),
             }
 
+    def _extract_sku(self, urls: list[str]) -> str:
+        for url in urls:
+            match = SKU_PATTERN.search(url)
+            if match:
+                return match.group(1) or match.group(2)
+        return ""
+
     def _get_products_data(
-        self, products: list[str], page_number: int | None = None
+        self, products: list[TilePayload], page_number: int | None = None
     ) -> ProductsData:
         products_data = []
         incomplete_items = []
@@ -197,23 +210,30 @@ class WoolworthsCategoryDataNormaliser:
             )
         self.logger.debug("Reading product data for - {0}".format(products))
 
-        for i, product_text in enumerate(products):
+        for i, payload in enumerate(products):
             try:
-                parsed_product = self.product_parser.parse(product_text)
+                if isinstance(payload, str):
+                    payload = {"text": payload, "urls": []}
+                sku = self._extract_sku(payload["urls"])
+                parsed_product = self.product_parser.parse(payload["text"])
 
                 product_name = parsed_product["name"]
                 price = parsed_product["price"]
                 unit_price = parsed_product["unit_price"]
                 promotion = parsed_product["promotion"]
-                missing_fields = parsed_product["missing_fields"]
+                missing_fields = list(parsed_product["missing_fields"])
+                if not sku:
+                    missing_fields.append("sku")
 
                 if not price and unit_price:
                     price = unit_price
 
                 if any([product_name, price, unit_price, promotion]):
-                    products_data.append([product_name, price, unit_price, promotion])
+                    products_data.append(
+                        [product_name, price, unit_price, promotion, sku]
+                    )
                     self.logger.debug(
-                        f"Parsed product {i}: {[product_name, price, unit_price, promotion]}"
+                        f"Parsed product {i}: {[product_name, price, unit_price, promotion, sku]}"
                     )
 
                     if missing_fields:

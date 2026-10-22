@@ -81,9 +81,27 @@ def test_live_first_page_of_a_category_is_scraped_and_parsed(
     )
     assert data["scraped"] <= 100, "A single page should hold at most ~36-72 tiles"
     assert data["total"] >= data["scraped"]
-    priced = [row for row in data["products"] if len(row) > 1 and row[1].startswith("$")]
+    priced = [
+        row for row in data["products"] if len(row) > 1 and row[1].startswith("$")
+    ]
     assert len(priced) >= 0.9 * data["scraped"], "Most products should have a price"
     print(f"Sample product row: {data['products'][0]}")
+
+
+@pytest.mark.live
+def test_live_first_page_products_have_numeric_skus(
+    woolworths, live_driver, limit_pages
+):
+    # GIVEN: scraping is limited to the first page
+    limit_pages(live_driver, 1)
+
+    # WHEN: a category is scraped
+    data = woolworths.get_category_data(SAMPLE_CATEGORY)
+
+    # THEN: nearly every product row ends with a numeric SKU
+    assert data["scraped"] > 0
+    with_sku = [row for row in data["products"] if row[-1].isdigit()]
+    assert len(with_sku) >= 0.9 * data["scraped"], "Most products should have a SKU"
 
 
 def _assert_different_pages(first: set[str], second: set[str]) -> None:
@@ -98,7 +116,7 @@ def _collect_pages(driver, pages):
     """get_products with a callback that records each page's raw tile text."""
 
     def record(payloads, page_number):
-        pages[page_number] = set(payloads)
+        pages[page_number] = {payload["text"] for payload in payloads}
         return []
 
     return driver.get_products(record, category_name=SAMPLE_CATEGORY)

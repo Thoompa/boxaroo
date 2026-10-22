@@ -38,6 +38,18 @@ PAGINATION_ADVANCED = "advanced"
 PAGINATION_END = "end"
 PAGINATION_ERROR = "error"
 
+# Every link and image URL in a tile, shadow root included. Which of them holds
+# the product id is for the supermarket's normaliser to decide.
+TILE_URLS_SCRIPT = """
+var root = arguments[0] && (arguments[0].shadowRoot || arguments[0]);
+if (!root) { return []; }
+var urls = [];
+root.querySelectorAll('a[href], img[src]').forEach(function (node) {
+    urls.push(node.getAttribute('href') || node.getAttribute('src') || '');
+});
+return urls;
+"""
+
 MAX_ADVANCE_RECOVERIES = 3
 END_CONFIRMATION_WAIT_SECONDS = 10
 
@@ -482,6 +494,18 @@ class WebDriver(IWebDriver):
         except Exception:
             return ""
 
+    def _extract_urls_from_product_element(self, element: Any) -> list[str]:
+        """Return the link and image URLs in a tile, or [] when there are none."""
+        if element is None or isinstance(element, str):
+            return []
+        try:
+            urls = self.driver.execute_script(TILE_URLS_SCRIPT, element)
+        except Exception:
+            return []
+        if not isinstance(urls, list):
+            return []
+        return [url for url in urls if isinstance(url, str) and url]
+
     def _get_next_page_url(self) -> str | None:
         try:
             next_button = self._find_next_button()
@@ -650,7 +674,10 @@ class WebDriver(IWebDriver):
             for element in product_elements:
                 try:
                     product_payloads.append(
-                        self._extract_text_from_product_element(element)
+                        {
+                            "text": self._extract_text_from_product_element(element),
+                            "urls": self._extract_urls_from_product_element(element),
+                        }
                     )
                 except TimeoutError:
                     extraction_failures += 1

@@ -98,6 +98,7 @@ python __main__.py --list_size SHORT --refresh_category_lists
 ## Output
 
 - Data files are saved into `Data/<YYYY-MM-DD>/woolworths-<YYYY-MM-DD>-<size>.csv`
+- CSV columns: `Product Name, Price, Unit Price, Promotion, SKU`. SKU is the Woolworths stockcode, a stable product id. CSVs from before it was added have no SKU column
 - Logs are saved into `Logs/Log-<YYYY-MM-DD>.txt`
 
 ## Features
