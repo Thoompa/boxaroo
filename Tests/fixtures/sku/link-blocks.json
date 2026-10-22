@@ -1,0 +1,39 @@
+{
+ "captured": "2026-10-22",
+ "source": "https://www.woolworths.com.au/shop/browse/deli",
+ "note": "Product link/image block from each tile's shadow root, with the tile text.",
+ "tiles": [
+  {
+   "image_block": "<div class=\"product-tile-image\">\n        <a class=\"\" href=\"/shop/productdetails/55374/woolworths-shortcut-bacon\" aria-label=\"Woolworths Shortcut Bacon 500g. Range was $8 - 21/04/2026. Non-member price $7.5, $15.00 per 1KG.\">\n          <img aria-hidden=\"true\" loading=\"lazy\" src=\"https://assets.woolworths.com.au/images/1005/55374.jpg?impolicy=wowsmkqiema&amp;w=260&amp;h=260\" title=\"Woolworths Shortcut Bacon 500g\" class=\"\">\n        </a>\n      </div>",
+   "text": ""
+  },
+  {
+   "image_block": "<div class=\"product-tile-image\">\n        <a class=\"\" href=\"/shop/productdetails/6033334/mayfair-thin-frankfurts\" aria-label=\"Mayfair Thin Frankfurts 500g. Range was $3 - 25/08/2026. Non-member price $2.8, $5.60 per 1KG.\">\n          <img aria-hidden=\"true\" loading=\"lazy\" src=\"https://assets.woolworths.com.au/images/1005/6033334.jpg?impolicy=wowsmkqiema&amp;w=260&amp;h=260\" title=\"Mayfair Thin Frankfurts 500g\" class=\"\">\n        </a>\n      </div>",
+   "text": ""
+  },
+  {
+   "image_block": "<div class=\"product-tile-image\">\n        <a class=\"\" href=\"/shop/productdetails/311844/thomas-dux-brie-cheese\" aria-label=\"Thomas Dux Brie Cheese 125g. Range was $3 - 25/08/2026. Non-member price $2.7, $21.60 per 1KG.\">\n          <img aria-hidden=\"true\" loading=\"lazy\" src=\"https://assets.woolworths.com.au/images/1005/311844.jpg?impolicy=wowsmkqiema&amp;w=260&amp;h=260\" title=\"Thomas Dux Brie Cheese 125g\" class=\"\">\n        </a>\n      </div>",
+   "text": ""
+  },
+  {
+   "image_block": "<div class=\"product-tile-image\">\n        <a class=\"\" href=\"/shop/productdetails/765218/obela-hommus-smooth-classic-dip\" aria-label=\"Obela Hommus Smooth Classic Dip 220g. Range was $5 - 25/08/2026. Non-member price $4.5, $2.05 per 100G.\">\n          <img aria-hidden=\"true\" loading=\"lazy\" src=\"https://assets.woolworths.com.au/images/1005/765218.jpg?impolicy=wowsmkqiema&amp;w=260&amp;h=260\" title=\"Obela Hommus Smooth Classic Dip 220g\" class=\"\">\n        </a>\n      </div>",
+   "text": ""
+  },
+  {
+   "image_block": "<div class=\"product-tile-image\">\n        <a class=\"\" href=\"/shop/productdetails/319652/mon-ami-french-le-fromager-double-cream-brie\" aria-label=\"Mon Ami French Le Fromager Double Cream Brie 300g. Was $10 - 19/07/2026. Non-member price $8.4, $28.00 per 1KG.\">\n          <img aria-hidden=\"true\" loading=\"lazy\" src=\"https://assets.woolworths.com.au/images/1005/319652.jpg?impolicy=wowsmkqiema&amp;w=260&amp;h=260\" title=\"Mon Ami French Le Fromager Double Cream Brie 300g\" class=\"\">\n        </a>\n      </div>",
+   "text": ""
+  },
+  {
+   "image_block": "<div class=\"product-tile-image\">\n        <a class=\"\" href=\"/shop/productdetails/6058495/woolworths-middle-bacon\" aria-label=\"Woolworths Middle Bacon 500g. Range was $8 - 21/04/2026. Non-member price $7.5, $15.00 per 1KG.\">\n          <img aria-hidden=\"true\" loading=\"lazy\" src=\"https://assets.woolworths.com.au/images/1005/6058495.jpg?impolicy=wowsmkqiema&amp;w=260&amp;h=260\" title=\"Woolworths Middle Bacon 500g\" class=\"\">\n        </a>\n      </div>",
+   "text": ""
+  },
+  {
+   "image_block": "<div class=\"product-tile-image\">\n        <a class=\"\" href=\"/shop/productdetails/71860/d-orsogna-diced-bacon-from-the-deli\" aria-label=\"Everyday low price. D'Orsogna Diced Bacon From the Deli per 100g, $2 per 100 grams, $20.00 per 1KG.\">\n          <img aria-hidden=\"true\" loading=\"lazy\" src=\"https://assets.woolworths.com.au/images/1005/71860.jpg?impolicy=wowsmkqiema&amp;w=260&amp;h=260\" title=\"D'Orsogna Diced Bacon From the Deli per 100g\" class=\"\">\n        </a>\n      </div>",
+   "text": ""
+  },
+  {
+   "image_block": "<div class=\"product-tile-image\">\n        <a class=\"\" href=\"/shop/productdetails/390863/riverland-ham-sliced-quad-pack\" aria-label=\"Everyday low price. Riverland Ham Sliced Quad Pack 500g, $6.85, $13.70 per 1KG.\">\n          <img aria-hidden=\"true\" loading=\"lazy\" src=\"https://assets.woolworths.com.au/images/1005/390863.jpg?impolicy=wowsmkqiema&amp;w=260&amp;h=260\" title=\"Riverland Ham Sliced Quad Pack 500g\" class=\"\">\n        </a>\n      </div>",
+   "text": ""
+  }
+ ]
+}

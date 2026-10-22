@@ -51,7 +51,7 @@ def _build_run_context(
     supermarket_name = selected_supermarket.value
     file_path = "Data/{0}".format(date.today())
     file_name = _build_output_file_name(supermarket_name, list_size, category)
-    header = ["Product Name", "Price", "Unit Price", "Promotion"]
+    header = ["Product Name", "Price", "Unit Price", "Promotion", "SKU"]
     return (
         list_size,
         selected_supermarket,

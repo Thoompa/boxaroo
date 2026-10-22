@@ -32,6 +32,14 @@ class IncompleteProductItem(TypedDict):
     missing: list[str]
 
 
+class TilePayload(TypedDict):
+    """What the web driver reads from one product tile; the supermarket adapter
+    turns it into a row (text gives the fields, urls can give the product id)."""
+
+    text: str
+    urls: list[str]
+
+
 class ProductsData(TypedDict):
     products: list[list[str]]
     incomplete_items: list[IncompleteProductItem]
@@ -42,7 +50,7 @@ ProductsCallbackResult = ProductsData | list[list[str]]
 
 class ProductsCallback(Protocol):
     def __call__(
-        self, products: list[str], *, page_number: int
+        self, products: list[TilePayload], *, page_number: int
     ) -> ProductsCallbackResult: ...
 
 

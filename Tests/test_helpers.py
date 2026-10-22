@@ -449,6 +449,19 @@ class DummyProductElement:
         return self._text
 
 
+class DummyUrlSession:
+    """Selenium session double whose script returns a fixed value or raises."""
+
+    def __init__(self, result=None, error=None):
+        self.result = result
+        self.error = error
+
+    def execute_script(self, script, *args):
+        if self.error is not None:
+            raise self.error
+        return self.result
+
+
 class DummySeleniumSession:
     def __init__(
         self,
@@ -489,7 +502,7 @@ class DummySeleniumSession:
         )
 
     def get_products_callback(self, elements, *, page_number):
-        products = list(elements)
+        products = [payload["text"] for payload in elements]
         incomplete_items = []
         if self._mark_incomplete_a and "A" in products:
             incomplete_items.append({"name": "A", "missing": ["unit_price"]})

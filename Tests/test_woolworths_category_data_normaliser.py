@@ -1,3 +1,7 @@
+import json
+import re
+from pathlib import Path
+
 from Tests.test_helpers import (
     DummyLogger,
     DummyPagedWebDriver,
@@ -65,7 +69,12 @@ def test_get_category_data_uses_callback_parser_handoff_for_raw_product_texts():
     web_driver.invoke_products_callback = True
     web_driver.category_total_items = 1
     web_driver.products_response = {
-        "products": ["raw text from UI"],
+        "products": [
+            {
+                "text": "raw text from UI",
+                "urls": ["/shop/productdetails/12345/some-product"],
+            }
+        ],
         "incomplete_items": [],
         "page_stats": [],
     }
@@ -78,7 +87,9 @@ def test_get_category_data_uses_callback_parser_handoff_for_raw_product_texts():
 
     # THEN: parser-driven product parsing is exercised through the callback handoff path
     assert parser.calls == ["raw text from UI"]
-    assert result["products"] == [["Injected Name each", "$2.50", "$2.50 / 1EA", ""]]
+    assert result["products"] == [
+        ["Injected Name each", "$2.50", "$2.50 / 1EA", "", "12345"]
+    ]
     assert result["scraped"] == 1
     assert result["incomplete_items"] == []
 
@@ -133,7 +144,12 @@ def test_get_category_data_logs_page_stats_when_callback_returns_dict():
     web_driver.invoke_products_callback = True
     web_driver.category_total_items = 1
     web_driver.products_response = {
-        "products": ["raw text from UI"],
+        "products": [
+            {
+                "text": "raw text from UI",
+                "urls": ["/shop/productdetails/12345/some-product"],
+            }
+        ],
         "incomplete_items": [],
         "page_stats": [
             {
@@ -152,7 +168,9 @@ def test_get_category_data_logs_page_stats_when_callback_returns_dict():
     result = normaliser.get_category_data("fruit-veg")
 
     # THEN: callback dict output is used and page stats are logged through the category summary path
-    assert result["products"] == [["Injected Name each", "$2.50", "$2.50 / 1EA", ""]]
+    assert result["products"] == [
+        ["Injected Name each", "$2.50", "$2.50 / 1EA", "", "12345"]
+    ]
     assert result["incomplete_items"] == [
         {"name": "Injected Name each", "missing": ["promotion"]}
     ]
@@ -232,12 +250,19 @@ def test_get_products_data_uses_injected_parser_and_unit_price_fallback():
     )
 
     # WHEN: products payload is normalised from raw text items
-    result = normaliser._get_products_data(["raw text from UI"])
+    result = normaliser._get_products_data(
+        [
+            {
+                "text": "raw text from UI",
+                "urls": ["/shop/productdetails/12345/some-product"],
+            }
+        ]
+    )
 
     # THEN: injected parser values are used and price fallback is applied
     assert parser.calls == ["raw text from UI"]
     assert result["products"] == [
-        ["Injected Name each", "$2.50 / 1EA", "$2.50 / 1EA", ""]
+        ["Injected Name each", "$2.50 / 1EA", "$2.50 / 1EA", "", "12345"]
     ]
     assert result["incomplete_items"] == [
         {"name": "Injected Name each", "missing": ["price"]}
@@ -703,3 +728,107 @@ def test_get_category_data_reports_failed_when_nothing_was_scraped_without_an_er
 
     # THEN: an empty result is not reported as a success
     assert result["status"] == CategoryStatus.FAILED
+
+
+def test_get_products_data_reports_a_missing_sku_as_incomplete():
+    # GIVEN: a fully parsed product whose tile had no SKU
+    logger = DummyLogger()
+    parser = DummyProductParser()
+    parser.set_default_response(
+        {
+            "name": "Milk 2L",
+            "price": "$3.00",
+            "unit_price": "$1.50 / 1L",
+            "promotion": "",
+            "missing_fields": [],
+        }
+    )
+    normaliser = make_woolworths_category_data_normaliser(
+        logger=logger, web_driver=DummyWebDriver(), product_parser=parser
+    )
+
+    # WHEN: the tile payload is normalised
+    result = normaliser._get_products_data(
+        [{"text": "tile", "urls": ["/shop/browse/deli"]}]
+    )
+
+    # THEN: the row is kept with a blank SKU and reported as missing it
+    assert result["products"] == [["Milk 2L", "$3.00", "$1.50 / 1L", "", ""]]
+    assert result["incomplete_items"] == [{"name": "Milk 2L", "missing": ["sku"]}]
+
+
+def test_get_category_data_keeps_same_named_products_with_different_skus():
+    # GIVEN: two tiles with identical text but different SKUs
+    logger = DummyLogger()
+    parser = DummyProductParser()
+    parser.set_default_response(
+        {
+            "name": "Milk 2L",
+            "price": "$3.00",
+            "unit_price": "$1.50 / 1L",
+            "promotion": "",
+            "missing_fields": [],
+        }
+    )
+    web_driver = DummyWebDriver()
+    web_driver.invoke_products_callback = True
+    web_driver.category_total_items = 2
+    web_driver.products_response = {
+        "products": [
+            {"text": "tile", "urls": ["/shop/productdetails/111/milk"]},
+            {"text": "tile", "urls": ["/shop/productdetails/222/milk"]},
+        ],
+        "incomplete_items": [],
+        "page_stats": [],
+    }
+    normaliser = make_woolworths_category_data_normaliser(
+        logger=logger, web_driver=web_driver, product_parser=parser
+    )
+
+    # WHEN: category data is retrieved
+    result = normaliser.get_category_data("dairy")
+
+    # THEN: both products are stored with their own SKU
+    assert [row[-1] for row in result["products"]] == ["111", "222"]
+
+
+SKU_FIXTURE = Path(__file__).parent / "fixtures" / "sku" / "link-blocks.json"
+
+
+def test_extract_sku_reads_the_stockcode_from_real_tile_link_blocks():
+    # GIVEN: product link/image blocks captured from real tiles
+    tiles = json.loads(SKU_FIXTURE.read_text(encoding="utf-8"))["tiles"]
+    assert tiles
+    normaliser = make_woolworths_category_data_normaliser(
+        logger=DummyLogger(),
+        web_driver=DummyWebDriver(),
+        product_parser=DummyProductParser(),
+    )
+
+    for tile in tiles:
+        href = re.search(r'href="([^"]*)"', tile["image_block"]).group(1)
+        src = re.search(r'src="([^"]*)"', tile["image_block"]).group(1)
+
+        # WHEN: the SKU is read from the link, the image, or both
+        from_link = normaliser._extract_sku([href])
+        from_image = normaliser._extract_sku([src])
+        from_both = normaliser._extract_sku(["/shop/browse/deli", src, href])
+
+        # THEN: each gives the same numeric stockcode
+        assert from_link.isdigit()
+        assert from_link == from_image == from_both
+
+
+def test_extract_sku_returns_empty_when_no_url_holds_a_stockcode():
+    # GIVEN: URLs with no stockcode, and none at all
+    normaliser = make_woolworths_category_data_normaliser(
+        logger=DummyLogger(),
+        web_driver=DummyWebDriver(),
+        product_parser=DummyProductParser(),
+    )
+
+    # WHEN: the SKU is read from them
+    results = [normaliser._extract_sku(urls) for urls in (["/shop/browse/deli"], [])]
+
+    # THEN: an empty string is returned
+    assert results == ["", ""]
