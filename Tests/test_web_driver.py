@@ -411,6 +411,57 @@ def test_get_products_callback_receives_text_and_url_payloads(monkeypatch):
     assert all(payload["urls"] == [] for payload in seen_payloads)
 
 
+def test_get_products_leaves_out_carousel_tiles(monkeypatch):
+    # GIVEN: pages whose product grid sits beside a "Most Popular" carousel
+    monkeypatch.setattr(web_driver_module, "WebDriverWait", DummyWait)
+    monkeypatch.setattr(web_driver_module.time, "sleep", lambda _: None)
+    monkeypatch.setattr(web_driver_module.random, "uniform", lambda a, b: 0)
+    driver = DummyWebDriverHarness()
+    driver.driver = DummySeleniumSession(carousel_tiles=["POPULAR 1", "POPULAR 2"])
+    seen_texts = []
+
+    def callback(tiles, *, page_number):
+        seen_texts.extend(tile["text"] for tile in tiles)
+        return {"products": seen_texts[-len(tiles) :], "incomplete_items": []}
+
+    # WHEN: the products are retrieved
+    result = WebDriver.get_products(driver, callback)
+
+    # THEN: only the grid tiles reach the callback and are counted as page tiles
+    assert seen_texts == ["A", "B", "C", "D"]
+    assert [stat["product_tiles"] for stat in result["page_stats"]] == [2, 2]
+    assert not [level for level, _ in driver.logger.records if level == "WARNING"]
+
+
+def test_get_products_falls_back_to_all_tiles_without_a_product_grid(monkeypatch):
+    # GIVEN: pages where the product grid markup can no longer be found
+    monkeypatch.setattr(web_driver_module, "WebDriverWait", DummyWait)
+    monkeypatch.setattr(web_driver_module.time, "sleep", lambda _: None)
+    monkeypatch.setattr(web_driver_module.random, "uniform", lambda a, b: 0)
+    driver = DummyWebDriverHarness()
+    driver.driver = DummySeleniumSession(
+        carousel_tiles=["POPULAR 1"], product_grid_missing=True
+    )
+    seen_texts = []
+
+    def callback(tiles, *, page_number):
+        seen_texts.extend(tile["text"] for tile in tiles)
+        return {"products": [], "incomplete_items": []}
+
+    # WHEN: the products are retrieved
+    WebDriver.get_products(driver, callback)
+
+    # THEN: every tile is still collected and each page warns about the missing grid
+    assert seen_texts == ["A", "B", "POPULAR 1", "C", "D", "POPULAR 1"]
+    warnings = [
+        message for level, message in driver.logger.records if level == "WARNING"
+    ]
+    assert (
+        warnings
+        == ["Product grid not found; collecting every product tile on the page"] * 2
+    )
+
+
 def test_get_products_supports_list_return_from_callback(monkeypatch):
     # GIVEN: a callback that returns a plain list instead of a dict
     monkeypatch.setattr(web_driver_module, "WebDriverWait", DummyWait)

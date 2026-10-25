@@ -15,7 +15,7 @@ from pathlib import Path
 import pytest
 
 from Code import woolworths_category_source
-from Code.web_driver import WebDriver
+from Code.web_driver import PRODUCT_GRID_TILE_SELECTOR, WebDriver
 from Tests.test_helpers import DummyLogger, make_woolworths_category_source
 
 FIXTURE_DIR = Path(__file__).parent / "fixtures" / "dom"
@@ -219,3 +219,69 @@ def test_category_total_reads_zero_from_a_page_that_has_not_loaded(saved_page):
     # WHEN/THEN: zero is returned, not None (known issue 3: callers can't tell
     # "not loaded yet" from "empty category")
     assert read_total(browser) == 0
+
+
+# ============================================================
+# Product tiles
+# ============================================================
+
+# Tiles are custom elements, so only their count and location matter here. The
+# wrapper classes are those of the live category page (checked 25 Oct 2026),
+# where "Most Popular" is a horizontal-mode carousel of unrelated products
+# beside the product grid.
+PRODUCT_GRID_MARKUP = """
+<div class="grid-mode_component_grid-collection-container__2dKAg grid-mode_component_no-title__1EhBp">
+  <div class="grid-v2 grid-mode_component_scrollable-content__O07_H grid-mode_component_grid-product__Flts8">
+    <div class="product-tile_component_product-tile__rcGmj"><wc-product-tile id="grid-1"></wc-product-tile></div>
+    <div class="product-tile_component_product-tile__rcGmj"><wc-product-tile id="grid-2"></wc-product-tile></div>
+    <div class="product-tile_component_product-tile__rcGmj"><wc-product-tile id="grid-3"></wc-product-tile></div>
+  </div>
+</div>
+"""
+CAROUSEL_MARKUP = """
+<div class="horizontal-mode_component_container__Nnw_7">
+  <div class="horizontal-mode_component_header-container__EaBRO"><h2>Most Popular</h2></div>
+  <div class="horizontal-mode_component_card-list__2fbaN">
+    <div class="horizontal-mode_component_card__0LpcI"><wc-product-tile id="popular-1"></wc-product-tile></div>
+    <div class="horizontal-mode_component_card__0LpcI"><wc-product-tile id="popular-2"></wc-product-tile></div>
+  </div>
+</div>
+"""
+
+
+def tile_ids(browser, selector):
+    return browser.execute_script(
+        "return Array.from(document.querySelectorAll(arguments[0]))"
+        ".map(function (tile) { return tile.id; });",
+        selector,
+    )
+
+
+@pytest.mark.parametrize(
+    "markup",
+    [
+        CAROUSEL_MARKUP + PRODUCT_GRID_MARKUP,
+        PRODUCT_GRID_MARKUP + CAROUSEL_MARKUP,
+    ],
+    ids=["carousel-first", "grid-first"],
+)
+def test_product_grid_selector_leaves_out_carousel_tiles(saved_page, markup):
+    # GIVEN: a category page with a product grid and a "Most Popular" carousel
+    browser = saved_page(markup)
+
+    # WHEN: tiles are selected with the product grid selector
+    ids = tile_ids(browser, PRODUCT_GRID_TILE_SELECTOR)
+
+    # THEN: only the grid's tiles are found
+    assert ids == ["grid-1", "grid-2", "grid-3"]
+
+
+def test_category_total_counts_only_grid_tiles_when_no_count_is_shown(saved_page):
+    # GIVEN: a page with no result count, a product grid and a carousel
+    browser = saved_page(CAROUSEL_MARKUP + PRODUCT_GRID_MARKUP)
+
+    # WHEN: the total is read
+    total = read_total(browser)
+
+    # THEN: the carousel tiles are not counted
+    assert total == 3

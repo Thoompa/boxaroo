@@ -21,7 +21,11 @@ from Code.contracts import (
     LoggingLevel,
     IFileHandler,
 )
-from Code.web_driver import WebDriver, NEXT_BUTTON_LOCATORS
+from Code.web_driver import (
+    NEXT_BUTTON_LOCATORS,
+    PRODUCT_GRID_TILE_SELECTOR,
+    WebDriver,
+)
 from Code.woolworths_category_data_normaliser import WoolworthsCategoryDataNormaliser
 from Code.woolworths_category_source import WoolworthsCategorySource
 
@@ -477,8 +481,12 @@ class DummySeleniumSession:
         page_urls: list[str] | None = None,
         start_page_index: int = 0,
         next_button_selectors: set[tuple[str, str]] | None = None,
+        carousel_tiles: list[str] | None = None,
+        product_grid_missing: bool = False,
     ):
         self.pages = pages or [["A", "B"], ["C", "D"]]
+        self._carousel_tiles = carousel_tiles or []
+        self._product_grid_missing = product_grid_missing
         self.page_urls = page_urls or [
             f"page-{index + 1}" for index in range(len(self.pages))
         ]
@@ -516,8 +524,10 @@ class DummySeleniumSession:
         return self._script_result
 
     def find_elements(self, by, value):
+        if by == "css selector" and value == PRODUCT_GRID_TILE_SELECTOR:
+            return [] if self._product_grid_missing else self.pages[self.page_index]
         if by == "tag name" and value == "wc-product-tile":
-            return self.pages[self.page_index]
+            return self.pages[self.page_index] + self._carousel_tiles
         return []
 
     def find_element(self, by, value):
