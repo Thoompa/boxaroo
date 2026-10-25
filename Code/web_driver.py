@@ -34,6 +34,12 @@ NEXT_BUTTON_LOCATORS = (
 )
 
 
+# The product grid. The page also has "Most Popular" carousels of unrelated tiles
+# (class horizontal-mode_component_*) that are not part of the category's results.
+PRODUCT_GRID_TILE_SELECTOR = (
+    '[class*="grid-mode_component_grid-collection-container"] wc-product-tile'
+)
+
 PAGINATION_ADVANCED = "advanced"
 PAGINATION_END = "end"
 PAGINATION_ERROR = "error"
@@ -270,7 +276,12 @@ class WebDriver(IWebDriver):
             if (rangeMatch && rangeMatch[0]) {
                 return rangeMatch[0].trim();
             }
-            var tiles = document.querySelectorAll('wc-product-tile');
+            var tiles = document.querySelectorAll(
+                '[class*="grid-mode_component_grid-collection-container"] wc-product-tile'
+            );
+            if (!tiles.length) {
+                tiles = document.querySelectorAll('wc-product-tile');
+            }
             if (tiles) {
                 return 'wc-product-tile:' + tiles.length;
             }
@@ -494,6 +505,22 @@ class WebDriver(IWebDriver):
         except Exception:
             return ""
 
+    def _find_product_tiles(self) -> list[Any]:
+        """Return the tiles in the product grid, leaving out the carousels.
+
+        Falls back to every tile on the page if the grid can't be found, so a
+        markup change costs some unrelated rows rather than the whole category.
+        """
+        grid_tiles = self.driver.find_elements(
+            By.CSS_SELECTOR, PRODUCT_GRID_TILE_SELECTOR
+        )
+        if grid_tiles:
+            return grid_tiles
+        self.logger.warning(
+            "Product grid not found; collecting every product tile on the page"
+        )
+        return self.driver.find_elements(By.TAG_NAME, "wc-product-tile")
+
     def _extract_urls_from_product_element(self, element: Any) -> list[str]:
         """Return the link and image URLs in a tile, or [] when there are none."""
         if element is None or isinstance(element, str):
@@ -668,7 +695,7 @@ class WebDriver(IWebDriver):
             time.sleep(random.uniform(1, 2))
 
             # Get all product tiles
-            product_elements = self.driver.find_elements(By.TAG_NAME, "wc-product-tile")
+            product_elements = self._find_product_tiles()
             product_payloads = []
             extraction_failures = 0
             for element in product_elements:
