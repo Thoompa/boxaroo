@@ -145,7 +145,8 @@ class ProductParser(IProductParser):
         return stripped.startswith("$") and bool(UNIT_PRICE_PATTERN.search(stripped))
 
     def _is_blacklisted(self, value: str) -> bool:
-        value_lower = value.lower().strip()
+        # Leading symbols are ignored so a "• Promoted" tag is still a label.
+        value_lower = value.lower().strip().lstrip("•·*-– ")
         # Whole-line match so "new" does not reject "New Zealand Sauvignon Blanc".
         return any(
             re.fullmatch(rf"{re.escape(entry)}\W*", value_lower)
