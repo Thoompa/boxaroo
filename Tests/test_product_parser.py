@@ -447,3 +447,14 @@ def test_parse_bare_unit_fragment_is_not_a_unit_price(product_parser):
 
     # THEN: the fragment is not reported as a unit price
     assert parsed["unit_price"] == ""
+
+
+def test_parse_bulleted_promoted_tag_not_used_as_name(product_parser):
+    # GIVEN: text where a "• Promoted" tag follows the product name
+    text = "$3.00\n$1.71 / 100G\nTest Cereal 500g\n• Promoted\nAdd to cart\nSave to list"
+
+    # WHEN: the text is parsed
+    parsed = product_parser.parse(text)
+
+    # THEN: the product name is the real name, not the tag
+    assert parsed["name"] == "Test Cereal 500g"
