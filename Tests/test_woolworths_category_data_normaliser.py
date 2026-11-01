@@ -18,6 +18,7 @@ def test_get_category_data_returns_expected_shape_on_success():
     logger = DummyLogger()
     parser = DummyProductParser()
     web_driver = DummyWebDriver()
+    # Below MIN_TRUSTED_TOTAL, so it falls back to scraped_count like a missing total.
     web_driver.category_total_items = 5
     web_driver.products_response = {
         "products": [
@@ -40,7 +41,7 @@ def test_get_category_data_returns_expected_shape_on_success():
 
     # THEN: normalized payload is returned with deduplicated products and incomplete items
     assert result["category"] == "fruit-veg"
-    assert result["total"] == 5
+    assert result["total"] == 2
     assert result["products"] == [
         ["Apple each", "$1.00", "$1.00 / 1EA", ""],
         ["Bread each", "$2.00", "$2.00 / 1EA", ""],
@@ -544,6 +545,7 @@ def test_get_category_data_logs_category_summary_with_duration():
     logger = DummyLogger()
     parser = DummyProductParser()
     web_driver = DummyWebDriver()
+    # Below MIN_TRUSTED_TOTAL, so "found" falls back to scraped_count (2).
     web_driver.category_total_items = 3
     web_driver.products_response = {
         "products": [["A", "$1", "$1", ""], ["B", "$2", "$2", ""]],
@@ -561,7 +563,7 @@ def test_get_category_data_logs_category_summary_with_duration():
     info_messages = [msg for level, msg in logger.records if level == "INFO"]
     assert any(
         "Category fruit-veg summary" in msg
-        and "found=3" in msg
+        and "found=2" in msg
         and "scraped=2" in msg
         and "incomplete=1" in msg
         and "took=" in msg
@@ -592,6 +594,87 @@ def test_get_category_data_warns_when_found_scraped_gap_is_high():
     assert any(
         "Category fruit-veg scrape gap warning" in msg for msg in warning_messages
     )
+
+
+# ============================================================
+# Trustworthy expected total (known-issues #3)
+# ============================================================
+
+
+def test_get_category_data_treats_a_low_total_as_unknown():
+    # GIVEN: a page-data total below the trusted minimum (page not yet loaded)
+    logger = DummyLogger()
+    parser = DummyProductParser()
+    web_driver = DummyWebDriver()
+    web_driver.category_total_items = 20
+    web_driver.products_response = {
+        "products": [["A", "$1", "$1", ""], ["B", "$2", "$2", ""]],
+        "incomplete_items": [],
+        "page_stats": [],
+    }
+    normaliser = make_woolworths_category_data_normaliser(
+        logger=logger, web_driver=web_driver, product_parser=parser
+    )
+
+    # WHEN: category data is retrieved
+    result = normaliser.get_category_data("fruit-veg")
+
+    # THEN: the low total is ignored in favour of the scraped count, and not capped
+    assert result["total"] == 2
+    assert result["total_capped"] is False
+    assert result["status"] == CategoryStatus.COMPLETE
+    warning_messages = [msg for level, msg in logger.records if level == "WARNING"]
+    assert not any("scrape gap" in msg for msg in warning_messages)
+
+
+def test_get_category_data_treats_exactly_10000_as_a_cap_not_a_count():
+    # GIVEN: Woolworths' own result cap, with far fewer products actually scraped
+    logger = DummyLogger()
+    parser = DummyProductParser()
+    web_driver = DummyWebDriver()
+    web_driver.category_total_items = 10000
+    web_driver.products_response = {
+        "products": [["A", "$1", "$1", ""]],
+        "incomplete_items": [],
+        "page_stats": [],
+    }
+    normaliser = make_woolworths_category_data_normaliser(
+        logger=logger, web_driver=web_driver, product_parser=parser
+    )
+
+    # WHEN: category data is retrieved
+    result = normaliser.get_category_data("home-lifestyle")
+
+    # THEN: the cap is recorded but does not trigger a scrape-gap partial
+    assert result["total"] == 10000
+    assert result["total_capped"] is True
+    assert result["status"] == CategoryStatus.COMPLETE
+    assert result["error"] is None
+    warning_messages = [msg for level, msg in logger.records if level == "WARNING"]
+    assert not any("scrape gap" in msg for msg in warning_messages)
+
+
+def test_get_category_data_trusts_a_total_between_the_floor_and_the_cap():
+    # GIVEN: a plausible, trustworthy total that matches what was scraped
+    logger = DummyLogger()
+    parser = DummyProductParser()
+    web_driver = DummyWebDriver()
+    web_driver.category_total_items = 50
+    web_driver.products_response = {
+        "products": [["A", "$1", "$1", ""]] * 50,
+        "incomplete_items": [],
+        "page_stats": [],
+    }
+    normaliser = make_woolworths_category_data_normaliser(
+        logger=logger, web_driver=web_driver, product_parser=parser
+    )
+
+    # WHEN: category data is retrieved
+    result = normaliser.get_category_data("fruit-veg")
+
+    # THEN: the total is used as-is and is not flagged as a cap
+    assert result["total"] == 50
+    assert result["total_capped"] is False
 
 
 # ============================================================

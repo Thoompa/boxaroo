@@ -21,6 +21,12 @@ class WoolworthsCategoryDataNormaliser:
     """Normalises Woolworths category page payloads into Boxaroo contracts."""
 
     GAP_WARNING_THRESHOLD = 0.5
+    # Below this, "page data" is noise from a page that hasn't finished
+    # loading rather than a real count (observed as low as 0-20).
+    MIN_TRUSTED_TOTAL = 50
+    # Woolworths caps a category listing at this many results; at this exact
+    # value the total is a cap, not a count of what the category holds.
+    CATEGORY_RESULT_CAP = 10000
 
     def __init__(
         self,
@@ -62,6 +68,11 @@ class WoolworthsCategoryDataNormaliser:
         def commit_page(
             payloads: list[TilePayload], page_number: int | None = None
         ) -> ProductsData:
+            """Parse one page's tiles and hand its new rows to the sink.
+
+            Passed to the web driver as its per-page callback, so each page
+            is saved as it is read rather than only once the category ends.
+            """
             page = self._get_products_data(payloads, page_number=page_number)
             if isinstance(page, list):
                 return {"products": remember(page), "incomplete_items": []}
@@ -76,10 +87,22 @@ class WoolworthsCategoryDataNormaliser:
             )
             self.web_driver.get_page(url)
 
-            category_total = self.web_driver.get_category_total_items()
+            raw_total = self.web_driver.get_category_total_items()
             self.logger.log(
-                f"{category_name} total count (page data): {category_total if category_total is not None else 'unknown'}"
+                f"{category_name} total count (page data): {raw_total if raw_total is not None else 'unknown'}"
             )
+            category_total, total_capped = self._sanitize_expected_total(raw_total)
+            if raw_total is not None and category_total is None:
+                self.logger.log(
+                    f"{category_name} total count {raw_total} is below the trusted "
+                    f"minimum ({self.MIN_TRUSTED_TOTAL}); treating as unknown"
+                )
+            elif total_capped:
+                self.logger.log(
+                    f"{category_name} total count is Woolworths' "
+                    f"{self.CATEGORY_RESULT_CAP} result cap, not a real count; "
+                    "skipping scrape-gap check"
+                )
 
             data_result = self.web_driver.get_products(
                 commit_page, category_name=category_name
@@ -132,7 +155,7 @@ class WoolworthsCategoryDataNormaliser:
                 f"incomplete={incomplete_count} took={elapsed_seconds:.2f}s"
             )
 
-            if category_total > 0:
+            if category_total > 0 and not total_capped:
                 gap_ratio = (category_total - scraped_count) / category_total
                 if gap_ratio >= self.GAP_WARNING_THRESHOLD:
                     self.logger.warning(
@@ -169,6 +192,7 @@ class WoolworthsCategoryDataNormaliser:
                 "error": error,
                 "pages_committed": len(page_stats),
                 "rows_stored": scraped_count,
+                "total_capped": total_capped,
             }
         except Exception as e:
             msg = getattr(e, "msg", None) or str(e) or repr(e)
@@ -186,7 +210,23 @@ class WoolworthsCategoryDataNormaliser:
                 "error": f"{type(e).__name__}: {msg}",
                 "pages_committed": 0,
                 "rows_stored": len(stored_rows),
+                "total_capped": False,
             }
+
+    def _sanitize_expected_total(
+        self, raw_total: int | None
+    ) -> tuple[int | None, bool]:
+        """Judge whether a "page data" total is trustworthy.
+
+        Returns (total, is_capped). A total below MIN_TRUSTED_TOTAL is noise
+        from a page that hasn't finished loading and comes back as None, same
+        as a missing total. Exactly CATEGORY_RESULT_CAP is a real count but
+        caps out what Woolworths will report, so it can't be compared against
+        scraped_count to judge completeness.
+        """
+        if raw_total is None or raw_total < self.MIN_TRUSTED_TOTAL:
+            return None, False
+        return raw_total, raw_total == self.CATEGORY_RESULT_CAP
 
     def _extract_sku(self, urls: list[str]) -> str:
         for url in urls:
