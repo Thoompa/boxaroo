@@ -93,6 +93,8 @@ class CategoryData(TypedDict):
     error: NotRequired[str | None]
     pages_committed: NotRequired[int]
     rows_stored: NotRequired[int]
+    # True when `total` is Woolworths' 10,000-result cap rather than a real count.
+    total_capped: NotRequired[bool]
 
 
 class ProductParseResult(TypedDict):

@@ -174,6 +174,7 @@ class ScrapeCoordinator:
             rows_written=rows_written,
             started_at=started_at,
             expected_total=category_total if isinstance(category_total, int) else None,
+            expected_total_capped=bool(category_data.get("total_capped", False)),
             pages_committed=category_data.get("pages_committed"),
         )
 
@@ -187,6 +188,7 @@ class ScrapeCoordinator:
         rows_written: int,
         started_at: str,
         expected_total: int | None = None,
+        expected_total_capped: bool = False,
         pages_committed: int | None = None,
     ) -> None:
         summary.products_scraped += rows_written
@@ -211,6 +213,7 @@ class ScrapeCoordinator:
                     "rows_written": rows_written,
                     "pages_committed": pages_committed,
                     "expected_total": expected_total,
+                    "expected_total_capped": expected_total_capped,
                     "error": error,
                     "started_at": started_at,
                     "finished_at": _now(),

@@ -196,6 +196,7 @@ def test_get_category_data_returns_expected_shape_via_public_api(
     file_handler, logger, web_driver, parser
 ):
     # GIVEN: a driver configured with a known total and a single product
+    # (below MIN_TRUSTED_TOTAL, so it falls back to the scraped count)
     web_driver.category_total_items = 3
     web_driver.products_response = {
         "products": [["Apple each", "$1.00", "$1.00 / 1EA", ""]],
@@ -214,6 +215,6 @@ def test_get_category_data_returns_expected_shape_via_public_api(
 
     # THEN: a correctly shaped CategoryData dict is returned from the public API
     assert result["category"] == "fruit-veg"
-    assert result["total"] == 3
+    assert result["total"] == 1
     assert len(result["products"]) == 1
     assert result["incomplete_items"] == []
