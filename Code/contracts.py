@@ -69,6 +69,8 @@ class ProductsPageResult(TypedDict):
     # Set when pagination stopped on an error; the pages read before it are
     # still returned so the caller can keep them.
     error: NotRequired[str | None]
+    # Driver restarts used recovering from crashes and timeouts.
+    retries: NotRequired[int]
 
 
 class CategoryStatus(str, Enum):
@@ -95,6 +97,8 @@ class CategoryData(TypedDict):
     rows_stored: NotRequired[int]
     # True when `total` is Woolworths' 10,000-result cap rather than a real count.
     total_capped: NotRequired[bool]
+    # Driver restarts used recovering from crashes and timeouts.
+    retries: NotRequired[int]
 
 
 class ProductParseResult(TypedDict):

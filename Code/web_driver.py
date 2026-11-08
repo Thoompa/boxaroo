@@ -6,6 +6,7 @@ from selenium.webdriver.chrome.options import Options
 from selenium.webdriver.chrome.service import Service
 from selenium.webdriver.chrome.webdriver import WebDriver as ChromeWebDriver
 from selenium_stealth import stealth
+from selenium.common.exceptions import TimeoutException
 from selenium.webdriver.common.by import By
 from selenium.webdriver.support.ui import WebDriverWait
 from selenium.webdriver.support import expected_conditions as EC
@@ -59,8 +60,19 @@ return urls;
 MAX_ADVANCE_RECOVERIES = 3
 END_CONFIRMATION_WAIT_SECONDS = 10
 
+# Restarts allowed for one page, and across the whole category, before the
+# category is given up as partial or failed. A third of a slow category's pages
+# needing restarts means the site is throttling us, so keep the total bounded.
+PAGE_RETRY_BUDGET = 3
+CATEGORY_RETRY_BUDGET = 6
+# Seconds to wait before the Nth retry of a timeout (a crash is retried at once).
+TIMEOUT_BACKOFF_SECONDS = (30, 60, 120)
+
 
 class WebDriver(IWebDriver):
+    # Restarts used so far for the current category (see CATEGORY_RETRY_BUDGET).
+    category_retries = 0
+    _category_url: str | None = None
 
     @staticmethod
     def _resolve_executable(candidate: str | None) -> str | None:
@@ -227,11 +239,67 @@ class WebDriver(IWebDriver):
         )
 
     def get_page(self, url: str) -> None:
-        # Add random delay before navigation (1-3 seconds)
-        time.sleep(random.uniform(1, 3))
-        self.driver.get(url)
-        # Add delay after page load to simulate reading
-        time.sleep(random.uniform(2, 5))
+        """Open a page, restarting the driver if the browser is hung.
+
+        The retry count is reset here, so each category starts with a full budget.
+        """
+        self.category_retries = 0
+        self._category_url = url
+        attempt = 0
+        while True:
+            try:
+                # Add random delay before navigation (1-3 seconds)
+                time.sleep(random.uniform(1, 3))
+                self.driver.get(url)
+                # Add delay after page load to simulate reading
+                time.sleep(random.uniform(2, 5))
+                return
+            except Exception as exc:
+                attempt += 1
+                if not self._begin_retry(exc, attempt, "Start-up retry", f"on {url}"):
+                    raise
+                try:
+                    self._reset_driver_for_next_page(url)
+                    return
+                except Exception as reset_exc:
+                    self.logger.warning(
+                        f"Start-up restart failed: {type(reset_exc).__name__}: {reset_exc}"
+                    )
+
+    @staticmethod
+    def _is_timeout(exc: Exception) -> bool:
+        return (
+            isinstance(exc, TimeoutException)
+            or "timeout" in type(exc).__name__.lower()
+            or "timed out" in str(exc).lower()
+        )
+
+    def _begin_retry(self, exc: Exception, attempt: int, what: str, where: str) -> bool:
+        """Decide whether to retry after a failure, and wait if so.
+
+        Returns False when the page budget or the category budget is spent. A
+        timeout is retried after a growing pause, in case the site is throttling
+        us; a crash is retried at once.
+        """
+        if (
+            attempt > PAGE_RETRY_BUDGET
+            or self.category_retries >= CATEGORY_RETRY_BUDGET
+        ):
+            return False
+        self.category_retries += 1
+        msg = getattr(exc, "msg", None) or str(exc) or repr(exc)
+        self.logger.warning(
+            f"{what} {attempt}/{PAGE_RETRY_BUDGET} {where} "
+            f"(category retries {self.category_retries}/{CATEGORY_RETRY_BUDGET}): "
+            f"{type(exc).__name__}: {msg.splitlines()[0] if msg else ''}"
+        )
+        if self._is_timeout(exc):
+            pause = TIMEOUT_BACKOFF_SECONDS[
+                min(attempt, len(TIMEOUT_BACKOFF_SECONDS)) - 1
+            ]
+            self.logger.warning(f"Backing off {pause}s before retrying")
+            time.sleep(pause)
+        return True
 
     def execute_script(self, script: str, *args) -> Any:
         # Small delay before executing script
@@ -652,7 +720,76 @@ class WebDriver(IWebDriver):
             "incomplete_items": all_incomplete,
             "page_stats": page_stats,
             "error": error,
+            "retries": self.category_retries,
         }
+
+    def _read_page_with_retries(
+        self, base_url: str, page_number: int
+    ) -> tuple[list[Any], list[dict[str, Any]], int]:
+        """Read one page's tiles, restarting the driver at that page on failure.
+
+        Only the browser work is retried; the caller's callback runs afterwards,
+        so a bug there is never mistaken for a flaky page. A TypeError is a bug
+        in the driver code and surfaces immediately.
+        """
+        attempt = 0
+        while True:
+            try:
+                return self._read_page(page_number)
+            except TypeError:
+                raise
+            except Exception as exc:
+                attempt += 1
+                if not self._begin_retry(
+                    exc, attempt, "Page retry", f"on page {page_number}"
+                ):
+                    raise
+                try:
+                    self._reset_driver_for_next_page(
+                        self._build_page_url(base_url, page_number)
+                    )
+                except Exception as reset_exc:
+                    self.logger.warning(
+                        f"Page restart failed: {type(reset_exc).__name__}: {reset_exc}"
+                    )
+
+    def _read_page(
+        self, page_number: int
+    ) -> tuple[list[Any], list[dict[str, Any]], int]:
+        """Wait for, scroll and extract the tiles on the current page."""
+        # Add delay before waiting for products
+        time.sleep(random.uniform(1, 2))
+
+        # Wait for the products to load
+        WebDriverWait(self.driver, 15).until(
+            EC.presence_of_element_located((By.TAG_NAME, "wc-product-tile"))
+        )
+
+        # Simulate scrolling to load more content
+        self.driver.execute_script("window.scrollTo(0, document.body.scrollHeight / 2)")
+        time.sleep(random.uniform(1, 2))
+        self.driver.execute_script("window.scrollTo(0, document.body.scrollHeight)")
+        time.sleep(random.uniform(1, 2))
+
+        # Get all product tiles
+        product_elements = self._find_product_tiles()
+        product_payloads = []
+        extraction_failures = 0
+        for element in product_elements:
+            try:
+                product_payloads.append(
+                    {
+                        "text": self._extract_text_from_product_element(element),
+                        "urls": self._extract_urls_from_product_element(element),
+                    }
+                )
+            except TimeoutError:
+                extraction_failures += 1
+                self.reload_page()
+            except Exception:
+                extraction_failures += 1
+
+        return product_elements, product_payloads, extraction_failures
 
     def _collect_pages(
         self,
@@ -675,42 +812,12 @@ class WebDriver(IWebDriver):
             progress["page"] = page_number
             pages_since_reset += 1
 
-            # Add delay before waiting for products
-            time.sleep(random.uniform(1, 2))
-
             if base_url is None:
-                base_url = self.driver.current_url
+                base_url = self._category_url or self.driver.current_url
 
-            # Wait for the products to load
-            WebDriverWait(self.driver, 15).until(
-                EC.presence_of_element_located((By.TAG_NAME, "wc-product-tile"))
+            product_elements, product_payloads, extraction_failures = (
+                self._read_page_with_retries(base_url, page_number)
             )
-
-            # Simulate scrolling to load more content
-            self.driver.execute_script(
-                "window.scrollTo(0, document.body.scrollHeight / 2)"
-            )
-            time.sleep(random.uniform(1, 2))
-            self.driver.execute_script("window.scrollTo(0, document.body.scrollHeight)")
-            time.sleep(random.uniform(1, 2))
-
-            # Get all product tiles
-            product_elements = self._find_product_tiles()
-            product_payloads = []
-            extraction_failures = 0
-            for element in product_elements:
-                try:
-                    product_payloads.append(
-                        {
-                            "text": self._extract_text_from_product_element(element),
-                            "urls": self._extract_urls_from_product_element(element),
-                        }
-                    )
-                except TimeoutError:
-                    extraction_failures += 1
-                    self.reload_page()
-                except Exception:
-                    extraction_failures += 1
 
             page_products_count = 0
             page_incomplete_count = 0
