@@ -176,6 +176,7 @@ class ScrapeCoordinator:
             expected_total=category_total if isinstance(category_total, int) else None,
             expected_total_capped=bool(category_data.get("total_capped", False)),
             pages_committed=category_data.get("pages_committed"),
+            retries=category_data.get("retries", 0),
         )
 
     def _finish_category(
@@ -190,6 +191,7 @@ class ScrapeCoordinator:
         expected_total: int | None = None,
         expected_total_capped: bool = False,
         pages_committed: int | None = None,
+        retries: int = 0,
     ) -> None:
         summary.products_scraped += rows_written
         if status is CategoryStatus.COMPLETE:
@@ -214,6 +216,7 @@ class ScrapeCoordinator:
                     "pages_committed": pages_committed,
                     "expected_total": expected_total,
                     "expected_total_capped": expected_total_capped,
+                    "retries": retries,
                     "error": error,
                     "started_at": started_at,
                     "finished_at": _now(),

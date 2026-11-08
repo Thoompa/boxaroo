@@ -1312,3 +1312,209 @@ def test_extract_urls_returns_empty_for_text_only_and_failing_elements():
     # THEN: both return an empty list instead of raising
     assert from_text == []
     assert from_failure == []
+
+
+# ============================================================
+# Page-read retry – recover from crashes and timeouts mid-category
+# ============================================================
+
+RETRY_PAGE_URLS = [
+    "https://shop.test/browse/a",
+    "https://shop.test/browse/a?pageNumber=2",
+    "https://shop.test/browse/a?pageNumber=3",
+]
+RETRY_PAGES = [["A", "B"], ["C", "D"], ["E", "F"]]
+
+
+def _record_sleeps(monkeypatch):
+    sleeps = []
+    monkeypatch.setattr(web_driver_module.time, "sleep", sleeps.append)
+    monkeypatch.setattr(web_driver_module.random, "uniform", lambda a, b: 0)
+    monkeypatch.setattr(web_driver_module, "WebDriverWait", DummyWait)
+    return sleeps
+
+
+def _crash_when_on_page(session, page_index, exception_factory, times=None):
+    """Make reading tiles on one page raise, a limited number of times."""
+    original_find_elements = session.find_elements
+    state = {"raised": 0}
+
+    def find_elements(by, value):
+        if session.page_index == page_index and (
+            times is None or state["raised"] < times
+        ):
+            state["raised"] += 1
+            raise exception_factory()
+        return original_find_elements(by, value)
+
+    session.find_elements = find_elements
+
+
+def _retry_driver(factory_pages=RETRY_PAGES):
+    driver = DummyWebDriverHarness()
+    driver.driver = DummySeleniumSession(pages=RETRY_PAGES, page_urls=RETRY_PAGE_URLS)
+    factory = DummyDriverFactory(pages=factory_pages, page_urls=RETRY_PAGE_URLS)
+    driver._create_fresh_driver = factory
+    return driver, factory
+
+
+def test_get_products_recovers_when_the_tab_crashes_while_reading_a_page(monkeypatch):
+    # GIVEN: the browser tab crashes while reading page 2, but a fresh driver works
+    sleeps = _record_sleeps(monkeypatch)
+    driver, factory = _retry_driver()
+    _crash_when_on_page(driver.driver, 1, lambda: WebDriverException("tab crashed"))
+
+    # WHEN: the products are retrieved
+    result = WebDriver.get_products(driver, _collect, category_name="pantry")
+
+    # THEN: page 2 is re-read on a fresh driver and the category completes
+    assert result["products"] == ["A", "B", "C", "D", "E", "F"]
+    assert result.get("error") is None
+    assert factory.created_drivers[0].called[0] == ("get", RETRY_PAGE_URLS[1])
+
+    # AND: the retry is logged and counted, without a back-off for a crash
+    assert any(
+        level == "WARNING" and "Page retry 1/3 on page 2" in message
+        for level, message in driver.logger.records
+    )
+    assert result.get("retries") == 1
+    assert not any(seconds >= 30 for seconds in sleeps)
+
+
+def test_get_products_backs_off_before_retrying_a_tile_wait_timeout(monkeypatch):
+    # GIVEN: the tiles never appear on page 1 of the first driver (possible throttle)
+    sleeps = _record_sleeps(monkeypatch)
+    driver, _ = _retry_driver()
+
+    class WaitThatTimesOutOnce(DummyWait):
+        timeouts = 0
+
+        def until(self, condition):
+            if WaitThatTimesOutOnce.timeouts < 2:
+                WaitThatTimesOutOnce.timeouts += 1
+                raise TimeoutException("tiles did not load")
+            return super().until(condition)
+
+    monkeypatch.setattr(web_driver_module, "WebDriverWait", WaitThatTimesOutOnce)
+
+    # WHEN: the products are retrieved
+    result = WebDriver.get_products(driver, _collect)
+
+    # THEN: each retry waits longer than the last before restarting the driver
+    assert result["products"] == ["A", "B", "C", "D", "E", "F"]
+    assert result.get("retries") == 2
+    assert [seconds for seconds in sleeps if seconds >= 30] == [30, 60]
+
+
+def test_get_products_gives_up_on_a_page_after_the_per_page_budget(monkeypatch):
+    # GIVEN: page 2 crashes on every driver, including the fresh ones
+    _record_sleeps(monkeypatch)
+    driver, factory = _retry_driver()
+    _crash_when_on_page(driver.driver, 1, lambda: WebDriverException("tab crashed"))
+    original_call = factory.__call__
+
+    def crashing_factory():
+        session = original_call()
+        _crash_when_on_page(session, 1, lambda: WebDriverException("tab crashed"))
+        return session
+
+    driver._create_fresh_driver = crashing_factory
+
+    # WHEN: the products are retrieved
+    result = WebDriver.get_products(driver, _collect)
+
+    # THEN: exactly three recoveries are attempted before the category stops
+    assert factory.calls == 3
+    assert result["products"] == ["A", "B"]
+    assert "tab crashed" in (result.get("error") or "")
+    assert "page 2" in (result.get("error") or "")
+    assert result.get("retries") == 3
+
+
+def test_get_products_stops_retrying_when_the_category_budget_is_spent(monkeypatch):
+    # GIVEN: the category has already used its whole retry budget
+    _record_sleeps(monkeypatch)
+    driver, factory = _retry_driver()
+    driver.category_retries = web_driver_module.CATEGORY_RETRY_BUDGET
+    _crash_when_on_page(driver.driver, 1, lambda: WebDriverException("tab crashed"))
+
+    # WHEN: page 2 crashes
+    result = WebDriver.get_products(driver, _collect)
+
+    # THEN: no fresh driver is created and the earlier page is kept
+    assert factory.calls == 0
+    assert result["products"] == ["A", "B"]
+    assert "tab crashed" in (result.get("error") or "")
+
+
+def test_get_products_retries_a_failed_first_page(monkeypatch):
+    # GIVEN: reading page 1 crashes on the first driver
+    _record_sleeps(monkeypatch)
+    driver, factory = _retry_driver()
+    _crash_when_on_page(driver.driver, 0, lambda: WebDriverException("tab crashed"))
+
+    # WHEN: the products are retrieved
+    result = WebDriver.get_products(driver, _collect)
+
+    # THEN: page 1 is re-read on a fresh driver at its own URL
+    assert result["products"] == ["A", "B", "C", "D", "E", "F"]
+    assert factory.created_drivers[0].called[0] == (
+        "get",
+        "https://shop.test/browse/a?pageNumber=1",
+    )
+
+
+def test_get_products_does_not_retry_a_programming_error(monkeypatch):
+    # GIVEN: reading a page raises a TypeError (a bug, not a flaky page)
+    _record_sleeps(monkeypatch)
+    driver, factory = _retry_driver()
+    _crash_when_on_page(driver.driver, 0, lambda: TypeError("bad call"))
+
+    # WHEN/THEN: the error surfaces and no driver is restarted
+    with pytest.raises(TypeError):
+        WebDriver.get_products(driver, _collect)
+    assert factory.calls == 0
+
+
+# ============================================================
+# Start-up retry – first navigation to a category
+# ============================================================
+
+
+def test_get_page_restarts_the_driver_after_a_read_timeout(monkeypatch):
+    # GIVEN: the first navigation hangs with a read timeout, a fresh driver works
+    sleeps = _record_sleeps(monkeypatch)
+    driver, factory = _retry_driver()
+    driver.category_retries = 4  # left over from a previous category
+
+    def hung_get(url):
+        raise RuntimeError("ReadTimeoutError: Read timed out. (read timeout=120)")
+
+    driver.driver.get = hung_get
+
+    # WHEN: the category page is opened
+    WebDriver.get_page(driver, RETRY_PAGE_URLS[0])
+
+    # THEN: it waits, restarts the driver at the category URL and carries on
+    assert factory.created_drivers[0].called[0] == ("get", RETRY_PAGE_URLS[0])
+    assert driver.driver is factory.created_drivers[0]
+    assert 30 in sleeps
+
+    # AND: the retry budget starts afresh for the new category
+    assert driver.category_retries == 1
+
+
+def test_get_page_raises_after_the_start_up_budget_is_spent(monkeypatch):
+    # GIVEN: navigation keeps timing out on every driver
+    _record_sleeps(monkeypatch)
+    driver, factory = _retry_driver()
+
+    def hung_get(url):
+        raise RuntimeError("ReadTimeoutError: Read timed out. (read timeout=120)")
+
+    driver.driver.get = hung_get
+    factory.failures_before_success = 100
+
+    # WHEN/THEN: the failure surfaces so the category is reported as failed
+    with pytest.raises(RuntimeError):
+        WebDriver.get_page(driver, RETRY_PAGE_URLS[0])

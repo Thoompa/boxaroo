@@ -193,6 +193,11 @@ class WoolworthsCategoryDataNormaliser:
                 "pages_committed": len(page_stats),
                 "rows_stored": scraped_count,
                 "total_capped": total_capped,
+                "retries": (
+                    data_result.get("retries", 0)
+                    if isinstance(data_result, dict)
+                    else 0
+                ),
             }
         except Exception as e:
             msg = getattr(e, "msg", None) or str(e) or repr(e)
