@@ -14,6 +14,7 @@ from typing import Any, cast
 import time
 import random
 from urllib.parse import parse_qsl, urlencode, urlparse, urlunparse
+from Code import diagnostics, failure_capture
 from Code.contracts import (
     IncompleteProductItem,
     ILogger,
@@ -73,6 +74,13 @@ class WebDriver(IWebDriver):
     # Restarts used so far for the current category (see CATEGORY_RETRY_BUDGET).
     category_retries = 0
     _category_url: str | None = None
+    # Diagnostics state (see Code/diagnostics.py). Reset on every driver restart.
+    _category_name = ""
+    _current_page = 1
+    _driver_started_at: float | None = None
+    _pages_this_driver = 0
+    _last_read_seconds: float | None = None
+    _failure_capturer: failure_capture.FailureCapturer | None = None
 
     @staticmethod
     def _resolve_executable(candidate: str | None) -> str | None:
@@ -188,6 +196,8 @@ class WebDriver(IWebDriver):
         chrome_options.add_argument("--disable-extensions")
         chrome_options.add_argument("--no-sandbox")
         chrome_options.add_argument("--disable-dev-shm-usage")
+        # Lets diagnostics read browser console errors after a failure.
+        chrome_options.set_capability("goog:loggingPrefs", {"browser": "SEVERE"})
 
         # Configure proxy if provided
         if self.proxy_server:
@@ -229,6 +239,18 @@ class WebDriver(IWebDriver):
         # Set window size to avoid detection
         self.driver.set_window_size(1920, 1080)
 
+        self._mark_driver_started()
+        self.logger.log(
+            diagnostics.format_driver_start(
+                diagnostics.describe_driver_start(
+                    self.driver,
+                    chrome_options.arguments,
+                    self.headless,
+                    bool(self.proxy_server),
+                )
+            )
+        )
+
     def _create_fresh_driver(self):
         return WebDriver(
             headless=self.headless,
@@ -245,6 +267,15 @@ class WebDriver(IWebDriver):
         """
         self.category_retries = 0
         self._category_url = url
+        self._category_name = urlparse(url).path.rstrip("/").rsplit("/", 1)[-1]
+        self._current_page = 1
+        self._failure_capturer = failure_capture.FailureCapturer()
+        self.logger.log(
+            f"Category start stats: category={self._category_name} "
+            + diagnostics.format_stats(
+                diagnostics.collect_system_stats(), diagnostics.SYSTEM_STAT_KEYS
+            )
+        )
         attempt = 0
         while True:
             try:
@@ -256,7 +287,9 @@ class WebDriver(IWebDriver):
                 return
             except Exception as exc:
                 attempt += 1
-                if not self._begin_retry(exc, attempt, "Start-up retry", f"on {url}"):
+                if not self._begin_retry(
+                    exc, attempt, "Start-up retry", f"on {url}", 1, url
+                ):
                     raise
                 try:
                     self._reset_driver_for_next_page(url)
@@ -274,13 +307,78 @@ class WebDriver(IWebDriver):
             or "timed out" in str(exc).lower()
         )
 
-    def _begin_retry(self, exc: Exception, attempt: int, what: str, where: str) -> bool:
+    def _driver_uptime_seconds(self) -> float | None:
+        if self._driver_started_at is None:
+            return None
+        return time.monotonic() - self._driver_started_at
+
+    def _mark_driver_started(self) -> None:
+        self._driver_started_at = time.monotonic()
+        self._pages_this_driver = 0
+
+    def _capture_failure(
+        self,
+        exc: Exception,
+        attempt: int,
+        page_number: int | None = None,
+        url: str | None = None,
+    ) -> dict[str, Any]:
+        """Save evidence of a browser failure and return the stats gathered.
+
+        Best effort: nothing in here may raise or change how the failure is handled.
+        """
+        stats: dict[str, Any] = {}
+        try:
+            page = self._current_page if page_number is None else page_number
+            stats = diagnostics.collect_stats(
+                self.driver,
+                category=self._category_name,
+                page=page,
+                uptime_s=self._driver_uptime_seconds(),
+                pages_this_driver=self._pages_this_driver,
+                probe_driver=not diagnostics.is_unresponsive(exc),
+            )
+            if self._failure_capturer is None:
+                self._failure_capturer = failure_capture.FailureCapturer()
+            stem = self._failure_capturer.capture(
+                self.driver,
+                category=self._category_name,
+                page=page,
+                attempt=attempt,
+                exc=exc,
+                requested_url=url or self._category_url,
+                grid_selector=PRODUCT_GRID_TILE_SELECTOR,
+                stats=stats,
+                driver_responsive=not stats.get("driver_unresponsive"),
+            )
+            if stem:
+                self.logger.warning(f"Failure capture saved: {stem}")
+            elif self._failure_capturer.is_full:
+                self.logger.warning(
+                    "Failure capture skipped: limit of "
+                    f"{self._failure_capturer.max_captures} per category reached"
+                )
+        except Exception:
+            pass
+        return stats
+
+    def _begin_retry(
+        self,
+        exc: Exception,
+        attempt: int,
+        what: str,
+        where: str,
+        page_number: int | None = None,
+        url: str | None = None,
+    ) -> bool:
         """Decide whether to retry after a failure, and wait if so.
 
         Returns False when the page budget or the category budget is spent. A
         timeout is retried after a growing pause, in case the site is throttling
-        us; a crash is retried at once.
+        us; a crash is retried at once. Evidence is captured first, on every
+        failure, including the one that exhausts the budget.
         """
+        stats = self._capture_failure(exc, attempt, page_number, url)
         if (
             attempt > PAGE_RETRY_BUDGET
             or self.category_retries >= CATEGORY_RETRY_BUDGET
@@ -292,6 +390,7 @@ class WebDriver(IWebDriver):
             f"{what} {attempt}/{PAGE_RETRY_BUDGET} {where} "
             f"(category retries {self.category_retries}/{CATEGORY_RETRY_BUDGET}): "
             f"{type(exc).__name__}: {msg.splitlines()[0] if msg else ''}"
+            f" | stats: {diagnostics.format_stats(stats, diagnostics.RETRY_STAT_KEYS)}"
         )
         if self._is_timeout(exc):
             pause = TIMEOUT_BACKOFF_SECONDS[
@@ -438,6 +537,7 @@ class WebDriver(IWebDriver):
             )
             return PAGINATION_ADVANCED if advanced else PAGINATION_END
         except Exception as exc:
+            self._capture_failure(exc, 0)
             self.logger.warning(
                 f"Pagination error: unexpected error during advancement ({type(exc).__name__}: {exc})"
             )
@@ -468,6 +568,7 @@ class WebDriver(IWebDriver):
                     self.reload_page()
                     outcome = self._advance_outcome(END_CONFIRMATION_WAIT_SECONDS)
                 except Exception as exc:
+                    self._capture_failure(exc, attempt)
                     self.logger.warning(
                         f"Pagination end check failed: {type(exc).__name__}: {exc}"
                     )
@@ -644,6 +745,7 @@ class WebDriver(IWebDriver):
                 candidate_driver.get(next_page_url)
 
                 self.driver = candidate_driver
+                self._mark_driver_started()
 
                 self.logger.log(
                     f"WebDriver reset completed: next_page={next_page_url} attempts={attempt}"
@@ -691,6 +793,9 @@ class WebDriver(IWebDriver):
         page_stats: list[PageStats] = []
         progress = {"page": 0, "resets": 0}
         error = None
+        if category_name is not None and not self._category_name:
+            # get_page already named the category; keep that label for every line.
+            self._category_name = category_name
 
         try:
             self._collect_pages(
@@ -735,13 +840,19 @@ class WebDriver(IWebDriver):
         attempt = 0
         while True:
             try:
-                return self._read_page(page_number)
+                started = time.monotonic()
+                result = self._read_page(page_number)
             except TypeError:
                 raise
             except Exception as exc:
                 attempt += 1
                 if not self._begin_retry(
-                    exc, attempt, "Page retry", f"on page {page_number}"
+                    exc,
+                    attempt,
+                    "Page retry",
+                    f"on page {page_number}",
+                    page_number,
+                    self._build_page_url(base_url, page_number),
                 ):
                     raise
                 try:
@@ -752,6 +863,26 @@ class WebDriver(IWebDriver):
                     self.logger.warning(
                         f"Page restart failed: {type(reset_exc).__name__}: {reset_exc}"
                     )
+            else:
+                self._log_page_stats(page_number, len(result[0]), started)
+                return result
+
+    def _log_page_stats(self, page_number: int, grid_tiles: int, started: float):
+        """Log one parseable line of resource stats for the page just read."""
+        try:
+            self._pages_this_driver += 1
+            stats = diagnostics.collect_stats(
+                self.driver,
+                category=self._category_name,
+                page=page_number,
+                grid_tiles=grid_tiles,
+                read_s=time.monotonic() - started,
+                uptime_s=self._driver_uptime_seconds(),
+                pages_this_driver=self._pages_this_driver,
+            )
+            self.logger.log(f"Page stats: {diagnostics.format_stats(stats)}")
+        except Exception:
+            pass
 
     def _read_page(
         self, page_number: int
@@ -810,6 +941,7 @@ class WebDriver(IWebDriver):
         while True:
             page_number += 1
             progress["page"] = page_number
+            self._current_page = page_number
             pages_since_reset += 1
 
             if base_url is None:
