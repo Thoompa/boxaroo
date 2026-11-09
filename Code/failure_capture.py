@@ -8,6 +8,7 @@ root as arguments so it can be tested with doubles.
 
 import json
 import re
+import time
 from collections.abc import Callable, Iterable
 from datetime import datetime
 from pathlib import Path
@@ -18,12 +19,17 @@ from Code.diagnostics import first_line, is_unresponsive
 
 FAILURE_CAPTURE_ROOT = Path("Logs") / "failure-captures"
 MAX_CAPTURES_PER_CATEGORY = 6
+MAX_CAPTURES_PER_PAGE = 2
 MAX_PAGE_SOURCE_BYTES = 2_000_000
 BODY_TEXT_PREVIEW_CHARS = 500
 MAX_RESOURCE_ENTRIES_LISTED = 20
 MAX_CONSOLE_ERRORS = 20
 MAX_CONSOLE_MESSAGE_CHARS = 300
 UNRESPONSIVE_NOTE = "skipped: browser unresponsive"
+# Total time one capture may spend on probes before it stops asking the browser.
+PROBE_BUDGET_SECONDS = 60
+# Chrome keeps at most this many resource timing entries by default.
+RESOURCE_TIMING_BUFFER_SIZE = 250
 
 CHALLENGE_MARKERS = (
     "access denied",
@@ -94,6 +100,7 @@ def summarize_resource_timing(
     return {
         "total": len(entries),
         "suspect_total": len(suspect),
+        "buffer_may_be_full": len(entries) >= RESOURCE_TIMING_BUFFER_SIZE,
         "suspect": suspect[:limit],
     }
 
@@ -120,12 +127,15 @@ class FailureCapturer:
         clock: Callable[[], datetime] = datetime.now,
         max_captures: int = MAX_CAPTURES_PER_CATEGORY,
         max_source_bytes: int = MAX_PAGE_SOURCE_BYTES,
+        max_per_page: int = MAX_CAPTURES_PER_PAGE,
     ):
         self.root = FAILURE_CAPTURE_ROOT if root is None else Path(root)
         self.clock = clock
         self.max_captures = max_captures
         self.max_source_bytes = max_source_bytes
+        self.max_per_page = max_per_page
         self.captured = 0
+        self._captured_by_page: dict[int, int] = {}
 
     @property
     def is_full(self) -> bool:
@@ -148,7 +158,7 @@ class FailureCapturer:
 
         Never raises.
         """
-        if self.is_full:
+        if self.is_full or self._captured_by_page.get(page, 0) >= self.max_per_page:
             return None
         try:
             now = self.clock()
@@ -162,6 +172,7 @@ class FailureCapturer:
                 suffix += 1
                 stem = directory / f"{base}-{suffix}"
             self.captured += 1
+            self._captured_by_page[page] = self._captured_by_page.get(page, 0) + 1
 
             metadata = self._probe(
                 driver,
@@ -189,6 +200,7 @@ class FailureCapturer:
         stats: dict[str, Any] | None,
         responsive: bool,
     ) -> dict[str, Any]:
+        started = time.monotonic()
         meta: dict[str, Any] = {
             "captured_at": self.clock().isoformat(timespec="seconds"),
             "exception": exception_summary(exc),
@@ -197,6 +209,8 @@ class FailureCapturer:
 
         def record(key: str, fn: Callable[[], Any]) -> Any:
             nonlocal responsive
+            if responsive and time.monotonic() - started > PROBE_BUDGET_SECONDS:
+                responsive = False
             if not responsive:
                 meta[key] = UNRESPONSIVE_NOTE
                 return None
@@ -249,7 +263,7 @@ class FailureCapturer:
         meta["tiles_in_grid"] = state.get("tiles_in_grid") if state_note else None
         body_text = state.get("body_text") or ""
         meta["body_text_preview"] = body_text[:BODY_TEXT_PREVIEW_CHARS]
-        meta["challenge_markers"] = find_challenge_markers(body_text, page_source)
+        meta["challenge_markers"] = find_challenge_markers(state.get("title"), body_text)
 
         def read_resources() -> dict[str, Any]:
             entries = driver.execute_script(RESOURCE_TIMING_SCRIPT)

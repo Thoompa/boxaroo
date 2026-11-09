@@ -95,10 +95,12 @@ def is_unresponsive(exc: BaseException) -> bool:
     """True for a read timeout: the browser stopped answering commands.
 
     Every further command would wait out Selenium's 120 s timeout, so probing
-    stops. Selenium's own TimeoutException (a wait that ran out) does not count.
+    stops. Selenium's own TimeoutException (a wait or page load that ran out)
+    does not count: the browser still answers. Only a urllib3 read timeout does
+    (`ReadTimeoutError`, or a `MaxRetryError` whose message says "read timed out").
     """
     return "readtimeout" in type(exc).__name__.lower() or (
-        "timed out" in str(exc).lower()
+        "read timed out" in str(exc).lower()
     )
 
 

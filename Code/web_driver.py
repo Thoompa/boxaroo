@@ -197,7 +197,7 @@ class WebDriver(IWebDriver):
         chrome_options.add_argument("--no-sandbox")
         chrome_options.add_argument("--disable-dev-shm-usage")
         # Lets diagnostics read browser console errors after a failure.
-        chrome_options.set_capability("goog:loggingPrefs", {"browser": "ALL"})
+        chrome_options.set_capability("goog:loggingPrefs", {"browser": "SEVERE"})
 
         # Configure proxy if provided
         if self.proxy_server:
@@ -239,7 +239,7 @@ class WebDriver(IWebDriver):
         # Set window size to avoid detection
         self.driver.set_window_size(1920, 1080)
 
-        self._driver_started_at = time.monotonic()
+        self._mark_driver_started()
         self.logger.log(
             diagnostics.format_driver_start(
                 diagnostics.describe_driver_start(
@@ -793,7 +793,8 @@ class WebDriver(IWebDriver):
         page_stats: list[PageStats] = []
         progress = {"page": 0, "resets": 0}
         error = None
-        if category_name is not None:
+        if category_name is not None and not self._category_name:
+            # get_page already named the category; keep that label for every line.
             self._category_name = category_name
 
         try:
@@ -841,8 +842,6 @@ class WebDriver(IWebDriver):
             try:
                 started = time.monotonic()
                 result = self._read_page(page_number)
-                self._log_page_stats(page_number, len(result[0]), started)
-                return result
             except TypeError:
                 raise
             except Exception as exc:
@@ -864,6 +863,9 @@ class WebDriver(IWebDriver):
                     self.logger.warning(
                         f"Page restart failed: {type(reset_exc).__name__}: {reset_exc}"
                     )
+            else:
+                self._log_page_stats(page_number, len(result[0]), started)
+                return result
 
     def _log_page_stats(self, page_number: int, grid_tiles: int, started: float):
         """Log one parseable line of resource stats for the page just read."""
