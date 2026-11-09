@@ -21,6 +21,7 @@ from Code.contracts import (
     LoggingLevel,
     IFileHandler,
 )
+from Code import diagnostics, failure_capture
 from Code.web_driver import (
     NEXT_BUTTON_LOCATORS,
     PRODUCT_GRID_TILE_SELECTOR,
@@ -569,6 +570,128 @@ class DummySeleniumSession:
 
     def quit(self):
         self.called.append(("quit",))
+
+
+class DummyCaptureSession(DummySeleniumSession):
+    """A session that also answers the diagnostics probes (screenshot, source, JS)."""
+
+    def __init__(
+        self,
+        *,
+        body_text="Fresh milk and bread",
+        page_source="<html><body>Fresh milk and bread</body></html>",
+        probe=None,
+        resources=None,
+        screenshot_error=None,
+        **kwargs,
+    ):
+        super().__init__(**kwargs)
+        self.body_text = body_text
+        self.page_source = page_source
+        self.probe = probe
+        self.resources = resources if resources is not None else []
+        self.screenshot_error = screenshot_error
+        self.title = "Dummy shop"
+
+    def save_screenshot(self, path):
+        if self.screenshot_error is not None:
+            raise self.screenshot_error
+        with open(path, "wb") as screenshot:
+            screenshot.write(b"png")
+        return True
+
+    def get_log(self, name):
+        return [
+            {"level": "SEVERE", "message": "net::ERR_FAILED https://shop.test/api"},
+            {"level": "INFO", "message": "fine"},
+        ]
+
+    def execute_script(self, script, *args):
+        if script == diagnostics.PAGE_PROBE_SCRIPT:
+            return self.probe
+        if script == failure_capture.PAGE_STATE_SCRIPT:
+            return {
+                "title": self.title,
+                "ready_state": "complete",
+                "tiles_total": 72,
+                "tiles_in_grid": 36,
+                "body_text": self.body_text,
+            }
+        if script == failure_capture.RESOURCE_TIMING_SCRIPT:
+            return self.resources
+        return super().execute_script(script, *args)
+
+
+class ReadTimeoutError(Exception):
+    """Named like urllib3's error for a browser that stopped answering."""
+
+
+class DummyUnresponsiveSession:
+    """Every driver call raises a read timeout; the names called are recorded."""
+
+    def __init__(self):
+        self.calls: list[str] = []
+
+    def _hang(self, name):
+        self.calls.append(name)
+        raise ReadTimeoutError("Read timed out. (read timeout=120)")
+
+    @property
+    def current_url(self):
+        self._hang("current_url")
+
+    @property
+    def page_source(self):
+        self._hang("page_source")
+
+    def save_screenshot(self, path):
+        self._hang("save_screenshot")
+
+    def execute_script(self, script, *args):
+        self._hang("execute_script")
+
+    def get_log(self, name):
+        self._hang("get_log")
+
+
+class DummyBrokenPsutil:
+    """A psutil whose every call fails, as when a process has just exited."""
+
+    def Process(self, pid):
+        raise RuntimeError("no such process")
+
+    def virtual_memory(self):
+        raise RuntimeError("unavailable")
+
+    def swap_memory(self):
+        raise RuntimeError("unavailable")
+
+
+class DummyPsutil:
+    """Stands in for the psutil module: one process with two children."""
+
+    class _Process:
+        def __init__(self, rss):
+            self._rss = rss
+
+        def memory_info(self):
+            return type("MemoryInfo", (), {"rss": self._rss})()
+
+    def __init__(self, rss_each=100 * 1024 * 1024):
+        self._rss_each = rss_each
+
+    def Process(self, pid):
+        process = DummyPsutil._Process(self._rss_each)
+        process.children = lambda recursive=False: [
+            DummyPsutil._Process(self._rss_each) for _ in range(2)
+        ]
+        return process
+
+    def virtual_memory(self):
+        return type("VirtualMemory", (), {"available": 2048 * 1024 * 1024})()
+
+    def swap_memory(self):
+        return type("SwapMemory", (), {"used": 512 * 1024 * 1024})()
 
 
 class DummyDriverFactory:

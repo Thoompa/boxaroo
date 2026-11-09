@@ -7,6 +7,7 @@ from pathlib import Path
 
 import pytest
 
+from Code import failure_capture
 from Code.contracts import ILogger
 from Code.web_driver import WebDriver
 
@@ -57,6 +58,12 @@ def pytest_collection_modifyitems(config, items):
     for item in items:
         if "live" in item.keywords and not _explicitly_selected(config, item):
             item.add_marker(skip_live)
+
+
+@pytest.fixture(autouse=True)
+def _redirect_failure_captures(tmp_path, monkeypatch):
+    """Keep failure captures made by tests out of the real Logs/ directory."""
+    monkeypatch.setattr(failure_capture, "FAILURE_CAPTURE_ROOT", tmp_path / "captures")
 
 
 @pytest.hookimpl(hookwrapper=True)
